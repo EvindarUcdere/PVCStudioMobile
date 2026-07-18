@@ -1,0 +1,487 @@
+import { memo, useMemo, useState } from 'react';
+import { LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
+import Svg, { Circle, ClipPath, Defs, G, Line, Path, Rect, Text as SvgText } from 'react-native-svg';
+
+import { DesignProject } from '../../../domain/designs/entities/DesignProject';
+import { getDesignProfileColor } from '../../../domain/designs/colors/profileColorOptions';
+import {
+  calculateDesignLayout,
+  DesignLayoutError,
+} from '../../../domain/designs/layout/calculateDesignLayout';
+import { DESIGN_FRAME_INSET, DESIGN_SPLIT_STROKE_WIDTH } from '../../../domain/designs/layout/layoutConstants';
+import { PanelBounds } from '../../../domain/designs/layout/layoutTypes';
+import { getArchHeight, isArchTopFrame } from '../../../domain/designs/utils/frameShape';
+import { colors, radius, spacing, typography } from '../../../theme';
+import { OpeningSymbol } from './OpeningSymbol';
+
+type DesignCanvasProps = {
+  design: DesignProject;
+  selectedNodeId: string | null;
+  onPanelPress: (panelId: string) => void;
+  onClearSelection: () => void;
+};
+
+const canvasPadding = 36;
+
+function getFramePath(x: number, y: number, width: number, height: number, archHeight: number): string {
+  const safeArchHeight = Math.min(height * 0.46, width / 2, Math.max(20, archHeight));
+  const bodyTop = y + safeArchHeight;
+  const centerX = x + width / 2;
+
+  return [
+    `M ${x} ${y + height}`,
+    `L ${x} ${bodyTop}`,
+    `C ${x} ${y + safeArchHeight * 0.45} ${x + width * 0.24} ${y} ${centerX} ${y}`,
+    `C ${x + width * 0.76} ${y} ${x + width} ${y + safeArchHeight * 0.45} ${x + width} ${bodyTop}`,
+    `L ${x + width} ${y + height}`,
+    'Z',
+  ].join(' ');
+}
+
+export const DesignCanvas = memo(function DesignCanvas({
+  design,
+  selectedNodeId,
+  onPanelPress,
+  onClearSelection,
+}: DesignCanvasProps) {
+  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
+
+  function handleLayout(event: LayoutChangeEvent) {
+    const { width, height } = event.nativeEvent.layout;
+    setCanvasSize({ width, height });
+  }
+
+  const layoutState = useMemo(() => {
+    if (canvasSize.width <= 0 || canvasSize.height <= 0) {
+      return { layout: null, error: null };
+    }
+
+    try {
+      return {
+        layout: calculateDesignLayout({
+          rootNode: design.rootNode,
+          designWidth: design.width,
+          designHeight: design.height,
+          canvasWidth: canvasSize.width,
+          canvasHeight: canvasSize.height,
+          padding: canvasPadding,
+        }),
+        error: null,
+      };
+    } catch (error) {
+      return {
+        layout: null,
+        error: error instanceof DesignLayoutError ? error.message : 'Tasarim onizlemesi olusturulamadi.',
+      };
+    }
+  }, [canvasSize.height, canvasSize.width, design.height, design.rootNode, design.width]);
+  const frameNode = design.rootNode.type === 'frame' ? design.rootNode : null;
+  const frameIsArch = frameNode ? isArchTopFrame(frameNode) : false;
+  const archHeight = frameIsArch
+    ? getArchHeight(frameNode!, design.height) * (layoutState.layout?.scale ?? 1)
+    : 0;
+  const framePath = layoutState.layout
+    ? getFramePath(
+        layoutState.layout.frameBounds.x,
+        layoutState.layout.frameBounds.y,
+        layoutState.layout.frameBounds.width,
+        layoutState.layout.frameBounds.height,
+        archHeight,
+      )
+    : '';
+  const selectedPanel = layoutState.layout?.panelBounds.find((panel) => panel.nodeId === selectedNodeId) ?? null;
+  const profileColor = getDesignProfileColor(design.profileSystem);
+  const profilePalette = getProfilePalette(profileColor.hexValue);
+
+  return (
+    <View onLayout={handleLayout} style={styles.container}>
+      {layoutState.error ? (
+        <View style={styles.errorState}>
+          <Text style={styles.errorText}>Tasarim onizlemesi olusturulamadi.</Text>
+        </View>
+      ) : layoutState.layout ? (
+        <>
+        <Pressable
+          accessibilityLabel="Panel secimini kaldir"
+          onPress={onClearSelection}
+          style={StyleSheet.absoluteFill}
+        />
+        <Svg pointerEvents="none" width={canvasSize.width} height={canvasSize.height}>
+          <Rect
+            x={0}
+            y={0}
+            width={canvasSize.width}
+            height={canvasSize.height}
+            fill="#ECEFED"
+          />
+          <Line
+            x1={layoutState.layout.frameBounds.x}
+            y1={layoutState.layout.frameBounds.y + layoutState.layout.frameBounds.height + 18}
+            x2={layoutState.layout.frameBounds.x + layoutState.layout.frameBounds.width}
+            y2={layoutState.layout.frameBounds.y + layoutState.layout.frameBounds.height + 18}
+            stroke={colors.textPrimary}
+            strokeWidth={1}
+          />
+          <Line
+            x1={layoutState.layout.frameBounds.x - 18}
+            y1={layoutState.layout.frameBounds.y}
+            x2={layoutState.layout.frameBounds.x - 18}
+            y2={layoutState.layout.frameBounds.y + layoutState.layout.frameBounds.height}
+            stroke={colors.textPrimary}
+            strokeWidth={1}
+          />
+          <SvgText
+            x={layoutState.layout.frameBounds.x + layoutState.layout.frameBounds.width / 2}
+            y={layoutState.layout.frameBounds.y + layoutState.layout.frameBounds.height + 34}
+            fontSize={12}
+            textAnchor="middle"
+            fill={colors.textPrimary}
+          >
+            {design.width} mm
+          </SvgText>
+          <SvgText
+            x={Math.max(12, layoutState.layout.frameBounds.x - 30)}
+            y={layoutState.layout.frameBounds.y + layoutState.layout.frameBounds.height / 2}
+            fontSize={12}
+            textAnchor="middle"
+            fill={colors.textPrimary}
+            rotation="-90"
+            origin={`${Math.max(12, layoutState.layout.frameBounds.x - 30)}, ${
+              layoutState.layout.frameBounds.y + layoutState.layout.frameBounds.height / 2
+            }`}
+          >
+            {design.height} mm
+          </SvgText>
+          {frameIsArch ? (
+            <DimensionLine
+              orientation="vertical"
+              x1={layoutState.layout.frameBounds.x + layoutState.layout.frameBounds.width + 18}
+              y1={layoutState.layout.frameBounds.y}
+              x2={layoutState.layout.frameBounds.x + layoutState.layout.frameBounds.width + 18}
+              y2={layoutState.layout.frameBounds.y + Math.min(archHeight, layoutState.layout.frameBounds.height * 0.46)}
+              label={`${Math.round(archHeight / Math.max(layoutState.layout.scale, 0.001))} mm`}
+            />
+          ) : null}
+          {selectedPanel ? (
+            <>
+              <DimensionLine
+                orientation="horizontal"
+                x1={selectedPanel.x}
+                y1={selectedPanel.y + selectedPanel.height + 12}
+                x2={selectedPanel.x + selectedPanel.width}
+                y2={selectedPanel.y + selectedPanel.height + 12}
+                label={`${Math.round(selectedPanel.realWidth)} mm`}
+              />
+              <DimensionLine
+                orientation="vertical"
+                x1={selectedPanel.x - 12}
+                y1={selectedPanel.y}
+                x2={selectedPanel.x - 12}
+                y2={selectedPanel.y + selectedPanel.height}
+                label={`${Math.round(selectedPanel.realHeight)} mm`}
+              />
+            </>
+          ) : null}
+          {frameIsArch ? (
+            <>
+              <Defs>
+                <ClipPath id="editorFrameClip">
+                  <Path d={framePath} />
+                </ClipPath>
+              </Defs>
+              <Path
+                d={framePath}
+                fill={colors.surface}
+                stroke={colors.textPrimary}
+                strokeWidth={2.4}
+              />
+              <Path
+                d={getFramePath(
+                  layoutState.layout.frameBounds.x + DESIGN_FRAME_INSET,
+                  layoutState.layout.frameBounds.y + DESIGN_FRAME_INSET,
+                  layoutState.layout.frameBounds.width - DESIGN_FRAME_INSET * 2,
+                  layoutState.layout.frameBounds.height - DESIGN_FRAME_INSET * 2,
+                  Math.max(12, archHeight - DESIGN_FRAME_INSET),
+                )}
+                fill="none"
+                stroke={colors.border}
+                strokeWidth={2.4}
+              />
+              <Circle
+                cx={layoutState.layout.frameBounds.x + layoutState.layout.frameBounds.width / 2}
+                cy={layoutState.layout.frameBounds.y}
+                r={5}
+                fill={colors.primary}
+              />
+            </>
+          ) : (
+            <>
+              <Rect
+                x={layoutState.layout.frameBounds.x}
+                y={layoutState.layout.frameBounds.y}
+                width={layoutState.layout.frameBounds.width}
+                height={layoutState.layout.frameBounds.height}
+                fill={colors.surface}
+                stroke={colors.textPrimary}
+                strokeWidth={2.4}
+              />
+              <Rect
+                x={layoutState.layout.frameBounds.x + DESIGN_FRAME_INSET}
+                y={layoutState.layout.frameBounds.y + DESIGN_FRAME_INSET}
+                width={layoutState.layout.frameBounds.width - DESIGN_FRAME_INSET * 2}
+                height={layoutState.layout.frameBounds.height - DESIGN_FRAME_INSET * 2}
+                fill="none"
+                stroke={colors.border}
+                strokeWidth={2.4}
+              />
+            </>
+          )}
+          {layoutState.layout.panelBounds.map((panel, index) => (
+            <G key={panel.nodeId} clipPath={frameIsArch ? 'url(#editorFrameClip)' : undefined}>
+              <DesignPanel
+                panel={panel}
+                index={index}
+                selected={panel.nodeId === selectedNodeId}
+                profilePalette={profilePalette}
+              />
+            </G>
+          ))}
+          <G clipPath={frameIsArch ? 'url(#editorFrameClip)' : undefined}>
+            {layoutState.layout.splitBounds.map((split) => (
+              <Line
+                key={split.nodeId}
+                x1={split.dividerX1}
+                y1={split.dividerY1}
+                x2={split.dividerX2}
+                y2={split.dividerY2}
+                stroke={colors.border}
+                strokeWidth={DESIGN_SPLIT_STROKE_WIDTH}
+              />
+            ))}
+            {layoutState.layout.panelBounds.map((panel) => (
+              <OpeningSymbol key={`${panel.nodeId}-opening`} bounds={panel} openingType={panel.openingType} />
+            ))}
+          </G>
+          {frameIsArch ? <Path d={framePath} fill="none" stroke={colors.textPrimary} strokeWidth={2.4} /> : null}
+        </Svg>
+        <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
+          {layoutState.layout.panelBounds.map((panel, index) => (
+            <PanelPressTarget
+              key={`${panel.nodeId}-press`}
+              panel={panel}
+              index={index}
+              selected={panel.nodeId === selectedNodeId}
+              onPress={onPanelPress}
+            />
+          ))}
+        </View>
+        </>
+      ) : null}
+    </View>
+  );
+});
+
+function DesignPanel({
+  panel,
+  index,
+  selected,
+  profilePalette,
+}: {
+  panel: PanelBounds;
+  index: number;
+  selected: boolean;
+  profilePalette: ProfilePalette;
+}) {
+  const profileInset = Math.max(4, Math.min(10, Math.min(panel.width, panel.height) * 0.08));
+  const glassInset = profileInset + Math.max(3, Math.min(7, Math.min(panel.width, panel.height) * 0.04));
+
+  return (
+    <>
+      <Rect
+        x={panel.x}
+        y={panel.y}
+        width={panel.width}
+        height={panel.height}
+        fill={profilePalette.outer}
+        stroke={selected ? colors.primary : '#96A5A0'}
+        strokeWidth={selected ? 2.8 : 2}
+      />
+      <Rect
+        x={panel.x + profileInset}
+        y={panel.y + profileInset}
+        width={Math.max(0, panel.width - profileInset * 2)}
+        height={Math.max(0, panel.height - profileInset * 2)}
+        fill={profilePalette.inner}
+        stroke={profilePalette.stroke}
+        strokeWidth={1.5}
+      />
+      <Rect
+        x={panel.x + glassInset}
+        y={panel.y + glassInset}
+        width={Math.max(0, panel.width - glassInset * 2)}
+        height={Math.max(0, panel.height - glassInset * 2)}
+        fill={selected ? '#BFE2F0' : '#D8E6F5'}
+        stroke="#AEBBB7"
+        strokeWidth={1.2}
+      />
+      {selected ? (
+        <>
+          <Circle cx={panel.x + 6} cy={panel.y + 6} r={3} fill={colors.primary} />
+          <Circle cx={panel.x + panel.width - 6} cy={panel.y + 6} r={3} fill={colors.primary} />
+          <Circle cx={panel.x + 6} cy={panel.y + panel.height - 6} r={3} fill={colors.primary} />
+          <Circle
+            cx={panel.x + panel.width - 6}
+            cy={panel.y + panel.height - 6}
+            r={3}
+            fill={colors.primary}
+          />
+        </>
+      ) : null}
+    </>
+  );
+}
+
+type ProfilePalette = {
+  outer: string;
+  inner: string;
+  stroke: string;
+};
+
+function getProfilePalette(hexValue: string): ProfilePalette {
+  return {
+    outer: hexValue,
+    inner: mixHex(hexValue, '#FFFFFF', 0.22),
+    stroke: mixHex(hexValue, '#17211E', 0.35),
+  };
+}
+
+function mixHex(firstHex: string, secondHex: string, ratio: number): string {
+  const first = parseHex(firstHex);
+  const second = parseHex(secondHex);
+  const clampRatio = Math.max(0, Math.min(1, ratio));
+
+  return toHex({
+    r: Math.round(first.r * (1 - clampRatio) + second.r * clampRatio),
+    g: Math.round(first.g * (1 - clampRatio) + second.g * clampRatio),
+    b: Math.round(first.b * (1 - clampRatio) + second.b * clampRatio),
+  });
+}
+
+function parseHex(hexValue: string): { r: number; g: number; b: number } {
+  const normalized = /^#[0-9a-fA-F]{6}$/.test(hexValue) ? hexValue.slice(1) : 'FFFFFF';
+
+  return {
+    r: Number.parseInt(normalized.slice(0, 2), 16),
+    g: Number.parseInt(normalized.slice(2, 4), 16),
+    b: Number.parseInt(normalized.slice(4, 6), 16),
+  };
+}
+
+function toHex({ r, g, b }: { r: number; g: number; b: number }): string {
+  return `#${[r, g, b].map((value) => value.toString(16).padStart(2, '0')).join('')}`;
+}
+
+function DimensionLine({
+  orientation,
+  x1,
+  y1,
+  x2,
+  y2,
+  label,
+}: {
+  orientation: 'horizontal' | 'vertical';
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  label: string;
+}) {
+  const midX = (x1 + x2) / 2;
+  const midY = (y1 + y2) / 2;
+  const tick = 4;
+
+  if (orientation === 'horizontal') {
+    return (
+      <>
+        <Line x1={x1} y1={y1} x2={x2} y2={y2} stroke={colors.textSecondary} strokeWidth={1} />
+        <Line x1={x1} y1={y1 - tick} x2={x1} y2={y1 + tick} stroke={colors.textSecondary} strokeWidth={1} />
+        <Line x1={x2} y1={y2 - tick} x2={x2} y2={y2 + tick} stroke={colors.textSecondary} strokeWidth={1} />
+        <Rect x={midX - 22} y={y1 - 8} width={44} height={16} rx={4} fill={colors.surface} />
+        <SvgText x={midX} y={y1 + 4} fontSize={10} textAnchor="middle" fill={colors.textSecondary}>
+          {label}
+        </SvgText>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <Line x1={x1} y1={y1} x2={x2} y2={y2} stroke={colors.textSecondary} strokeWidth={1} />
+      <Line x1={x1 - tick} y1={y1} x2={x1 + tick} y2={y1} stroke={colors.textSecondary} strokeWidth={1} />
+      <Line x1={x2 - tick} y1={y2} x2={x2 + tick} y2={y2} stroke={colors.textSecondary} strokeWidth={1} />
+      <Rect x={x1 - 22} y={midY - 8} width={44} height={16} rx={4} fill={colors.surface} />
+      <SvgText x={x1} y={midY + 4} fontSize={10} textAnchor="middle" fill={colors.textSecondary}>
+        {label}
+      </SvgText>
+    </>
+  );
+}
+
+function PanelPressTarget({
+  panel,
+  index,
+  selected,
+  onPress,
+}: {
+  panel: PanelBounds;
+  index: number;
+  selected: boolean;
+  onPress: (panelId: string) => void;
+}) {
+  const label = `Panel ${index + 1}, ${Math.round(panel.realWidth)} milimetre genislik, ${Math.round(
+    panel.realHeight,
+  )} milimetre yukseklik${selected ? ', secildi' : ''}`;
+
+  return (
+    <Pressable
+      accessibilityLabel={label}
+      accessibilityRole="button"
+      onPress={() => onPress(panel.nodeId)}
+      style={[
+        styles.panelPressTarget,
+        {
+          height: panel.height,
+          left: panel.x,
+          top: panel.y,
+          width: panel.width,
+        },
+      ]}
+    />
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    backgroundColor: '#ECEFED',
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    flex: 1,
+    minHeight: 280,
+    overflow: 'hidden',
+  },
+  errorState: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+    padding: spacing.md,
+  },
+  errorText: {
+    ...typography.body,
+    color: colors.error,
+    textAlign: 'center',
+  },
+  panelPressTarget: {
+    position: 'absolute',
+  },
+});

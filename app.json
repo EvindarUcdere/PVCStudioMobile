@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "PVC Studio Mobile",
+    "slug": "pvc-studio-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "pvc-studio-mobile",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "bundleIdentifier": "com.pvcstudio.mobile",
+      "supportsTablet": false
+    },
+    "android": {
+      "package": "com.pvcstudio.mobile",
+      "adaptiveIcon": {
+        "backgroundColor": "#F8FAF7"
+      }
+    },
+    "plugins": ["expo-router", "expo-sqlite"],
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}

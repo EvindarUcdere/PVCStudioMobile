@@ -1,0 +1,6 @@
+export const DESIGN_LAYOUT_MAX_DEPTH = 50;
+export const DESIGN_LAYOUT_DEFAULT_PADDING = 32;
+export const DESIGN_LAYOUT_MIN_RENDER_SIZE = 24;
+export const DESIGN_LAYOUT_MAX_SCALE = 1;
+export const DESIGN_SPLIT_STROKE_WIDTH = 4;
+export const DESIGN_FRAME_INSET = 8;
