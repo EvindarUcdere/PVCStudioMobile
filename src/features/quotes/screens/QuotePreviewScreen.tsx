@@ -9,12 +9,17 @@ import { AppScreen } from '../../../components/ui/AppScreen';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { routes } from '../../../constants/routes';
 import { getPricingSettings } from '../../../database/repositories/PricingSettingsRepository';
-import { createDesignRepository } from '../../../database/repositories/createRepositories';
+import {
+  createDesignRepository,
+  createQuoteRepository,
+} from '../../../database/repositories/createRepositories';
 import { DesignProject } from '../../../domain/designs/entities/DesignProject';
+import { createId } from '../../../domain/designs/utils/id';
 import {
   calculateDesignPriceEstimate,
   DesignPriceEstimate,
 } from '../../../domain/designs/pricing/calculateDesignPriceEstimate';
+import { Quote } from '../../../domain/quotes/entities/Quote';
 import { logger } from '../../../services/logger';
 import { colors, radius, spacing, typography } from '../../../theme';
 
@@ -25,8 +30,11 @@ export function QuotePreviewScreen() {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [note, setNote] = useState('');
+  const [quoteId, setQuoteId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useFocusEffect(
@@ -79,6 +87,7 @@ export function QuotePreviewScreen() {
 
     setIsSharing(true);
     try {
+      await saveCurrentQuote('sent');
       await Share.share({
         message: buildQuoteMessage({
           design,
@@ -119,6 +128,7 @@ export function QuotePreviewScreen() {
     const separator = Platform.OS === 'ios' ? '&' : '?';
 
     try {
+      await saveCurrentQuote('sent');
       await Linking.openURL(`sms:${phone}${separator}body=${body}`);
     } catch (smsError) {
       logger.error('Quote SMS failed', smsError);
@@ -148,11 +158,64 @@ export function QuotePreviewScreen() {
     );
 
     try {
+      await saveCurrentQuote('sent');
       await Linking.openURL(`https://wa.me/${phone}?text=${text}`);
     } catch (whatsAppError) {
       logger.error('Quote WhatsApp failed', whatsAppError);
       setError('WhatsApp acilamadi.');
     }
+  }
+
+  async function saveDraftQuote() {
+    setIsSaving(true);
+    try {
+      await saveCurrentQuote('draft');
+      setSaveMessage('Teklif kaydedildi.');
+      setError(null);
+    } catch (saveError) {
+      logger.error('Quote draft save failed', saveError);
+      setError('Teklif kaydedilemedi.');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function saveCurrentQuote(status: Quote['status']): Promise<Quote | null> {
+    if (!design || !estimate) {
+      return null;
+    }
+
+    const repository = await createQuoteRepository();
+    const id = quoteId ?? createId();
+    const message = buildQuoteMessage({
+      design,
+      estimate,
+      customerName,
+      customerPhone,
+      note,
+    });
+    const saved = await repository.save({
+      id,
+      designId: design.id,
+      designName: design.name,
+      customerName: nullableTrim(customerName),
+      customerPhone: nullableTrim(customerPhone),
+      note: nullableTrim(note),
+      status,
+      width: design.width,
+      height: design.height,
+      quantity: design.quantity,
+      profileSystemName: estimate.selectedProfileSystem.name,
+      colorName: estimate.selectedColor.name,
+      glassTypeName: estimate.selectedGlassType.name,
+      unitTotal: estimate.unitTotal,
+      total: estimate.total,
+      message,
+    });
+
+    setQuoteId(saved.id);
+    setSaveMessage(status === 'sent' ? 'Teklif gonderildi olarak kaydedildi.' : 'Teklif kaydedildi.');
+    return saved;
   }
 
   if (isLoading) {
@@ -239,6 +302,7 @@ export function QuotePreviewScreen() {
         <Info label="Renk katsayisi" value={`x${estimate.colorMultiplier}`} />
       </AppCard>
 
+      {saveMessage ? <Text style={styles.success}>{saveMessage}</Text> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <View style={styles.actionRow}>
         <AppButton
@@ -256,6 +320,7 @@ export function QuotePreviewScreen() {
           style={styles.actionButton}
         />
       </View>
+      <AppButton label="Teklifi Kaydet" loading={isSaving} disabled={isSaving} onPress={() => void saveDraftQuote()} />
       <AppButton label="Teklifi Paylas" loading={isSharing} disabled={isSharing} onPress={() => void shareQuote()} />
       <AppButton label="Tasarimi Duzenle" variant="secondary" onPress={() => router.push(routes.designEditor(design.id))} />
     </AppScreen>
@@ -332,6 +397,11 @@ function normalizeTurkishWhatsAppPhone(value: string): string {
   return phone;
 }
 
+function nullableTrim(value: string): string | null {
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
 const styles = StyleSheet.create({
   formCard: {
     gap: spacing.sm,
@@ -405,5 +475,9 @@ const styles = StyleSheet.create({
   error: {
     ...typography.caption,
     color: colors.error,
+  },
+  success: {
+    ...typography.caption,
+    color: colors.success,
   },
 });

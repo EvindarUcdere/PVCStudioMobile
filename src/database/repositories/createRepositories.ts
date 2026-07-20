@@ -2,6 +2,7 @@ import { SQLiteBindParams, SQLiteDatabase } from 'expo-sqlite';
 
 import { getDatabase } from '../client';
 import { SqliteDesignRepository } from './SqliteDesignRepository';
+import { SqliteQuoteRepository } from './SqliteQuoteRepository';
 import { SqliteTemplateRepository } from './SqliteTemplateRepository';
 
 function createDatabaseAdapter(database: SQLiteDatabase) {
@@ -27,4 +28,8 @@ export async function createDesignRepository() {
 
 export async function createTemplateRepository() {
   return new SqliteTemplateRepository(createDatabaseAdapter(await getDatabase()));
+}
+
+export async function createQuoteRepository() {
+  return new SqliteQuoteRepository(createDatabaseAdapter(await getDatabase()));
 }

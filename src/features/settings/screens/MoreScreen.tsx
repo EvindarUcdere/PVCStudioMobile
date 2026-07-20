@@ -17,6 +17,12 @@ type MoreOption = {
 
 const options: MoreOption[] = [
   {
+    title: 'Teklifler',
+    icon: 'document-text-outline',
+    state: 'Ac',
+    onPress: () => router.push(routes.quotes),
+  },
+  {
     title: 'Fiyat Ayarlari',
     icon: 'calculator-outline',
     state: 'Ac',

@@ -4,6 +4,7 @@ import { initialMetadataMigration } from './migrations/001_initial_metadata';
 import { designDomainMigration } from './migrations/002_design_domain';
 import { designTemplatesMigration } from './migrations/003_design_templates';
 import { profileMeasurementSettingsMigration } from './migrations/004_profile_measurement_settings';
+import { quotesMigration } from './migrations/005_quotes';
 import { DatabaseMigration, MigrationDatabase } from './migrations/types';
 import { seedReferenceData } from './seeds/seedReferenceData';
 import { seedProfileMeasurementSettings } from './seeds/seedProfileMeasurementSettings';
@@ -15,6 +16,7 @@ const migrations: DatabaseMigration[] = [
   designDomainMigration,
   designTemplatesMigration,
   profileMeasurementSettingsMigration,
+  quotesMigration,
 ];
 
 type MetadataRow = {
