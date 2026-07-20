@@ -32,6 +32,23 @@ function getFramePath(x: number, y: number, width: number, height: number, archH
   ].join(' ');
 }
 
+function getInsetFramePath(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  archHeight: number,
+  inset: number,
+): string {
+  return getFramePath(
+    x + inset,
+    y + inset,
+    Math.max(1, width - inset * 2),
+    Math.max(1, height - inset * 2),
+    Math.max(14, archHeight - inset),
+  );
+}
+
 function renderOpeningSymbol(panel: PanelLayout, compact: boolean): ReactNode {
   const stroke = colors.primary;
   const x1 = panel.x;
@@ -214,6 +231,16 @@ export const TemplatePreview = memo(function TemplatePreview({
     viewBoxHeight - padding * 2,
     archHeight,
   );
+  const profilePalette = getProfilePalette(profileColorHex);
+  const frameInset = compact ? 6 : 8;
+  const innerFramePath = getInsetFramePath(
+    padding,
+    padding,
+    viewBoxWidth - padding * 2,
+    viewBoxHeight - padding * 2,
+    archHeight,
+    frameInset,
+  );
   const panels = useMemo(
     () =>
       calculateNodeLayout(rootNode, {
@@ -224,14 +251,13 @@ export const TemplatePreview = memo(function TemplatePreview({
       }),
     [rootNode, viewBoxHeight],
   );
-  const profilePalette = getProfilePalette(profileColorHex);
 
   return (
     <Svg width="100%" height="100%" viewBox={`0 0 ${viewBoxWidth} ${viewBoxHeight}`}>
       {frameIsArch ? (
         <Path
           d={framePath}
-          fill={colors.surface}
+          fill={profilePalette.outer}
           stroke={colors.textPrimary}
           strokeWidth={2.4}
         />
@@ -249,9 +275,17 @@ export const TemplatePreview = memo(function TemplatePreview({
       {frameIsArch ? (
         <Defs>
           <ClipPath id="templateFrameClip">
-            <Path d={framePath} />
+            <Path d={innerFramePath} />
           </ClipPath>
         </Defs>
+      ) : null}
+      {frameIsArch ? (
+        <Path
+          d={innerFramePath}
+          fill={colors.surface}
+          stroke={profilePalette.stroke}
+          strokeWidth={2}
+        />
       ) : null}
       <G clipPath={frameIsArch ? 'url(#templateFrameClip)' : undefined}>
         {panels.map((panel) => (
@@ -262,7 +296,10 @@ export const TemplatePreview = memo(function TemplatePreview({
         ))}
       </G>
       {frameIsArch ? (
-        <Path d={framePath} fill="none" stroke={colors.textPrimary} strokeWidth={2.4} />
+        <>
+          <Path d={framePath} fill="none" stroke={colors.textPrimary} strokeWidth={2.4} />
+          <Path d={innerFramePath} fill="none" stroke={profilePalette.stroke} strokeWidth={2} />
+        </>
       ) : null}
     </Svg>
   );

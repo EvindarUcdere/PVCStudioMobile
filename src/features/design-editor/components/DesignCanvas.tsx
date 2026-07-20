@@ -38,6 +38,23 @@ function getFramePath(x: number, y: number, width: number, height: number, archH
   ].join(' ');
 }
 
+function getInsetFramePath(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  archHeight: number,
+  inset: number,
+): string {
+  return getFramePath(
+    x + inset,
+    y + inset,
+    Math.max(1, width - inset * 2),
+    Math.max(1, height - inset * 2),
+    Math.max(20, archHeight - inset),
+  );
+}
+
 export const DesignCanvas = memo(function DesignCanvas({
   design,
   selectedNodeId,
@@ -87,6 +104,16 @@ export const DesignCanvas = memo(function DesignCanvas({
         layoutState.layout.frameBounds.width,
         layoutState.layout.frameBounds.height,
         archHeight,
+      )
+    : '';
+  const innerFramePath = layoutState.layout
+    ? getInsetFramePath(
+        layoutState.layout.frameBounds.x,
+        layoutState.layout.frameBounds.y,
+        layoutState.layout.frameBounds.width,
+        layoutState.layout.frameBounds.height,
+        archHeight,
+        DESIGN_FRAME_INSET,
       )
     : '';
   const selectedPanel = layoutState.layout?.panelBounds.find((panel) => panel.nodeId === selectedNodeId) ?? null;
@@ -186,25 +213,19 @@ export const DesignCanvas = memo(function DesignCanvas({
             <>
               <Defs>
                 <ClipPath id="editorFrameClip">
-                  <Path d={framePath} />
+                  <Path d={innerFramePath} />
                 </ClipPath>
               </Defs>
               <Path
                 d={framePath}
-                fill={colors.surface}
+                fill={profilePalette.outer}
                 stroke={colors.textPrimary}
                 strokeWidth={2.4}
               />
               <Path
-                d={getFramePath(
-                  layoutState.layout.frameBounds.x + DESIGN_FRAME_INSET,
-                  layoutState.layout.frameBounds.y + DESIGN_FRAME_INSET,
-                  layoutState.layout.frameBounds.width - DESIGN_FRAME_INSET * 2,
-                  layoutState.layout.frameBounds.height - DESIGN_FRAME_INSET * 2,
-                  Math.max(12, archHeight - DESIGN_FRAME_INSET),
-                )}
-                fill="none"
-                stroke={colors.border}
+                d={innerFramePath}
+                fill={colors.surface}
+                stroke={profilePalette.stroke}
                 strokeWidth={2.4}
               />
               <Circle
@@ -262,7 +283,12 @@ export const DesignCanvas = memo(function DesignCanvas({
               <OpeningSymbol key={`${panel.nodeId}-opening`} bounds={panel} openingType={panel.openingType} />
             ))}
           </G>
-          {frameIsArch ? <Path d={framePath} fill="none" stroke={colors.textPrimary} strokeWidth={2.4} /> : null}
+          {frameIsArch ? (
+            <>
+              <Path d={framePath} fill="none" stroke={colors.textPrimary} strokeWidth={2.4} />
+              <Path d={innerFramePath} fill="none" stroke={profilePalette.stroke} strokeWidth={2.2} />
+            </>
+          ) : null}
         </Svg>
         <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
           {layoutState.layout.panelBounds.map((panel, index) => (
