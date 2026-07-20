@@ -9,8 +9,10 @@ import { designProjectSchema } from '../../../domain/designs/schemas/designProje
 import { collectPanels } from '../../../domain/designs/utils/findNodeById';
 import {
   AddPanelSide,
+  MergePanelSide,
   addPanelToDesignEdge,
   adjustArchHeight,
+  mergePanelWithAdjacent,
   removePanel,
   splitPanel,
   updatePanelOpening,
@@ -23,6 +25,7 @@ import { clearSelection, selectPanel } from '../utils/editorSelection';
 type DesignEditorState = {
   design: DesignProject | null;
   history: DesignProject[];
+  future: DesignProject[];
   selection: EditorSelection;
   isLoading: boolean;
   isSaving: boolean;
@@ -53,6 +56,7 @@ function buildValidEditorState(
     ...current,
     design: nextDesign,
     history: [...current.history, current.design!],
+    future: [],
     selection,
     isDirty: true,
     error: null,
@@ -64,6 +68,7 @@ export function useDesignEditor(designId: string | undefined) {
   const [state, setState] = useState<DesignEditorState>({
     design: null,
     history: [],
+    future: [],
     selection: null,
     isLoading: true,
     isSaving: false,
@@ -77,6 +82,7 @@ export function useDesignEditor(designId: string | undefined) {
       setState({
         design: null,
         history: [],
+        future: [],
         selection: null,
         isLoading: false,
         isSaving: false,
@@ -103,6 +109,7 @@ export function useDesignEditor(designId: string | undefined) {
         setState({
           design: null,
           history: [],
+          future: [],
           selection: null,
           isLoading: false,
           isSaving: false,
@@ -118,6 +125,7 @@ export function useDesignEditor(designId: string | undefined) {
         setState({
           design: null,
           history: [],
+          future: [],
           selection: null,
           isLoading: false,
           isSaving: false,
@@ -131,6 +139,7 @@ export function useDesignEditor(designId: string | undefined) {
       setState({
         design,
         history: [],
+        future: [],
         selection: null,
         isLoading: false,
         isSaving: false,
@@ -143,6 +152,7 @@ export function useDesignEditor(designId: string | undefined) {
       setState({
         design: null,
         history: [],
+        future: [],
         selection: null,
         isLoading: false,
         isSaving: false,
@@ -160,6 +170,7 @@ export function useDesignEditor(designId: string | undefined) {
       setState({
         design: null,
         history: [],
+        future: [],
         selection: null,
         isLoading: false,
         isSaving: false,
@@ -224,7 +235,9 @@ export function useDesignEditor(designId: string | undefined) {
           rootNode: updatePanelOpening(current.design.rootNode, current.selection.nodeId, openingType),
         },
         history: [...current.history, current.design],
+        future: [],
         isDirty: true,
+        error: null,
         saveMessage: null,
       };
     });
@@ -243,6 +256,33 @@ export function useDesignEditor(designId: string | undefined) {
     });
   }, []);
 
+  const mergeSelectedPanel = useCallback((side: MergePanelSide) => {
+    setState((current) => {
+      if (!current.design || !current.selection) {
+        return current;
+      }
+
+      const nextRootNode = mergePanelWithAdjacent(
+        current.design.rootNode,
+        current.selection.nodeId,
+        side,
+      );
+
+      if (nextRootNode === current.design.rootNode) {
+        return {
+          ...current,
+          error: 'Bu yonde birlestirilecek komsu panel bulunamadi.',
+          saveMessage: null,
+        };
+      }
+
+      return buildValidEditorState(current, {
+        ...current.design,
+        rootNode: nextRootNode,
+      });
+    });
+  }, []);
+
   const adjustSelectedArchHeight = useCallback((delta: number) => {
     setState((current) => {
       if (!current.design) {
@@ -253,7 +293,9 @@ export function useDesignEditor(designId: string | undefined) {
         ...current,
         design: adjustArchHeight(current.design, delta),
         history: [...current.history, current.design],
+        future: [],
         isDirty: true,
+        error: null,
         saveMessage: null,
       };
     });
@@ -269,7 +311,9 @@ export function useDesignEditor(designId: string | undefined) {
         ...current,
         design: updateProfileColor(current.design, colorId),
         history: [...current.history, current.design],
+        future: [],
         isDirty: true,
+        error: null,
         saveMessage: null,
       };
     });
@@ -288,6 +332,7 @@ export function useDesignEditor(designId: string | undefined) {
         ...current,
         design: savedDesign,
         history: [],
+        future: [],
         isSaving: false,
         isDirty: false,
         saveMessage: 'Degisiklikler kaydedildi.',
@@ -314,8 +359,31 @@ export function useDesignEditor(designId: string | undefined) {
         ...current,
         design: previous,
         history: current.history.slice(0, -1),
+        future: current.design ? [...current.future, current.design] : current.future,
         selection: null,
         isDirty: current.history.length > 1,
+        error: null,
+        saveMessage: null,
+      };
+    });
+  }, []);
+
+  const redoLastChange = useCallback(() => {
+    setState((current) => {
+      const next = current.future[current.future.length - 1];
+
+      if (!next || !current.design) {
+        return current;
+      }
+
+      return {
+        ...current,
+        design: next,
+        history: [...current.history, current.design],
+        future: current.future.slice(0, -1),
+        selection: null,
+        isDirty: true,
+        error: null,
         saveMessage: null,
       };
     });
@@ -325,6 +393,7 @@ export function useDesignEditor(designId: string | undefined) {
     ...state,
     selectedNodeId: state.selection?.nodeId ?? null,
     canUndo: state.history.length > 0,
+    canRedo: state.future.length > 0,
     reload: loadDesign,
     selectPanelById,
     clearEditorSelection,
@@ -332,9 +401,11 @@ export function useDesignEditor(designId: string | undefined) {
     removeSelectedPanel,
     updateSelectedOpening,
     addPanelAtEdge,
+    mergeSelectedPanel,
     adjustSelectedArchHeight,
     updateSelectedProfileColor,
     saveDesign,
     undoLastChange,
+    redoLastChange,
   };
 }

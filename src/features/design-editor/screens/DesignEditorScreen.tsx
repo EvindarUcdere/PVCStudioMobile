@@ -29,6 +29,7 @@ export function DesignEditorScreen() {
     isSaving,
     isDirty,
     canUndo,
+    canRedo,
     error,
     saveMessage,
     reload,
@@ -38,10 +39,12 @@ export function DesignEditorScreen() {
     removeSelectedPanel,
     updateSelectedOpening,
     addPanelAtEdge,
+    mergeSelectedPanel,
     adjustSelectedArchHeight,
     updateSelectedProfileColor,
     saveDesign,
     undoLastChange,
+    redoLastChange,
   } = useDesignEditor(designId);
   const [customColor, setCustomColor] = useState('#87552F');
   const canAdjustArch = design?.rootNode.type === 'frame' && isArchTopFrame(design.rootNode);
@@ -54,7 +57,7 @@ export function DesignEditorScreen() {
     );
   }
 
-  if (error || !design) {
+  if (!design) {
     return (
       <AppScreen centered>
         <EmptyState
@@ -108,6 +111,12 @@ export function DesignEditorScreen() {
                 style={styles.flexButton}
               />
             </View>
+            <AppButton
+              label="Ileri al"
+              variant="secondary"
+              disabled={!canRedo}
+              onPress={redoLastChange}
+            />
             <Text style={styles.toolTitle}>Yapilandirma</Text>
             <View style={styles.row}>
               <AppButton
@@ -131,6 +140,39 @@ export function DesignEditorScreen() {
               disabled={!selectedNodeId}
               onPress={removeSelectedPanel}
             />
+            <Text style={styles.toolTitle}>Birlestir</Text>
+            <View style={styles.row}>
+              <AppButton
+                label="Solla"
+                variant="secondary"
+                disabled={!selectedNodeId}
+                onPress={() => mergeSelectedPanel('left')}
+                style={styles.flexButton}
+              />
+              <AppButton
+                label="Sagla"
+                variant="secondary"
+                disabled={!selectedNodeId}
+                onPress={() => mergeSelectedPanel('right')}
+                style={styles.flexButton}
+              />
+            </View>
+            <View style={styles.row}>
+              <AppButton
+                label="Ustle"
+                variant="secondary"
+                disabled={!selectedNodeId}
+                onPress={() => mergeSelectedPanel('top')}
+                style={styles.flexButton}
+              />
+              <AppButton
+                label="Altla"
+                variant="secondary"
+                disabled={!selectedNodeId}
+                onPress={() => mergeSelectedPanel('bottom')}
+                style={styles.flexButton}
+              />
+            </View>
             <Text style={styles.toolTitle}>Alan ekle</Text>
             <View style={styles.row}>
               <AppButton

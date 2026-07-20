@@ -10,6 +10,7 @@ import { cloneDesignProject } from '../utils/cloneDesignProject';
 import {
   addPanelToDesignEdge,
   adjustArchHeight,
+  mergePanelWithAdjacent,
   removePanel,
   splitPanel,
   updatePanelOpening,
@@ -276,6 +277,73 @@ describe('design tree editing', () => {
     if (nextRoot.child.first.type === 'split') {
       expect(nextRoot.child.first.ratio).toBe(0.5);
     }
+  });
+
+  it('merges the selected middle panel with its right neighbor', () => {
+    const left = createPanelNode();
+    const middle = createPanelNode();
+    const right = createPanelNode();
+    const rootNode = {
+      id: 'merge-right-frame',
+      type: 'frame' as const,
+      child: createSplitNode({
+        direction: 'vertical',
+        ratio: 1 / 3,
+        first: left,
+        second: createSplitNode({
+          direction: 'vertical',
+          ratio: 0.5,
+          first: middle,
+          second: right,
+        }),
+      }),
+    };
+
+    const nextRoot = mergePanelWithAdjacent(rootNode, middle.id, 'right');
+
+    expect(countPanels(nextRoot)).toBe(2);
+    expect(validateDesignTree(nextRoot).isValid).toBe(true);
+    expect(collectPanels(nextRoot).some((panel) => panel.id === middle.id)).toBe(true);
+    expect(collectPanels(nextRoot).some((panel) => panel.id === right.id)).toBe(false);
+  });
+
+  it('merges the selected middle panel with its left neighbor without changing the parent row height', () => {
+    const topLeft = createPanelNode();
+    const topMiddle = createPanelNode();
+    const topRight = createPanelNode();
+    const bottom = createPanelNode();
+    const rootNode = {
+      id: 'merge-left-frame',
+      type: 'frame' as const,
+      child: createSplitNode({
+        direction: 'horizontal',
+        ratio: 0.4,
+        first: createSplitNode({
+          direction: 'vertical',
+          ratio: 1 / 3,
+          first: topLeft,
+          second: createSplitNode({
+            direction: 'vertical',
+            ratio: 0.5,
+            first: topMiddle,
+            second: topRight,
+          }),
+        }),
+        second: bottom,
+      }),
+    };
+
+    const nextRoot = mergePanelWithAdjacent(rootNode, topMiddle.id, 'left');
+
+    expect(countPanels(nextRoot)).toBe(3);
+    expect(validateDesignTree(nextRoot).isValid).toBe(true);
+    if (nextRoot.type !== 'frame' || nextRoot.child.type !== 'split') {
+      throw new Error('Expected a frame with a split child');
+    }
+
+    expect(nextRoot.child.ratio).toBe(0.4);
+    expect(collectPanels(nextRoot).some((panel) => panel.id === topMiddle.id)).toBe(true);
+    expect(collectPanels(nextRoot).some((panel) => panel.id === topLeft.id)).toBe(false);
   });
 
   it('adds a new panel to the design right edge without shrinking the project width', () => {

@@ -12,6 +12,7 @@ import { getArchHeight, isArchTopFrame, withArchHeight } from './frameShape';
 import { getPanelRealDimensions } from './getPanelDimensions';
 
 export type AddPanelSide = 'left' | 'right' | 'top' | 'bottom';
+export type MergePanelSide = 'left' | 'right' | 'top' | 'bottom';
 
 export function updatePanelOpening(
   rootNode: DesignNode,
@@ -41,6 +42,19 @@ export function removePanel(rootNode: DesignNode, panelId: string): DesignNode {
   }
 
   return removeNode(rootNode, panelId).node ?? rootNode;
+}
+
+export function mergePanelWithAdjacent(
+  rootNode: DesignNode,
+  panelId: string,
+  side: MergePanelSide,
+): DesignNode {
+  if (countPanels(rootNode) <= 1) {
+    return rootNode;
+  }
+
+  const result = mergeNode(rootNode, panelId, side);
+  return result.changed ? result.node : rootNode;
 }
 
 export function addPanelToDesignEdge(
@@ -164,6 +178,108 @@ function createDefaultProfileSystem(
       exteriorColorId: defaultProfileColorId,
     }
   );
+}
+
+type MergeNodeResult = {
+  node: DesignNode;
+  changed: boolean;
+};
+
+function mergeNode(node: DesignNode, panelId: string, side: MergePanelSide): MergeNodeResult {
+  if (node.type === 'panel') {
+    return { node, changed: false };
+  }
+
+  if (node.type === 'frame') {
+    const child = mergeNode(node.child, panelId, side);
+    return {
+      node: child.changed ? { ...node, child: child.node } : node,
+      changed: child.changed,
+    };
+  }
+
+  const direction = side === 'left' || side === 'right' ? 'vertical' : 'horizontal';
+  if (node.direction === direction) {
+    const groupMerge = mergeDirectionalGroup(node, panelId, side, direction);
+    if (groupMerge.changed) {
+      return groupMerge;
+    }
+  }
+
+  const first = mergeNode(node.first, panelId, side);
+  if (first.changed) {
+    return { node: { ...node, first: first.node }, changed: true };
+  }
+
+  const second = mergeNode(node.second, panelId, side);
+  if (second.changed) {
+    return { node: { ...node, second: second.node }, changed: true };
+  }
+
+  return { node, changed: false };
+}
+
+function mergeDirectionalGroup(
+  node: DesignNode,
+  panelId: string,
+  side: MergePanelSide,
+  direction: SplitDirection,
+): MergeNodeResult {
+  const items = flattenDirection(node, direction);
+  const selectedIndex = items.findIndex((item) => item.type === 'panel' && item.id === panelId);
+
+  if (selectedIndex < 0) {
+    return { node, changed: false };
+  }
+
+  const neighborIndex =
+    side === 'left' || side === 'top' ? selectedIndex - 1 : selectedIndex + 1;
+  const selected = items[selectedIndex];
+  const neighbor = items[neighborIndex];
+
+  if (selected?.type !== 'panel' || neighbor?.type !== 'panel') {
+    return { node, changed: false };
+  }
+
+  const firstIndex = Math.min(selectedIndex, neighborIndex);
+  const nextItems = [
+    ...items.slice(0, firstIndex),
+    selected,
+    ...items.slice(firstIndex + 2),
+  ];
+
+  return {
+    node: buildDirectionTree(direction, nextItems),
+    changed: true,
+  };
+}
+
+function flattenDirection(node: DesignNode, direction: SplitDirection): DesignNode[] {
+  if (node.type === 'split' && node.direction === direction) {
+    return [
+      ...flattenDirection(node.first, direction),
+      ...flattenDirection(node.second, direction),
+    ];
+  }
+
+  return [node];
+}
+
+function buildDirectionTree(direction: SplitDirection, items: DesignNode[]): DesignNode {
+  if (items.length <= 1) {
+    return items[0]!;
+  }
+
+  const [first, ...rest] = items;
+  const second = buildDirectionTree(direction, rest);
+  const totalPanelCount = countPanels(first!) + countPanels(second);
+
+  return createSplitNode({
+    direction,
+    first: first!,
+    second,
+    ratio: totalPanelCount > 0 ? countPanels(first!) / totalPanelCount : 0.5,
+  });
 }
 
 type RemoveNodeResult = {
