@@ -91,6 +91,7 @@ export function DesignDetailsPlaceholderScreen() {
         <Info label="Olusturulma" value={new Date(project.createdAt).toLocaleDateString('tr-TR')} />
       </View>
       <AppButton label="Tasarimi Ac" onPress={() => router.push(routes.designEditor(project.id))} />
+      <AppButton label="Teklif Olustur" variant="secondary" onPress={() => router.push(routes.designQuote(project.id))} />
       <AppButton label="Tasarimlara Don" variant="ghost" onPress={() => router.replace(routes.designs)} />
     </AppScreen>
   );

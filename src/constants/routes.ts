@@ -9,4 +9,5 @@ export const routes = {
   createDesignFromTemplate: (templateId: string) => `/templates/${templateId}/create`,
   designDetails: (designId: string) => `/designs/${designId}`,
   designEditor: (designId: string) => `/designs/${designId}/edit`,
+  designQuote: (designId: string) => `/designs/${designId}/quote`,
 } as const;
