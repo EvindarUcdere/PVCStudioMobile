@@ -4,6 +4,7 @@ export const routes = {
   newDesign: '/new-design',
   customers: '/customers',
   more: '/more',
+  pricingSettings: '/pricing-settings',
   templateDetails: (templateId: string) => `/templates/${templateId}`,
   createDesignFromTemplate: (templateId: string) => `/templates/${templateId}/create`,
   designDetails: (designId: string) => `/designs/${designId}`,

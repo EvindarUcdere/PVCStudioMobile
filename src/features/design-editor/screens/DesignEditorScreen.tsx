@@ -1,5 +1,5 @@
-import { router, useLocalSearchParams } from 'expo-router';
-import { ReactNode, useState } from 'react';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { ReactNode, useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { AppButton } from '../../../components/ui/AppButton';
@@ -7,17 +7,25 @@ import { AppHeader } from '../../../components/ui/AppHeader';
 import { AppScreen } from '../../../components/ui/AppScreen';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { routes } from '../../../constants/routes';
-import { OpeningType } from '../../../domain/designs/enums/OpeningType';
+import { getPricingSettings } from '../../../database/repositories/PricingSettingsRepository';
 import {
   createCustomColorId,
   getDesignProfileColor,
   isValidHexColor,
   profileColorOptions,
 } from '../../../domain/designs/colors/profileColorOptions';
+import { OpeningType } from '../../../domain/designs/enums/OpeningType';
+import {
+  defaultPriceEstimateRates,
+  PriceEstimateRates,
+} from '../../../domain/designs/pricing/calculateDesignPriceEstimate';
 import { isArchTopFrame } from '../../../domain/designs/utils/frameShape';
+import { logger } from '../../../services/logger';
 import { colors, radius, spacing, typography } from '../../../theme';
 import { DesignCanvas } from '../components/DesignCanvas';
 import { DesignMaterialSummaryCard } from '../components/DesignMaterialSummaryCard';
+import { DesignPriceEstimateCard } from '../components/DesignPriceEstimateCard';
+import { DesignSpecificationPicker } from '../components/DesignSpecificationPicker';
 import { SelectedPanelSheet } from '../components/SelectedPanelSheet';
 import { useDesignEditor } from '../hooks/useDesignEditor';
 
@@ -43,12 +51,38 @@ export function DesignEditorScreen() {
     mergeSelectedPanel,
     adjustSelectedArchHeight,
     updateSelectedProfileColor,
+    updateProfileSystem,
+    updateDefaultGlass,
     saveDesign,
     undoLastChange,
     redoLastChange,
   } = useDesignEditor(designId);
   const [customColor, setCustomColor] = useState('#87552F');
+  const [pricingRates, setPricingRates] = useState<PriceEstimateRates>(defaultPriceEstimateRates);
   const canAdjustArch = design?.rootNode.type === 'frame' && isArchTopFrame(design.rootNode);
+
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+
+      async function loadPricingRates() {
+        try {
+          const settings = await getPricingSettings();
+          if (isActive) {
+            setPricingRates(settings);
+          }
+        } catch (loadError) {
+          logger.error('Editor pricing settings load failed', loadError);
+        }
+      }
+
+      void loadPricingRates();
+
+      return () => {
+        isActive = false;
+      };
+    }, []),
+  );
 
   if (isLoading) {
     return (
@@ -247,6 +281,12 @@ export function DesignEditorScreen() {
             {saveMessage ? <Text style={styles.success}>{saveMessage}</Text> : null}
             {error ? <Text style={styles.error}>{error}</Text> : null}
           </View>
+          <DesignSpecificationPicker
+            design={design}
+            rates={pricingRates}
+            onSelectProfileSystem={updateProfileSystem}
+            onSelectGlassType={updateDefaultGlass}
+          />
           <ProfileColorPicker
             customColor={customColor}
             selectedColorId={getDesignProfileColor(design.profileSystem).id}
@@ -254,6 +294,7 @@ export function DesignEditorScreen() {
             onSelectColor={updateSelectedProfileColor}
           />
           <DesignMaterialSummaryCard design={design} />
+          <DesignPriceEstimateCard design={design} />
           <SelectedPanelSheet design={design} selectedNodeId={selectedNodeId} />
         </ScrollView>
       </View>

@@ -1,5 +1,6 @@
 import { DesignNode } from '../entities/DesignNode';
 import { DesignProject } from '../entities/DesignProject';
+import { GlassSelection } from '../entities/GlassSelection';
 import { PanelNode } from '../entities/PanelNode';
 import { ProfileSystemSelection } from '../entities/ProfileSystemSelection';
 import { OpeningType } from '../enums/OpeningType';
@@ -7,6 +8,7 @@ import { SplitDirection } from '../enums/SplitDirection';
 import { defaultProfileColorId } from '../colors/profileColorOptions';
 import { createPanelNode } from '../factories/createPanelNode';
 import { createSplitNode } from '../factories/createSplitNode';
+import { GlassPriceOption, ProfileSystemPriceOption } from '../pricing/calculateDesignPriceEstimate';
 import { countPanels } from './findNodeById';
 import { getArchHeight, isArchTopFrame, withArchHeight } from './frameShape';
 import { getPanelRealDimensions } from './getPanelDimensions';
@@ -161,6 +163,41 @@ export function updateProfileColor(project: DesignProject, colorId: string): Des
   };
 }
 
+export function updateProfileSystemSelection(
+  project: DesignProject,
+  option: ProfileSystemPriceOption,
+): DesignProject {
+  const current = createDefaultProfileSystem(project.profileSystem);
+
+  return {
+    ...project,
+    profileSystem: {
+      ...current,
+      seriesId: option.id,
+      profileWidth: option.profileWidth,
+      chamberCount: option.chamberCount,
+      wallClass: option.wallClass,
+    },
+  };
+}
+
+export function updateDefaultGlassSelection(project: DesignProject, option: GlassPriceOption): DesignProject {
+  const current = createDefaultGlass(project.defaultGlass);
+
+  return {
+    ...project,
+    defaultGlass: {
+      ...current,
+      glassTypeId: option.id,
+      formula: option.formula,
+      thickness: option.thickness,
+      lowE: option.lowE,
+      tempered: option.tempered,
+      laminated: option.laminated,
+    },
+  };
+}
+
 function createDefaultProfileSystem(
   current: ProfileSystemSelection | null,
 ): ProfileSystemSelection {
@@ -176,6 +213,22 @@ function createDefaultProfileSystem(
       steelThickness: null,
       interiorColorId: defaultProfileColorId,
       exteriorColorId: defaultProfileColorId,
+    }
+  );
+}
+
+function createDefaultGlass(current: GlassSelection | null): GlassSelection {
+  return (
+    current ?? {
+      glassTypeId: 'double-clear',
+      formula: '4+12+4',
+      thickness: 20,
+      color: null,
+      pattern: null,
+      lowE: false,
+      tempered: false,
+      laminated: false,
+      decorativeBar: null,
     }
   );
 }

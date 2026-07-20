@@ -4,6 +4,7 @@ import { createDesignRepository } from '../../../database/repositories/createRep
 import { DesignProject } from '../../../domain/designs/entities/DesignProject';
 import { OpeningType } from '../../../domain/designs/enums/OpeningType';
 import { SplitDirection } from '../../../domain/designs/enums/SplitDirection';
+import { GlassPriceOption, ProfileSystemPriceOption } from '../../../domain/designs/pricing/calculateDesignPriceEstimate';
 import { validateDesignTree } from '../../../domain/designs/rules/validateDesignTree';
 import { designProjectSchema } from '../../../domain/designs/schemas/designProjectSchema';
 import { collectPanels } from '../../../domain/designs/utils/findNodeById';
@@ -16,7 +17,9 @@ import {
   removePanel,
   splitPanel,
   updatePanelOpening,
+  updateDefaultGlassSelection,
   updateProfileColor,
+  updateProfileSystemSelection,
 } from '../../../domain/designs/utils/editDesignTree';
 import { logger } from '../../../services/logger';
 import { EditorSelection } from '../types/editorTypes';
@@ -319,6 +322,42 @@ export function useDesignEditor(designId: string | undefined) {
     });
   }, []);
 
+  const updateProfileSystem = useCallback((option: ProfileSystemPriceOption) => {
+    setState((current) => {
+      if (!current.design) {
+        return current;
+      }
+
+      return {
+        ...current,
+        design: updateProfileSystemSelection(current.design, option),
+        history: [...current.history, current.design],
+        future: [],
+        isDirty: true,
+        error: null,
+        saveMessage: null,
+      };
+    });
+  }, []);
+
+  const updateDefaultGlass = useCallback((option: GlassPriceOption) => {
+    setState((current) => {
+      if (!current.design) {
+        return current;
+      }
+
+      return {
+        ...current,
+        design: updateDefaultGlassSelection(current.design, option),
+        history: [...current.history, current.design],
+        future: [],
+        isDirty: true,
+        error: null,
+        saveMessage: null,
+      };
+    });
+  }, []);
+
   const saveDesign = useCallback(async () => {
     if (!state.design || state.isSaving) {
       return;
@@ -404,6 +443,8 @@ export function useDesignEditor(designId: string | undefined) {
     mergeSelectedPanel,
     adjustSelectedArchHeight,
     updateSelectedProfileColor,
+    updateProfileSystem,
+    updateDefaultGlass,
     saveDesign,
     undoLastChange,
     redoLastChange,
