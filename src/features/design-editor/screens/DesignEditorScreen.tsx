@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { ReactNode, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { AppButton } from '../../../components/ui/AppButton';
@@ -95,120 +95,124 @@ export function DesignEditorScreen() {
             Toplam olcu: {design.width} x {design.height} mm
           </Text>
           <View style={styles.tools}>
-            <View style={styles.row}>
-              <AppButton
-                label="Geri al"
-                variant="secondary"
-                disabled={!canUndo}
-                onPress={undoLastChange}
-                style={styles.flexButton}
-              />
+            <ToolSection title="Kayit">
+              <View style={styles.row}>
+                <AppButton
+                  label="Geri al"
+                  variant="secondary"
+                  disabled={!canUndo}
+                  onPress={undoLastChange}
+                  style={styles.flexButton}
+                />
+                <AppButton
+                  label="Ileri al"
+                  variant="secondary"
+                  disabled={!canRedo}
+                  onPress={redoLastChange}
+                  style={styles.flexButton}
+                />
+              </View>
               <AppButton
                 label="Kaydet"
                 disabled={!isDirty}
                 loading={isSaving}
                 onPress={() => void saveDesign()}
-                style={styles.flexButton}
               />
-            </View>
-            <AppButton
-              label="Ileri al"
-              variant="secondary"
-              disabled={!canRedo}
-              onPress={redoLastChange}
-            />
-            <Text style={styles.toolTitle}>Yapilandirma</Text>
-            <View style={styles.row}>
+            </ToolSection>
+            <ToolSection title="Bol ve kaldir">
+              <View style={styles.row}>
+                <AppButton
+                  label="Dikey bol"
+                  variant="secondary"
+                  disabled={!selectedNodeId}
+                  onPress={() => splitSelectedPanel('vertical')}
+                  style={styles.flexButton}
+                />
+                <AppButton
+                  label="Yatay bol"
+                  variant="secondary"
+                  disabled={!selectedNodeId}
+                  onPress={() => splitSelectedPanel('horizontal')}
+                  style={styles.flexButton}
+                />
+              </View>
               <AppButton
-                label="Dikey bol"
-                variant="secondary"
+                label="Secili alani kaldir"
+                variant="ghost"
                 disabled={!selectedNodeId}
-                onPress={() => splitSelectedPanel('vertical')}
-                style={styles.flexButton}
+                onPress={removeSelectedPanel}
               />
-              <AppButton
-                label="Yatay bol"
-                variant="secondary"
-                disabled={!selectedNodeId}
-                onPress={() => splitSelectedPanel('horizontal')}
-                style={styles.flexButton}
-              />
-            </View>
-            <AppButton
-              label="Secili alani kaldir"
-              variant="ghost"
-              disabled={!selectedNodeId}
-              onPress={removeSelectedPanel}
-            />
-            <Text style={styles.toolTitle}>Birlestir</Text>
-            <View style={styles.row}>
-              <AppButton
-                label="Solla"
-                variant="secondary"
-                disabled={!selectedNodeId}
-                onPress={() => mergeSelectedPanel('left')}
-                style={styles.flexButton}
-              />
-              <AppButton
-                label="Sagla"
-                variant="secondary"
-                disabled={!selectedNodeId}
-                onPress={() => mergeSelectedPanel('right')}
-                style={styles.flexButton}
-              />
-            </View>
-            <View style={styles.row}>
-              <AppButton
-                label="Ustle"
-                variant="secondary"
-                disabled={!selectedNodeId}
-                onPress={() => mergeSelectedPanel('top')}
-                style={styles.flexButton}
-              />
-              <AppButton
-                label="Altla"
-                variant="secondary"
-                disabled={!selectedNodeId}
-                onPress={() => mergeSelectedPanel('bottom')}
-                style={styles.flexButton}
-              />
-            </View>
-            <Text style={styles.toolTitle}>Alan ekle</Text>
-            <View style={styles.row}>
-              <AppButton
-                label="Sola ekle"
-                variant="secondary"
-                disabled={!selectedNodeId}
-                onPress={() => addPanelAtEdge('left')}
-                style={styles.flexButton}
-              />
-              <AppButton
-                label="Saga ekle"
-                variant="secondary"
-                disabled={!selectedNodeId}
-                onPress={() => addPanelAtEdge('right')}
-                style={styles.flexButton}
-              />
-            </View>
-            <View style={styles.row}>
-              <AppButton
-                label="Uste ekle"
-                variant="secondary"
-                disabled={!selectedNodeId}
-                onPress={() => addPanelAtEdge('top')}
-                style={styles.flexButton}
-              />
-              <AppButton
-                label="Alta ekle"
-                variant="secondary"
-                disabled={!selectedNodeId}
-                onPress={() => addPanelAtEdge('bottom')}
-                style={styles.flexButton}
-              />
-            </View>
+            </ToolSection>
+            <ToolSection title="Birlestir">
+              <View style={styles.row}>
+                <AppButton
+                  label="Solla"
+                  variant="secondary"
+                  disabled={!selectedNodeId}
+                  onPress={() => mergeSelectedPanel('left')}
+                  style={styles.flexButton}
+                />
+                <AppButton
+                  label="Sagla"
+                  variant="secondary"
+                  disabled={!selectedNodeId}
+                  onPress={() => mergeSelectedPanel('right')}
+                  style={styles.flexButton}
+                />
+              </View>
+              <View style={styles.row}>
+                <AppButton
+                  label="Ustle"
+                  variant="secondary"
+                  disabled={!selectedNodeId}
+                  onPress={() => mergeSelectedPanel('top')}
+                  style={styles.flexButton}
+                />
+                <AppButton
+                  label="Altla"
+                  variant="secondary"
+                  disabled={!selectedNodeId}
+                  onPress={() => mergeSelectedPanel('bottom')}
+                  style={styles.flexButton}
+                />
+              </View>
+            </ToolSection>
+            <ToolSection title="Alan ekle">
+              <View style={styles.row}>
+                <AppButton
+                  label="Sola ekle"
+                  variant="secondary"
+                  disabled={!selectedNodeId}
+                  onPress={() => addPanelAtEdge('left')}
+                  style={styles.flexButton}
+                />
+                <AppButton
+                  label="Saga ekle"
+                  variant="secondary"
+                  disabled={!selectedNodeId}
+                  onPress={() => addPanelAtEdge('right')}
+                  style={styles.flexButton}
+                />
+              </View>
+              <View style={styles.row}>
+                <AppButton
+                  label="Uste ekle"
+                  variant="secondary"
+                  disabled={!selectedNodeId}
+                  onPress={() => addPanelAtEdge('top')}
+                  style={styles.flexButton}
+                />
+                <AppButton
+                  label="Alta ekle"
+                  variant="secondary"
+                  disabled={!selectedNodeId}
+                  onPress={() => addPanelAtEdge('bottom')}
+                  style={styles.flexButton}
+                />
+              </View>
+            </ToolSection>
             {canAdjustArch ? (
-              <>
-                <Text style={styles.toolTitle}>Kavis</Text>
+              <ToolSection title="Kavis">
                 <View style={styles.row}>
                   <AppButton
                     label="Kavis -150"
@@ -223,21 +227,22 @@ export function DesignEditorScreen() {
                     style={styles.flexButton}
                   />
                 </View>
-              </>
+              </ToolSection>
             ) : null}
-            <Text style={styles.toolTitle}>Acilim tipi</Text>
-            <View style={styles.optionGrid}>
-              {openingOptions.map((option) => (
-                <AppButton
-                  key={option.value}
-                  label={option.label}
-                  variant="secondary"
-                  disabled={!selectedNodeId}
-                  onPress={() => updateSelectedOpening(option.value)}
-                  style={styles.optionButton}
-                />
-              ))}
-            </View>
+            <ToolSection title="Acilim tipi">
+              <View style={styles.optionGrid}>
+                {openingOptions.map((option) => (
+                  <AppButton
+                    key={option.value}
+                    label={option.label}
+                    variant="secondary"
+                    disabled={!selectedNodeId}
+                    onPress={() => updateSelectedOpening(option.value)}
+                    style={styles.optionButton}
+                  />
+                ))}
+              </View>
+            </ToolSection>
             {saveMessage ? <Text style={styles.success}>{saveMessage}</Text> : null}
             {error ? <Text style={styles.error}>{error}</Text> : null}
           </View>
@@ -251,6 +256,15 @@ export function DesignEditorScreen() {
         </ScrollView>
       </View>
     </AppScreen>
+  );
+}
+
+function ToolSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <View style={styles.toolSection}>
+      <Text style={styles.toolTitle}>{title}</Text>
+      {children}
+    </View>
   );
 }
 
@@ -345,6 +359,9 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
   },
   tools: {
+    gap: spacing.md,
+  },
+  toolSection: {
     gap: spacing.sm,
   },
   row: {
