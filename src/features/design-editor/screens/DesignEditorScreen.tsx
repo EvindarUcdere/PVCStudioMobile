@@ -17,6 +17,7 @@ import {
 import { isArchTopFrame } from '../../../domain/designs/utils/frameShape';
 import { colors, radius, spacing, typography } from '../../../theme';
 import { DesignCanvas } from '../components/DesignCanvas';
+import { DesignMaterialSummaryCard } from '../components/DesignMaterialSummaryCard';
 import { SelectedPanelSheet } from '../components/SelectedPanelSheet';
 import { useDesignEditor } from '../hooks/useDesignEditor';
 
@@ -252,6 +253,7 @@ export function DesignEditorScreen() {
             onChangeCustomColor={setCustomColor}
             onSelectColor={updateSelectedProfileColor}
           />
+          <DesignMaterialSummaryCard design={design} />
           <SelectedPanelSheet design={design} selectedNodeId={selectedNodeId} />
         </ScrollView>
       </View>

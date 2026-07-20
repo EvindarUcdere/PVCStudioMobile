@@ -56,7 +56,7 @@ export function SelectedPanelSheet({ design, selectedNodeId }: SelectedPanelShee
 
   return (
     <View style={styles.sheet}>
-      <Text style={styles.title}>Secili Bolum</Text>
+      <Text style={styles.title}>Secili Panel Detayi</Text>
       {measurements ? (
         <View style={styles.measureSummary}>
           <View style={styles.measureBox}>
