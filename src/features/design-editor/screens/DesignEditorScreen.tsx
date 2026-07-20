@@ -84,6 +84,18 @@ export function DesignEditorScreen() {
     }, []),
   );
 
+  async function openQuote() {
+    if (!design || isSaving) {
+      return;
+    }
+
+    if (isDirty) {
+      await saveDesign();
+    }
+
+    router.push(routes.designQuote(design.id));
+  }
+
   if (isLoading) {
     return (
       <AppScreen centered scroll={false}>
@@ -152,6 +164,12 @@ export function DesignEditorScreen() {
                 disabled={!isDirty}
                 loading={isSaving}
                 onPress={() => void saveDesign()}
+              />
+              <AppButton
+                label="Teklif Olustur"
+                variant="secondary"
+                disabled={isSaving}
+                onPress={() => void openQuote()}
               />
             </ToolSection>
             <ToolSection title="Bol ve kaldir">
