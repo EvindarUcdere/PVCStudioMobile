@@ -1,6 +1,6 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Linking, Platform, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { AppButton } from '../../../components/ui/AppButton';
 import { AppCard } from '../../../components/ui/AppCard';
@@ -96,6 +96,65 @@ export function QuotePreviewScreen() {
     }
   }
 
+  async function sendSmsQuote() {
+    if (!design || !estimate) {
+      return;
+    }
+
+    const phone = normalizePhone(customerPhone);
+    if (!phone) {
+      setError('SMS icin musteri telefonu girilmeli.');
+      return;
+    }
+
+    const body = encodeURIComponent(
+      buildQuoteMessage({
+        design,
+        estimate,
+        customerName,
+        customerPhone,
+        note,
+      }),
+    );
+    const separator = Platform.OS === 'ios' ? '&' : '?';
+
+    try {
+      await Linking.openURL(`sms:${phone}${separator}body=${body}`);
+    } catch (smsError) {
+      logger.error('Quote SMS failed', smsError);
+      setError('SMS uygulamasi acilamadi.');
+    }
+  }
+
+  async function sendWhatsAppQuote() {
+    if (!design || !estimate) {
+      return;
+    }
+
+    const phone = normalizeTurkishWhatsAppPhone(customerPhone);
+    if (!phone) {
+      setError('WhatsApp icin musteri telefonu girilmeli.');
+      return;
+    }
+
+    const text = encodeURIComponent(
+      buildQuoteMessage({
+        design,
+        estimate,
+        customerName,
+        customerPhone,
+        note,
+      }),
+    );
+
+    try {
+      await Linking.openURL(`https://wa.me/${phone}?text=${text}`);
+    } catch (whatsAppError) {
+      logger.error('Quote WhatsApp failed', whatsAppError);
+      setError('WhatsApp acilamadi.');
+    }
+  }
+
   if (isLoading) {
     return (
       <AppScreen centered>
@@ -181,6 +240,22 @@ export function QuotePreviewScreen() {
       </AppCard>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
+      <View style={styles.actionRow}>
+        <AppButton
+          label="WhatsApp Gonder"
+          variant="secondary"
+          disabled={isSharing}
+          onPress={() => void sendWhatsAppQuote()}
+          style={styles.actionButton}
+        />
+        <AppButton
+          label="SMS Gonder"
+          variant="secondary"
+          disabled={isSharing}
+          onPress={() => void sendSmsQuote()}
+          style={styles.actionButton}
+        />
+      </View>
       <AppButton label="Teklifi Paylas" loading={isSharing} disabled={isSharing} onPress={() => void shareQuote()} />
       <AppButton label="Tasarimi Duzenle" variant="secondary" onPress={() => router.push(routes.designEditor(design.id))} />
     </AppScreen>
@@ -231,6 +306,32 @@ function formatCurrency(value: number): string {
   return `${Math.round(value).toLocaleString('tr-TR')} TL`;
 }
 
+function normalizePhone(value: string): string {
+  return value.replace(/[^\d+]/g, '');
+}
+
+function normalizeTurkishWhatsAppPhone(value: string): string {
+  const phone = normalizePhone(value);
+
+  if (phone.startsWith('+')) {
+    return phone.slice(1);
+  }
+
+  if (phone.startsWith('00')) {
+    return phone.slice(2);
+  }
+
+  if (phone.startsWith('0') && phone.length === 11) {
+    return `90${phone.slice(1)}`;
+  }
+
+  if (phone.length === 10) {
+    return `90${phone}`;
+  }
+
+  return phone;
+}
+
 const styles = StyleSheet.create({
   formCard: {
     gap: spacing.sm,
@@ -240,6 +341,13 @@ const styles = StyleSheet.create({
   },
   breakdownCard: {
     gap: spacing.sm,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  actionButton: {
+    flex: 1,
   },
   sectionTitle: {
     ...typography.heading,
