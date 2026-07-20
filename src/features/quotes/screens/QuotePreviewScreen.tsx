@@ -22,6 +22,7 @@ import {
 import { Quote } from '../../../domain/quotes/entities/Quote';
 import { logger } from '../../../services/logger';
 import { colors, radius, spacing, typography } from '../../../theme';
+import { shareCustomerQuotePdf, shareProductionPdf } from '../services/pdfService';
 
 export function QuotePreviewScreen() {
   const { designId } = useLocalSearchParams<{ designId: string }>();
@@ -34,6 +35,7 @@ export function QuotePreviewScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
+  const [isPdfSharing, setIsPdfSharing] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -180,6 +182,39 @@ export function QuotePreviewScreen() {
     }
   }
 
+  async function shareCustomerPdf() {
+    if (!design || !estimate || isPdfSharing) {
+      return;
+    }
+
+    setIsPdfSharing(true);
+    try {
+      await saveCurrentQuote('sent');
+      await shareCustomerQuotePdf({ design, estimate, customerName, customerPhone, note });
+    } catch (pdfError) {
+      logger.error('Customer quote PDF share failed', pdfError);
+      setError('Teklif PDF paylasilamadi.');
+    } finally {
+      setIsPdfSharing(false);
+    }
+  }
+
+  async function shareProductionForm() {
+    if (!design || !estimate || isPdfSharing) {
+      return;
+    }
+
+    setIsPdfSharing(true);
+    try {
+      await shareProductionPdf({ design, estimate, customerName, customerPhone, note });
+    } catch (pdfError) {
+      logger.error('Production PDF share failed', pdfError);
+      setError('Imalat PDF paylasilamadi.');
+    } finally {
+      setIsPdfSharing(false);
+    }
+  }
+
   async function saveCurrentQuote(status: Quote['status']): Promise<Quote | null> {
     if (!design || !estimate) {
       return null;
@@ -322,6 +357,24 @@ export function QuotePreviewScreen() {
       </View>
       <AppButton label="Teklifi Kaydet" loading={isSaving} disabled={isSaving} onPress={() => void saveDraftQuote()} />
       <AppButton label="Teklifi Paylas" loading={isSharing} disabled={isSharing} onPress={() => void shareQuote()} />
+      <View style={styles.actionRow}>
+        <AppButton
+          label="Teklif PDF"
+          variant="secondary"
+          loading={isPdfSharing}
+          disabled={isPdfSharing}
+          onPress={() => void shareCustomerPdf()}
+          style={styles.actionButton}
+        />
+        <AppButton
+          label="Imalat PDF"
+          variant="secondary"
+          loading={isPdfSharing}
+          disabled={isPdfSharing}
+          onPress={() => void shareProductionForm()}
+          style={styles.actionButton}
+        />
+      </View>
       <AppButton label="Tasarimi Duzenle" variant="secondary" onPress={() => router.push(routes.designEditor(design.id))} />
     </AppScreen>
   );

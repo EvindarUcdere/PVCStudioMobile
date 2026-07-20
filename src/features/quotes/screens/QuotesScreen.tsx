@@ -12,6 +12,7 @@ import { createQuoteRepository } from '../../../database/repositories/createRepo
 import { Quote, QuoteStatus } from '../../../domain/quotes/entities/Quote';
 import { logger } from '../../../services/logger';
 import { colors, radius, spacing, typography } from '../../../theme';
+import { shareCustomerQuotePdf } from '../services/pdfService';
 
 const statusLabels: Record<QuoteStatus, string> = {
   draft: 'Taslak',
@@ -66,6 +67,16 @@ export function QuotesScreen() {
     }
   }
 
+  async function shareQuotePdf(quote: Quote) {
+    try {
+      await shareCustomerQuotePdf({ quote });
+      await updateStatus(quote, 'sent');
+    } catch (shareError) {
+      logger.error('Saved quote PDF share failed', shareError);
+      setError('Teklif PDF paylasilamadi.');
+    }
+  }
+
   return (
     <AppScreen scroll={false}>
       <AppHeader
@@ -93,6 +104,7 @@ export function QuotesScreen() {
               quote={item}
               onOpenDesign={() => router.push(routes.designDetails(item.designId))}
               onShare={() => void shareQuote(item)}
+              onSharePdf={() => void shareQuotePdf(item)}
               onAccept={() => void updateStatus(item, 'accepted')}
               onReject={() => void updateStatus(item, 'rejected')}
             />
@@ -114,12 +126,14 @@ function QuoteCard({
   quote,
   onOpenDesign,
   onShare,
+  onSharePdf,
   onAccept,
   onReject,
 }: {
   quote: Quote;
   onOpenDesign: () => void;
   onShare: () => void;
+  onSharePdf: () => void;
   onAccept: () => void;
   onReject: () => void;
 }) {
@@ -142,9 +156,10 @@ function QuoteCard({
       <Text style={styles.date}>Guncellendi: {new Date(quote.updatedAt).toLocaleDateString('tr-TR')}</Text>
       <View style={styles.actions}>
         <AppButton label="Paylas" onPress={onShare} style={styles.actionButton} />
-        <AppButton label="Tasarim" variant="secondary" onPress={onOpenDesign} style={styles.actionButton} />
+        <AppButton label="PDF" variant="secondary" onPress={onSharePdf} style={styles.actionButton} />
       </View>
       <View style={styles.actions}>
+        <AppButton label="Tasarim" variant="secondary" onPress={onOpenDesign} style={styles.actionButton} />
         <AppButton
           label="Kabul"
           variant="secondary"
@@ -152,6 +167,8 @@ function QuoteCard({
           onPress={onAccept}
           style={styles.actionButton}
         />
+      </View>
+      <View style={styles.actions}>
         <AppButton
           label="Red"
           variant="secondary"
