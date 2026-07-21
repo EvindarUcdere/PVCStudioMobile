@@ -1,12 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { AppButton } from '../../../components/ui/AppButton';
 import { AppCard } from '../../../components/ui/AppCard';
 import { AppHeader } from '../../../components/ui/AppHeader';
 import { AppScreen } from '../../../components/ui/AppScreen';
 import { routes } from '../../../constants/routes';
 import { isFirebaseConfigured } from '../../../services/firebase/firebaseConfig';
+import {
+  backupAllLocalDataToCloud,
+  restoreAllCloudDataToLocal,
+} from '../../../services/firebase/fullSyncService';
 import { colors, spacing, typography } from '../../../theme';
 
 type MoreOption = {
@@ -38,6 +44,55 @@ const options: MoreOption[] = [
 
 export function MoreScreen() {
   const firebaseReady = isFirebaseConfigured();
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
+
+  async function backupAll() {
+    if (!firebaseReady) {
+      setSyncError('Firebase config girilmedi. Once .env dosyasini doldurun.');
+      setSyncMessage(null);
+      return;
+    }
+
+    setIsSyncing(true);
+    setSyncError(null);
+    setSyncMessage(null);
+    try {
+      const result = await backupAllLocalDataToCloud();
+      if (!result) {
+        setSyncError('Bulut yedegi basarisiz oldu.');
+        return;
+      }
+
+      setSyncMessage(`${result.designs} tasarim, ${result.quotes} teklif buluta yedeklendi.`);
+    } finally {
+      setIsSyncing(false);
+    }
+  }
+
+  async function restoreAll() {
+    if (!firebaseReady) {
+      setSyncError('Firebase config girilmedi. Once .env dosyasini doldurun.');
+      setSyncMessage(null);
+      return;
+    }
+
+    setIsSyncing(true);
+    setSyncError(null);
+    setSyncMessage(null);
+    try {
+      const result = await restoreAllCloudDataToLocal();
+      if (!result) {
+        setSyncError('Buluttan geri yukleme basarisiz oldu.');
+        return;
+      }
+
+      setSyncMessage(`${result.designs} tasarim, ${result.quotes} teklif cihaza alindi.`);
+    } finally {
+      setIsSyncing(false);
+    }
+  }
 
   return (
     <AppScreen>
@@ -55,6 +110,25 @@ export function MoreScreen() {
           </Text>
         </View>
       </View>
+      <View style={styles.syncActions}>
+        <AppButton
+          label="Tam Bulut Yedegi"
+          variant="secondary"
+          loading={isSyncing}
+          disabled={isSyncing}
+          onPress={() => void backupAll()}
+          style={styles.syncButton}
+        />
+        <AppButton
+          label="Buluttan Geri Yukle"
+          variant="secondary"
+          disabled={isSyncing}
+          onPress={() => void restoreAll()}
+          style={styles.syncButton}
+        />
+      </View>
+      {syncMessage ? <Text style={styles.success}>{syncMessage}</Text> : null}
+      {syncError ? <Text style={styles.error}>{syncError}</Text> : null}
       <View style={styles.list}>
         {options.map((option) => (
           <AppCard key={option.title} onPress={option.onPress}>
@@ -96,6 +170,24 @@ const styles = StyleSheet.create({
   statusCaption: {
     ...typography.caption,
     color: colors.textSecondary,
+  },
+  syncActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  syncButton: {
+    flex: 1,
+  },
+  success: {
+    ...typography.caption,
+    color: colors.success,
+    marginBottom: spacing.sm,
+  },
+  error: {
+    ...typography.caption,
+    color: colors.error,
+    marginBottom: spacing.sm,
   },
   optionRow: {
     alignItems: 'center',
