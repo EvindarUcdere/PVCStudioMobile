@@ -62,6 +62,20 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
   });
 
   batch.set(
+    userDoc,
+    {
+      uid: user.uid,
+      pricingSettings,
+      syncSummary: {
+        designCount: designs.length,
+        quoteCount: quotes.length,
+        pricingSettings: true,
+      },
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
+  batch.set(
     doc(userDoc, 'settings', 'pricing-settings'),
     {
       settings: pricingSettings,
