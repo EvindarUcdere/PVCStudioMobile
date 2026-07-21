@@ -6,6 +6,7 @@ export const routes = {
   more: '/more',
   quotes: '/quotes',
   pricingSettings: '/pricing-settings',
+  companyProfile: '/company-profile',
   templateDetails: (templateId: string) => `/templates/${templateId}`,
   createDesignFromTemplate: (templateId: string) => `/templates/${templateId}/create`,
   designDetails: (designId: string) => `/designs/${designId}`,

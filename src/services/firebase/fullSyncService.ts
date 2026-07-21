@@ -1,7 +1,9 @@
 import { Firestore, collection, doc, getDocs, serverTimestamp, writeBatch } from 'firebase/firestore';
 
 import { createDesignRepository, createQuoteRepository } from '../../database/repositories/createRepositories';
+import { getCompanyProfile, saveCompanyProfile } from '../../database/repositories/CompanyProfileRepository';
 import { getPricingSettings, savePricingSettings } from '../../database/repositories/PricingSettingsRepository';
+import { CompanyProfile } from '../../domain/company/entities/CompanyProfile';
 import { DesignProject } from '../../domain/designs/entities/DesignProject';
 import { PriceEstimateRates } from '../../domain/designs/pricing/calculateDesignPriceEstimate';
 import { Quote } from '../../domain/quotes/entities/Quote';
@@ -14,6 +16,7 @@ export type FullSyncResult = {
   designs: number;
   quotes: number;
   pricingSettings: boolean;
+  companyProfile: boolean;
 };
 
 type CloudDesignDocument = {
@@ -30,6 +33,10 @@ type CloudPricingDocument = {
   settings: PriceEstimateRates;
 };
 
+type CloudCompanyProfileDocument = {
+  profile: CompanyProfile;
+};
+
 export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null> {
   const services = getFirebaseServices();
   const user = await ensureFirebaseUser();
@@ -43,6 +50,7 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
   const designs = await designRepository.list({ includeDeleted: true, limit: 1000 });
   const quotes = await quoteRepository.list({ limit: 1000 });
   const pricingSettings = await getPricingSettings();
+  const companyProfile = await getCompanyProfile();
   const batch = writeBatch(services.firestore);
   const userDoc = doc(services.firestore, 'users', user.uid);
 
@@ -67,10 +75,12 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
     {
       uid: user.uid,
       pricingSettings,
+      companyProfile,
       syncSummary: {
         designCount: designs.length,
         quoteCount: quotes.length,
         pricingSettings: true,
+        companyProfile: true,
       },
       updatedAt: serverTimestamp(),
     },
@@ -85,10 +95,20 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
     { merge: true },
   );
   batch.set(
+    doc(userDoc, 'settings', 'company-profile'),
+    {
+      profile: companyProfile,
+      syncedAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
+  batch.set(
     doc(userDoc, 'sync', 'summary'),
     {
       designCount: designs.length,
       quoteCount: quotes.length,
+      pricingSettings: true,
+      companyProfile: true,
       updatedAt: serverTimestamp(),
     },
     { merge: true },
@@ -101,6 +121,7 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
       designs: designs.length,
       quotes: quotes.length,
       pricingSettings: true,
+      companyProfile: true,
     };
   } catch (error) {
     logger.error('Full cloud backup failed', error);
@@ -168,6 +189,7 @@ export async function restoreAllCloudDataToLocal(): Promise<FullSyncResult | nul
     let restoredDesigns = 0;
     let restoredQuotes = 0;
     let restoredPricingSettings = false;
+    let restoredCompanyProfile = false;
 
     for (const snapshot of designSnapshots.docs) {
       const document = snapshot.data() as CloudDesignDocument;
@@ -223,11 +245,21 @@ export async function restoreAllCloudDataToLocal(): Promise<FullSyncResult | nul
       }
     }
 
+    const companyProfileDocument = pricingSnapshots.docs.find((snapshot) => snapshot.id === 'company-profile');
+    if (companyProfileDocument) {
+      const data = companyProfileDocument.data() as CloudCompanyProfileDocument;
+      if (data.profile) {
+        await saveCompanyProfile(data.profile);
+        restoredCompanyProfile = true;
+      }
+    }
+
     return {
       userId: user.uid,
       designs: restoredDesigns,
       quotes: restoredQuotes,
       pricingSettings: restoredPricingSettings,
+      companyProfile: restoredCompanyProfile,
     };
   } catch (error) {
     logger.error('Full cloud restore failed', error);

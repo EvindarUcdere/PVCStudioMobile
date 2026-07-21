@@ -1,6 +1,8 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
+import { getCompanyProfile } from '../../../database/repositories/CompanyProfileRepository';
+import { CompanyProfile, defaultCompanyProfile } from '../../../domain/company/entities/CompanyProfile';
 import { DesignProject } from '../../../domain/designs/entities/DesignProject';
 import { getDesignProfileColor } from '../../../domain/designs/colors/profileColorOptions';
 import { calculateDesignLayout } from '../../../domain/designs/layout/calculateDesignLayout';
@@ -21,12 +23,17 @@ export type SavedQuotePdfInput = {
 };
 
 export async function shareCustomerQuotePdf(input: QuotePdfInput | SavedQuotePdfInput): Promise<void> {
-  const html = 'quote' in input ? buildSavedCustomerQuoteHtml(input.quote) : buildCustomerQuoteHtml(input);
+  const companyProfile = await getCompanyProfile();
+  const html =
+    'quote' in input
+      ? buildSavedCustomerQuoteHtml(input.quote, companyProfile)
+      : buildCustomerQuoteHtml(input, companyProfile);
   await printAndShare(html, 'PVC teklif.pdf');
 }
 
 export async function shareProductionPdf(input: QuotePdfInput): Promise<void> {
-  const html = buildProductionHtml(input);
+  const companyProfile = await getCompanyProfile();
+  const html = buildProductionHtml(input, companyProfile);
   await printAndShare(html, 'PVC imalat formu.pdf');
 }
 
@@ -48,10 +55,11 @@ function buildCustomerQuoteHtml({
   customerName,
   customerPhone,
   note,
-}: QuotePdfInput): string {
+}: QuotePdfInput, companyProfile: CompanyProfile): string {
   return pageTemplate({
     title: 'PVC Teklif Formu',
     subtitle: design.name,
+    companyProfile,
     body: `
       ${customerBlock(customerName, customerPhone, note)}
       ${totalBlock(estimate.total)}
@@ -70,15 +78,17 @@ function buildCustomerQuoteHtml({
         ['Aksam/kayit', formatCurrency(estimate.hardwareSubtotal)],
         ['Kemer farki', formatCurrency(estimate.archSubtotal)],
       ])}
-      <p class="muted">Bu teklif on tahmindir. Kesin fiyat, yerinde olcu ve nihai malzeme seciminden sonra netlesir.</p>
+      <p class="muted">${escapeHtml(companyProfile.pdfNote || defaultCompanyProfile.pdfNote)}</p>
+      <p class="muted">Teklif gecerlilik suresi: ${companyProfile.quoteValidityDays} gun.</p>
     `,
   });
 }
 
-function buildSavedCustomerQuoteHtml(quote: Quote): string {
+function buildSavedCustomerQuoteHtml(quote: Quote, companyProfile: CompanyProfile): string {
   return pageTemplate({
     title: 'PVC Teklif Formu',
     subtitle: quote.designName,
+    companyProfile,
     body: `
       ${customerBlock(quote.customerName ?? '', quote.customerPhone ?? '', quote.note ?? '')}
       ${totalBlock(quote.total)}
@@ -97,7 +107,10 @@ function buildSavedCustomerQuoteHtml(quote: Quote): string {
   });
 }
 
-function buildProductionHtml({ design, estimate, customerName, customerPhone, note }: QuotePdfInput): string {
+function buildProductionHtml(
+  { design, estimate, customerName, customerPhone, note }: QuotePdfInput,
+  companyProfile: CompanyProfile,
+): string {
   const summary = calculateDesignMaterialSummary(design);
   const panelRows = summary.panels
     .map(
@@ -117,6 +130,7 @@ function buildProductionHtml({ design, estimate, customerName, customerPhone, no
   return pageTemplate({
     title: 'PVC Imalat Formu',
     subtitle: design.name,
+    companyProfile,
     body: `
       ${customerBlock(customerName, customerPhone, note)}
       <div class="drawing">
@@ -158,7 +172,17 @@ function buildProductionHtml({ design, estimate, customerName, customerPhone, no
   });
 }
 
-function pageTemplate({ title, subtitle, body }: { title: string; subtitle: string; body: string }): string {
+function pageTemplate({
+  title,
+  subtitle,
+  companyProfile,
+  body,
+}: {
+  title: string;
+  subtitle: string;
+  companyProfile: CompanyProfile;
+  body: string;
+}): string {
   return `
     <!doctype html>
     <html>
@@ -170,6 +194,9 @@ function pageTemplate({ title, subtitle, body }: { title: string; subtitle: stri
           h2 { border-bottom: 1px solid #d9e2dc; font-size: 17px; margin: 24px 0 10px; padding-bottom: 6px; }
           .subtitle { color: #60716a; margin-top: 4px; }
           .meta { color: #60716a; font-size: 12px; margin-top: 8px; }
+          .company { background: #f6faf7; border: 1px solid #d9e2dc; border-radius: 8px; margin-bottom: 18px; padding: 12px; }
+          .company-name { font-size: 18px; font-weight: 700; }
+          .company-detail { color: #60716a; font-size: 12px; margin-top: 3px; }
           .total { background: #157A69; border-radius: 8px; color: white; margin: 18px 0; padding: 16px; }
           .total .label { font-size: 12px; opacity: 0.9; }
           .total .value { font-size: 30px; font-weight: 700; margin-top: 4px; }
@@ -187,12 +214,29 @@ function pageTemplate({ title, subtitle, body }: { title: string; subtitle: stri
         </style>
       </head>
       <body>
+        ${companyBlock(companyProfile)}
         <h1>${escapeHtml(title)}</h1>
         <div class="subtitle">${escapeHtml(subtitle)}</div>
         <div class="meta">Tarih: ${new Date().toLocaleDateString('tr-TR')}</div>
         ${body}
       </body>
     </html>
+  `;
+}
+
+function companyBlock(companyProfile: CompanyProfile): string {
+  if (!companyProfile.companyName && !companyProfile.ownerName && !companyProfile.phone && !companyProfile.address) {
+    return '';
+  }
+
+  return `
+    <div class="company">
+      <div class="company-name">${escapeHtml(companyProfile.companyName || 'Firma')}</div>
+      ${companyProfile.ownerName ? `<div class="company-detail">Yetkili: ${escapeHtml(companyProfile.ownerName)}</div>` : ''}
+      ${companyProfile.phone ? `<div class="company-detail">Telefon: ${escapeHtml(companyProfile.phone)}</div>` : ''}
+      ${companyProfile.address ? `<div class="company-detail">Adres: ${escapeHtml(companyProfile.address)}</div>` : ''}
+      ${companyProfile.taxInfo ? `<div class="company-detail">${escapeHtml(companyProfile.taxInfo)}</div>` : ''}
+    </div>
   `;
 }
 

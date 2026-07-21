@@ -35,7 +35,12 @@ const options: MoreOption[] = [
     state: 'Ac',
     onPress: () => router.push(routes.pricingSettings),
   },
-  { title: 'Firma Bilgileri', icon: 'business-outline' },
+  {
+    title: 'Firma Bilgileri',
+    icon: 'business-outline',
+    state: 'Ac',
+    onPress: () => router.push(routes.companyProfile),
+  },
   { title: 'Profil Kutuphanesi', icon: 'layers-outline' },
   { title: 'Cam Kutuphanesi', icon: 'grid-outline' },
   { title: 'Uygulama Ayarlari', icon: 'settings-outline' },

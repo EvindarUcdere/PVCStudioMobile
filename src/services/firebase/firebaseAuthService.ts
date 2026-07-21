@@ -1,4 +1,11 @@
-import { User, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
+import {
+  User,
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  signInAnonymously,
+  signInWithEmailAndPassword,
+  signOut,
+} from 'firebase/auth';
 
 import { logger } from '../logger';
 import { getFirebaseServices } from './firebaseConfig';
@@ -32,4 +39,36 @@ export function subscribeFirebaseUser(callback: (user: User | null) => void): ()
   }
 
   return onAuthStateChanged(services.auth, callback);
+}
+
+export async function signInWithEmail(email: string, password: string): Promise<User | null> {
+  const services = getFirebaseServices();
+
+  if (!services) {
+    return null;
+  }
+
+  const credential = await signInWithEmailAndPassword(services.auth, email.trim(), password);
+  return credential.user;
+}
+
+export async function registerWithEmail(email: string, password: string): Promise<User | null> {
+  const services = getFirebaseServices();
+
+  if (!services) {
+    return null;
+  }
+
+  const credential = await createUserWithEmailAndPassword(services.auth, email.trim(), password);
+  return credential.user;
+}
+
+export async function signOutFirebaseUser(): Promise<void> {
+  const services = getFirebaseServices();
+
+  if (!services) {
+    return;
+  }
+
+  await signOut(services.auth);
 }
