@@ -6,6 +6,7 @@ import { AppCard } from '../../../components/ui/AppCard';
 import { AppHeader } from '../../../components/ui/AppHeader';
 import { AppScreen } from '../../../components/ui/AppScreen';
 import { routes } from '../../../constants/routes';
+import { isFirebaseConfigured } from '../../../services/firebase/firebaseConfig';
 import { colors, spacing, typography } from '../../../theme';
 
 type MoreOption = {
@@ -36,9 +37,24 @@ const options: MoreOption[] = [
 ];
 
 export function MoreScreen() {
+  const firebaseReady = isFirebaseConfigured();
+
   return (
     <AppScreen>
       <AppHeader title="Diger" subtitle="Uygulama ayarlari ve kutuphaneler burada yer alacak." />
+      <View style={styles.statusCard}>
+        <Ionicons
+          name={firebaseReady ? 'cloud-done-outline' : 'cloud-offline-outline'}
+          size={22}
+          color={firebaseReady ? colors.success : colors.textSecondary}
+        />
+        <View style={styles.statusText}>
+          <Text style={styles.statusTitle}>Firebase</Text>
+          <Text style={styles.statusCaption}>
+            {firebaseReady ? 'Bulut yedekleme hazir' : 'Config girilmedi, lokal mod aktif'}
+          </Text>
+        </View>
+      </View>
       <View style={styles.list}>
         {options.map((option) => (
           <AppCard key={option.title} onPress={option.onPress}>
@@ -57,6 +73,29 @@ export function MoreScreen() {
 const styles = StyleSheet.create({
   list: {
     gap: spacing.sm,
+  },
+  statusCard: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginBottom: spacing.md,
+    padding: spacing.md,
+  },
+  statusText: {
+    flex: 1,
+  },
+  statusTitle: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontWeight: '700',
+  },
+  statusCaption: {
+    ...typography.caption,
+    color: colors.textSecondary,
   },
   optionRow: {
     alignItems: 'center',

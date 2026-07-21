@@ -16,6 +16,11 @@ import {
   PriceEstimateRates,
   ProfileSystemPriceOption,
 } from '../../../domain/designs/pricing/calculateDesignPriceEstimate';
+import {
+  backupPricingSettingsToCloud,
+  restorePricingSettingsFromCloud,
+} from '../../../services/firebase/pricingSettingsCloudService';
+import { isFirebaseConfigured } from '../../../services/firebase/firebaseConfig';
 import { logger } from '../../../services/logger';
 import { colors, radius, spacing, typography } from '../../../theme';
 
@@ -34,6 +39,7 @@ export function PricingSettingsScreen() {
   const [values, setValues] = useState<FormValues>(toFormValues(defaultPriceEstimateRates));
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -90,6 +96,63 @@ export function PricingSettingsScreen() {
       setError('Fiyat ayarlari kaydedilemedi.');
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function backupToCloud() {
+    const parsed = parseFormValues(settings, values);
+    if (!parsed) {
+      setError('Buluta yedeklemek icin once fiyat alanlarini duzeltin.');
+      return;
+    }
+
+    if (!isFirebaseConfigured()) {
+      setError('Firebase ayarlari eksik. .env dosyasina Firebase config degerleri girilmeli.');
+      return;
+    }
+
+    setIsSyncing(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const savedSettings = await savePricingSettings(parsed);
+      setSettings(savedSettings);
+      setValues(toFormValues(savedSettings));
+      const backedUp = await backupPricingSettingsToCloud(savedSettings);
+      setMessage(backedUp ? 'Fiyat ayarlari buluta yedeklendi.' : 'Bulut yedegi yapilamadi.');
+    } catch (syncError) {
+      logger.error('Pricing settings cloud backup failed', syncError);
+      setError('Buluta yedekleme basarisiz oldu.');
+    } finally {
+      setIsSyncing(false);
+    }
+  }
+
+  async function restoreFromCloud() {
+    if (!isFirebaseConfigured()) {
+      setError('Firebase ayarlari eksik. .env dosyasina Firebase config degerleri girilmeli.');
+      return;
+    }
+
+    setIsSyncing(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const cloudSettings = await restorePricingSettingsFromCloud();
+      if (!cloudSettings) {
+        setError('Bulutta fiyat ayari bulunamadi.');
+        return;
+      }
+
+      const savedSettings = await savePricingSettings(cloudSettings);
+      setSettings(savedSettings);
+      setValues(toFormValues(savedSettings));
+      setMessage('Buluttaki fiyat ayarlari cihaza alindi.');
+    } catch (syncError) {
+      logger.error('Pricing settings cloud restore failed', syncError);
+      setError('Buluttan alma basarisiz oldu.');
+    } finally {
+      setIsSyncing(false);
     }
   }
 
@@ -190,6 +253,23 @@ export function PricingSettingsScreen() {
           {message ? <Text style={styles.success}>{message}</Text> : null}
           {error ? <Text style={styles.error}>{error}</Text> : null}
           <AppButton label="Kaydet" loading={isSaving} disabled={isSaving} onPress={() => void save()} />
+          <View style={styles.cloudActions}>
+            <AppButton
+              label="Buluta Yedekle"
+              variant="secondary"
+              loading={isSyncing}
+              disabled={isSyncing}
+              onPress={() => void backupToCloud()}
+              style={styles.cloudButton}
+            />
+            <AppButton
+              label="Buluttan Al"
+              variant="secondary"
+              disabled={isSyncing}
+              onPress={() => void restoreFromCloud()}
+              style={styles.cloudButton}
+            />
+          </View>
           <AppButton label="Varsayilana Don" variant="secondary" disabled={isSaving} onPress={resetDefaults} />
           <AppButton label="Geri" variant="ghost" disabled={isSaving} onPress={() => router.back()} />
         </ScrollView>
@@ -410,5 +490,12 @@ const styles = StyleSheet.create({
   error: {
     ...typography.caption,
     color: colors.error,
+  },
+  cloudActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  cloudButton: {
+    flex: 1,
   },
 });
