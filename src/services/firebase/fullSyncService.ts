@@ -10,6 +10,7 @@ import { ensureFirebaseUser } from './firebaseAuthService';
 import { getFirebaseServices } from './firebaseConfig';
 
 export type FullSyncResult = {
+  userId: string;
   designs: number;
   quotes: number;
   pricingSettings: boolean;
@@ -96,6 +97,7 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
   try {
     await batch.commit();
     return {
+      userId: user.uid,
       designs: designs.length,
       quotes: quotes.length,
       pricingSettings: true,
@@ -180,6 +182,7 @@ export async function restoreAllCloudDataToLocal(): Promise<FullSyncResult | nul
     }
 
     return {
+      userId: user.uid,
       designs: restoredDesigns,
       quotes: restoredQuotes,
       pricingSettings: restoredPricingSettings,

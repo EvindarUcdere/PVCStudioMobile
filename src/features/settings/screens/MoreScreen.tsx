@@ -65,7 +65,9 @@ export function MoreScreen() {
         return;
       }
 
-      setSyncMessage(`${result.designs} tasarim, ${result.quotes} teklif buluta yedeklendi.`);
+      setSyncMessage(
+        `${result.designs} tasarim, ${result.quotes} teklif buluta yedeklendi. Firebase ID: ${result.userId}`,
+      );
     } finally {
       setIsSyncing(false);
     }
@@ -88,7 +90,9 @@ export function MoreScreen() {
         return;
       }
 
-      setSyncMessage(`${result.designs} tasarim, ${result.quotes} teklif cihaza alindi.`);
+      setSyncMessage(
+        `${result.designs} tasarim, ${result.quotes} teklif cihaza alindi. Firebase ID: ${result.userId}`,
+      );
     } finally {
       setIsSyncing(false);
     }
