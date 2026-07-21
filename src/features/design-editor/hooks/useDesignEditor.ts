@@ -22,6 +22,7 @@ import {
   updateProfileSystemSelection,
 } from '../../../domain/designs/utils/editDesignTree';
 import { logger } from '../../../services/logger';
+import { backupDesignToCloud } from '../../../services/firebase/fullSyncService';
 import { EditorSelection } from '../types/editorTypes';
 import { clearSelection, selectPanel } from '../utils/editorSelection';
 
@@ -367,6 +368,7 @@ export function useDesignEditor(designId: string | undefined) {
     try {
       const repository = await createDesignRepository();
       const savedDesign = await repository.update(state.design);
+      void backupDesignToCloud(savedDesign);
       setState((current) => ({
         ...current,
         design: savedDesign,

@@ -10,6 +10,7 @@ import { EmptyState } from '../../../components/ui/EmptyState';
 import { routes } from '../../../constants/routes';
 import { createQuoteRepository } from '../../../database/repositories/createRepositories';
 import { Quote, QuoteStatus } from '../../../domain/quotes/entities/Quote';
+import { backupQuoteToCloud } from '../../../services/firebase/fullSyncService';
 import { logger } from '../../../services/logger';
 import { colors, radius, spacing, typography } from '../../../theme';
 import { shareCustomerQuotePdf } from '../services/pdfService';
@@ -50,6 +51,7 @@ export function QuotesScreen() {
     try {
       const repository = await createQuoteRepository();
       const updated = await repository.updateStatus(quote.id, status);
+      void backupQuoteToCloud(updated);
       setQuotes((current) => current.map((item) => (item.id === updated.id ? updated : item)));
     } catch (statusError) {
       logger.error('Quote status update failed', statusError);

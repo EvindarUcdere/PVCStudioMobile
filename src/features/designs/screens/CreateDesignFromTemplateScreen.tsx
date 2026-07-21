@@ -22,6 +22,7 @@ import {
 } from '../../../database/repositories/createRepositories';
 import { createDesignFromTemplateInputSchema } from '../../../domain/templates/factories/createDesignFromTemplate';
 import { DesignTemplate } from '../../../domain/templates/entities/DesignTemplate';
+import { backupDesignToCloud } from '../../../services/firebase/fullSyncService';
 import { logger } from '../../../services/logger';
 import { colors, radius, spacing, typography } from '../../../theme';
 import { createTemplateService } from '../../templates/services/templateService';
@@ -111,6 +112,7 @@ export function CreateDesignFromTemplateScreen() {
       const designRepository = await createDesignRepository();
       const service = createTemplateService(templateRepository, designRepository);
       const project = await service.createDesign({ templateId: template.id, ...parsed.data });
+      void backupDesignToCloud(project);
       router.replace(routes.designDetails(project.id));
     } catch (saveError) {
       logger.error('Create design from template failed', saveError);

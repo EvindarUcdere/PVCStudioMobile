@@ -90,6 +90,7 @@ export function PricingSettingsScreen() {
       const savedSettings = await savePricingSettings(parsed);
       setSettings(savedSettings);
       setValues(toFormValues(savedSettings));
+      void backupPricingSettingsToCloud(savedSettings);
       setMessage('Fiyat ayarlari kaydedildi.');
     } catch (saveError) {
       logger.error('Pricing settings save failed', saveError);

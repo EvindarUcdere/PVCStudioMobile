@@ -1,4 +1,4 @@
-import { collection, doc, getDocs, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { Firestore, collection, doc, getDocs, serverTimestamp, writeBatch } from 'firebase/firestore';
 
 import { createDesignRepository, createQuoteRepository } from '../../database/repositories/createRepositories';
 import { getPricingSettings, savePricingSettings } from '../../database/repositories/PricingSettingsRepository';
@@ -108,6 +108,48 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
   }
 }
 
+export async function backupDesignToCloud(design: DesignProject): Promise<boolean> {
+  const services = getFirebaseServices();
+  const user = await ensureFirebaseUser();
+
+  if (!services || !user) {
+    return false;
+  }
+
+  try {
+    await setSingleDocument(services.firestore, user.uid, 'designs', design.id, {
+      data: design,
+      updatedAt: design.updatedAt,
+      syncedAt: serverTimestamp(),
+    });
+    return true;
+  } catch (error) {
+    logger.error('Design cloud backup failed', error);
+    return false;
+  }
+}
+
+export async function backupQuoteToCloud(quote: Quote): Promise<boolean> {
+  const services = getFirebaseServices();
+  const user = await ensureFirebaseUser();
+
+  if (!services || !user) {
+    return false;
+  }
+
+  try {
+    await setSingleDocument(services.firestore, user.uid, 'quotes', quote.id, {
+      data: quote,
+      updatedAt: quote.updatedAt,
+      syncedAt: serverTimestamp(),
+    });
+    return true;
+  } catch (error) {
+    logger.error('Quote cloud backup failed', error);
+    return false;
+  }
+}
+
 export async function restoreAllCloudDataToLocal(): Promise<FullSyncResult | null> {
   const services = getFirebaseServices();
   const user = await ensureFirebaseUser();
@@ -195,4 +237,25 @@ export async function restoreAllCloudDataToLocal(): Promise<FullSyncResult | nul
 
 function isCloudNewer(cloudUpdatedAt: string, localUpdatedAt: string): boolean {
   return new Date(cloudUpdatedAt).getTime() > new Date(localUpdatedAt).getTime();
+}
+
+async function setSingleDocument(
+  firestore: Firestore,
+  userId: string,
+  collectionName: 'designs' | 'quotes',
+  documentId: string,
+  data: unknown,
+): Promise<void> {
+  const batch = writeBatch(firestore);
+  const userDoc = doc(firestore, 'users', userId);
+  batch.set(doc(userDoc, collectionName, documentId), data);
+  batch.set(
+    userDoc,
+    {
+      uid: userId,
+      lastAutoSyncedAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
+  await batch.commit();
 }
