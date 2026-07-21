@@ -59,7 +59,9 @@ export function DesignEditorScreen() {
   } = useDesignEditor(designId);
   const [customColor, setCustomColor] = useState('#87552F');
   const [pricingRates, setPricingRates] = useState<PriceEstimateRates>(defaultPriceEstimateRates);
+  const [addPanelSize, setAddPanelSize] = useState('');
   const canAdjustArch = design?.rootNode.type === 'frame' && isArchTopFrame(design.rootNode);
+  const parsedAddPanelSize = parseOptionalPositiveNumber(addPanelSize);
 
   useFocusEffect(
     useCallback(() => {
@@ -231,19 +233,31 @@ export function DesignEditorScreen() {
               </View>
             </ToolSection>
             <ToolSection title="Alan ekle">
+              <View style={styles.addSizeRow}>
+                <TextInput
+                  accessibilityLabel="Eklenecek alan olcusu"
+                  keyboardType="numeric"
+                  onChangeText={setAddPanelSize}
+                  placeholder="Secili alan kadar"
+                  placeholderTextColor={colors.textSecondary}
+                  style={styles.addSizeInput}
+                  value={addPanelSize}
+                />
+                <Text style={styles.addSizeSuffix}>mm</Text>
+              </View>
               <View style={styles.row}>
                 <AppButton
                   label="Sola ekle"
                   variant="secondary"
                   disabled={!selectedNodeId}
-                  onPress={() => addPanelAtEdge('left')}
+                  onPress={() => addPanelAtEdge('left', parsedAddPanelSize)}
                   style={styles.flexButton}
                 />
                 <AppButton
                   label="Saga ekle"
                   variant="secondary"
                   disabled={!selectedNodeId}
-                  onPress={() => addPanelAtEdge('right')}
+                  onPress={() => addPanelAtEdge('right', parsedAddPanelSize)}
                   style={styles.flexButton}
                 />
               </View>
@@ -252,14 +266,14 @@ export function DesignEditorScreen() {
                   label="Uste ekle"
                   variant="secondary"
                   disabled={!selectedNodeId}
-                  onPress={() => addPanelAtEdge('top')}
+                  onPress={() => addPanelAtEdge('top', parsedAddPanelSize)}
                   style={styles.flexButton}
                 />
                 <AppButton
                   label="Alta ekle"
                   variant="secondary"
                   disabled={!selectedNodeId}
-                  onPress={() => addPanelAtEdge('bottom')}
+                  onPress={() => addPanelAtEdge('bottom', parsedAddPanelSize)}
                   style={styles.flexButton}
                 />
               </View>
@@ -400,6 +414,17 @@ const openingOptions: { label: string; value: OpeningType }[] = [
   { label: 'Surme sag', value: 'sliding-right' },
 ];
 
+function parseOptionalPositiveNumber(value: string): number | undefined {
+  const normalized = value.replace(',', '.').trim();
+
+  if (!normalized) {
+    return undefined;
+  }
+
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
 const styles = StyleSheet.create({
   content: {
     gap: spacing.md,
@@ -440,6 +465,27 @@ const styles = StyleSheet.create({
   optionButton: {
     minHeight: 40,
     paddingHorizontal: spacing.sm,
+  },
+  addSizeRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  addSizeInput: {
+    ...typography.body,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    color: colors.textPrimary,
+    flex: 1,
+    minHeight: 42,
+    paddingHorizontal: spacing.sm,
+  },
+  addSizeSuffix: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    width: 28,
   },
   toolTitle: {
     ...typography.caption,

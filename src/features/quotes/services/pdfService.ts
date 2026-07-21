@@ -2,6 +2,8 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
 import { DesignProject } from '../../../domain/designs/entities/DesignProject';
+import { getDesignProfileColor } from '../../../domain/designs/colors/profileColorOptions';
+import { calculateDesignLayout } from '../../../domain/designs/layout/calculateDesignLayout';
 import { calculateDesignMaterialSummary } from '../../../domain/designs/measurement/calculateDesignMaterialSummary';
 import { DesignPriceEstimate } from '../../../domain/designs/pricing/calculateDesignPriceEstimate';
 import { Quote } from '../../../domain/quotes/entities/Quote';
@@ -118,11 +120,7 @@ function buildProductionHtml({ design, estimate, customerName, customerPhone, no
     body: `
       ${customerBlock(customerName, customerPhone, note)}
       <div class="drawing">
-        <div class="frame">
-          <div class="frame-title">${design.name}</div>
-          <div class="frame-size">${design.width} x ${design.height} mm</div>
-          <div class="frame-grid">${summary.panels.map((_, index) => `<span>${index + 1}</span>`).join('')}</div>
-        </div>
+        ${buildDesignSvg(design)}
       </div>
       ${section('Genel Olcu ve Malzeme', [
         ['Dis olcu', `${design.width} x ${design.height} mm`],
@@ -184,12 +182,8 @@ function pageTemplate({ title, subtitle, body }: { title: string; subtitle: stri
           table { border-collapse: collapse; margin-top: 8px; width: 100%; }
           th, td { border: 1px solid #d9e2dc; font-size: 12px; padding: 8px; text-align: left; }
           th { background: #f6faf7; color: #60716a; }
-          .drawing { background: #f4f7f5; border: 1px solid #d9e2dc; border-radius: 8px; margin-top: 18px; padding: 18px; }
-          .frame { border: 6px solid #35423e; height: 190px; margin: 0 auto; max-width: 280px; position: relative; }
-          .frame-title { font-size: 13px; font-weight: 700; left: 12px; position: absolute; top: 12px; }
-          .frame-size { bottom: 12px; color: #60716a; font-size: 12px; left: 12px; position: absolute; }
-          .frame-grid { bottom: 46px; display: flex; flex-wrap: wrap; gap: 8px; left: 12px; position: absolute; right: 12px; top: 46px; }
-          .frame-grid span { align-items: center; background: #d9e9f7; border: 2px solid #8ba69e; display: flex; flex: 1 0 28%; font-weight: 700; justify-content: center; min-height: 42px; }
+          .drawing { background: #f4f7f5; border: 1px solid #d9e2dc; border-radius: 8px; margin-top: 18px; padding: 18px; text-align: center; }
+          .design-svg { max-width: 100%; }
         </style>
       </head>
       <body>
@@ -200,6 +194,93 @@ function pageTemplate({ title, subtitle, body }: { title: string; subtitle: stri
       </body>
     </html>
   `;
+}
+
+function buildDesignSvg(design: DesignProject): string {
+  const canvasWidth = 420;
+  const canvasHeight = 300;
+  const layout = calculateDesignLayout({
+    rootNode: design.rootNode,
+    designWidth: design.width,
+    designHeight: design.height,
+    canvasWidth,
+    canvasHeight,
+    padding: 42,
+  });
+  const profileColor = getDesignProfileColor(design.profileSystem).hexValue;
+  const frame = layout.frameBounds;
+  const frameStroke = 10;
+  const glassInset = 12;
+  const splitStroke = 8;
+
+  const panels = layout.panelBounds
+    .map((panel, index) => {
+      const x = round(panel.x + glassInset);
+      const y = round(panel.y + glassInset);
+      const width = round(Math.max(8, panel.width - glassInset * 2));
+      const height = round(Math.max(8, panel.height - glassInset * 2));
+      const opening = buildOpeningSymbol(panel.openingType, x, y, width, height);
+
+      return `
+        <rect x="${x}" y="${y}" width="${width}" height="${height}" fill="#d7e8f8" stroke="#879a93" stroke-width="2" />
+        ${opening}
+        <text x="${round(x + width / 2)}" y="${round(y + height / 2 + 4)}" text-anchor="middle" font-size="13" font-weight="700" fill="#16211d">${index + 1}</text>
+      `;
+    })
+    .join('');
+
+  const splits = layout.splitBounds
+    .map((split) => {
+      const x1 = round(split.dividerX1);
+      const y1 = round(split.dividerY1);
+      const x2 = round(split.dividerX2);
+      const y2 = round(split.dividerY2);
+
+      return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${profileColor}" stroke-width="${splitStroke}" stroke-linecap="square" />`;
+    })
+    .join('');
+
+  return `
+    <svg class="design-svg" width="${canvasWidth}" height="${canvasHeight}" viewBox="0 0 ${canvasWidth} ${canvasHeight}" xmlns="http://www.w3.org/2000/svg">
+      <rect x="0" y="0" width="${canvasWidth}" height="${canvasHeight}" rx="10" fill="#eef3f0" />
+      <rect x="${round(frame.x)}" y="${round(frame.y)}" width="${round(frame.width)}" height="${round(frame.height)}" fill="#f8fbf9" stroke="${profileColor}" stroke-width="${frameStroke}" />
+      ${panels}
+      ${splits}
+      <rect x="${round(frame.x)}" y="${round(frame.y)}" width="${round(frame.width)}" height="${round(frame.height)}" fill="none" stroke="#24302c" stroke-width="2" />
+      <line x1="${round(frame.x)}" y1="${round(frame.y + frame.height + 22)}" x2="${round(frame.x + frame.width)}" y2="${round(frame.y + frame.height + 22)}" stroke="#16211d" stroke-width="1" />
+      <text x="${round(frame.x + frame.width / 2)}" y="${round(frame.y + frame.height + 38)}" text-anchor="middle" font-size="12" fill="#16211d">${design.width} mm</text>
+      <line x1="${round(frame.x - 24)}" y1="${round(frame.y)}" x2="${round(frame.x - 24)}" y2="${round(frame.y + frame.height)}" stroke="#16211d" stroke-width="1" />
+      <text x="${round(frame.x - 34)}" y="${round(frame.y + frame.height / 2)}" transform="rotate(-90 ${round(frame.x - 34)} ${round(frame.y + frame.height / 2)})" text-anchor="middle" font-size="12" fill="#16211d">${design.height} mm</text>
+    </svg>
+  `;
+}
+
+function buildOpeningSymbol(openingType: string, x: number, y: number, width: number, height: number): string {
+  const stroke = '#1f7a69';
+  const cx = round(x + width / 2);
+  const cy = round(y + height / 2);
+
+  if (openingType === 'fixed') {
+    return '';
+  }
+
+  if (openingType === 'open-left' || openingType === 'tilt-turn-left') {
+    return `<polyline points="${x},${y} ${round(x + width)},${cy} ${x},${round(y + height)}" fill="none" stroke="${stroke}" stroke-width="2" />`;
+  }
+
+  if (openingType === 'open-right' || openingType === 'tilt-turn-right') {
+    return `<polyline points="${round(x + width)},${y} ${x},${cy} ${round(x + width)},${round(y + height)}" fill="none" stroke="${stroke}" stroke-width="2" />`;
+  }
+
+  if (openingType === 'tilt-top') {
+    return `<polyline points="${x},${y} ${cx},${round(y + height)} ${round(x + width)},${y}" fill="none" stroke="${stroke}" stroke-width="2" />`;
+  }
+
+  if (openingType === 'tilt-bottom') {
+    return `<polyline points="${x},${round(y + height)} ${cx},${y} ${round(x + width)},${round(y + height)}" fill="none" stroke="${stroke}" stroke-width="2" />`;
+  }
+
+  return `<line x1="${x}" y1="${y}" x2="${round(x + width)}" y2="${round(y + height)}" stroke="${stroke}" stroke-width="2" />`;
 }
 
 function totalBlock(total: number): string {
@@ -264,4 +345,8 @@ function escapeHtml(value: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+function round(value: number): number {
+  return Math.round(value * 10) / 10;
 }

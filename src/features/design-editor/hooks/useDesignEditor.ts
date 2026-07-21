@@ -246,7 +246,7 @@ export function useDesignEditor(designId: string | undefined) {
     });
   }, []);
 
-  const addPanelAtEdge = useCallback((side: AddPanelSide) => {
+  const addPanelAtEdge = useCallback((side: AddPanelSide, sizeMm?: number) => {
     setState((current) => {
       if (!current.design || !current.selection) {
         return current;
@@ -254,7 +254,7 @@ export function useDesignEditor(designId: string | undefined) {
 
       return buildValidEditorState(
         current,
-        addPanelToDesignEdge(current.design, current.selection.nodeId, side),
+        addPanelToDesignEdge(current.design, current.selection.nodeId, side, sizeMm),
       );
     });
   }, []);

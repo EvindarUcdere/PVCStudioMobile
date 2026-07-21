@@ -63,6 +63,7 @@ export function addPanelToDesignEdge(
   project: DesignProject,
   referencePanelId: string,
   side: AddPanelSide,
+  sizeMm?: number,
 ): DesignProject {
   if (project.rootNode.type !== 'frame') {
     return project;
@@ -82,7 +83,7 @@ export function addPanelToDesignEdge(
   const newPanel = createPanelNode();
 
   if (side === 'left' || side === 'right') {
-    const addedWidth = dimensions.width;
+    const addedWidth = normalizeAddedSize(sizeMm, dimensions.width);
     const nextWidth = project.width + addedWidth;
     const existingRatio = project.width / nextWidth;
     const child = createSplitNode({
@@ -99,7 +100,7 @@ export function addPanelToDesignEdge(
     };
   }
 
-  const addedHeight = dimensions.height;
+  const addedHeight = normalizeAddedSize(sizeMm, dimensions.height);
   const nextHeight = project.height + addedHeight;
   const existingRatio = project.height / nextHeight;
   const child = createSplitNode({
@@ -114,6 +115,14 @@ export function addPanelToDesignEdge(
     height: Math.round(nextHeight),
     rootNode: { ...project.rootNode, child },
   };
+}
+
+function normalizeAddedSize(sizeMm: number | undefined, fallback: number): number {
+  if (!Number.isFinite(sizeMm) || !sizeMm || sizeMm <= 0) {
+    return Math.round(fallback);
+  }
+
+  return Math.round(Math.min(Math.max(sizeMm, 100), 4000));
 }
 
 export function adjustArchHeight(project: DesignProject, delta: number): DesignProject {
