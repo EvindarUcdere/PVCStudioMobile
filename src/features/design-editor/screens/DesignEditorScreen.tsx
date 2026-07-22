@@ -59,6 +59,7 @@ export function DesignEditorScreen() {
     updateDefaultGlass,
     updateCustomerId,
     updateJobStatus,
+    updateJobName,
     saveDesign,
     undoLastChange,
     redoLastChange,
@@ -159,6 +160,14 @@ export function DesignEditorScreen() {
                 customers={customers}
                 selectedCustomerId={design.customerId}
                 onSelectCustomer={updateCustomerId}
+              />
+              <TextInput
+                accessibilityLabel="Is adi"
+                onChangeText={(value) => updateJobName(nullableTrim(value))}
+                placeholder="Is adi"
+                placeholderTextColor={colors.textSecondary}
+                style={styles.jobNameInput}
+                value={design.jobName ?? ''}
               />
               <JobStatusSelector value={design.jobStatus} onChange={updateJobStatus} />
               <View style={styles.row}>
@@ -441,6 +450,11 @@ function parseOptionalPositiveNumber(value: string): number | undefined {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
 }
 
+function nullableTrim(value: string): string | null {
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
 const styles = StyleSheet.create({
   content: {
     gap: spacing.md,
@@ -495,6 +509,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     color: colors.textPrimary,
     flex: 1,
+    minHeight: 42,
+    paddingHorizontal: spacing.sm,
+  },
+  jobNameInput: {
+    ...typography.body,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    color: colors.textPrimary,
     minHeight: 42,
     paddingHorizontal: spacing.sm,
   },

@@ -9,6 +9,7 @@ export type CreateDesignFromTemplateFormInput = {
   height: number;
   quantity: number;
   customerId?: string | null | undefined;
+  jobName?: string | null | undefined;
 };
 
 export function createTemplateService(
@@ -29,6 +30,7 @@ export function createTemplateService(
         height: input.height,
         quantity: input.quantity,
         customerId: input.customerId ?? null,
+        jobName: input.jobName ?? null,
       });
 
       return designRepository.create(project);

@@ -15,6 +15,7 @@ export type CreateDesignFromTemplateInput = {
   height: number;
   quantity: number;
   customerId?: string | null;
+  jobName?: string | null;
 };
 
 export const createDesignFromTemplateInputSchema = z.object({
@@ -23,6 +24,7 @@ export const createDesignFromTemplateInputSchema = z.object({
   height: z.number().min(200).max(10000),
   quantity: z.number().int().min(1).max(999),
   customerId: z.string().min(1).nullable().optional(),
+  jobName: z.string().nullable().optional(),
 });
 
 export function createDesignFromTemplate({
@@ -32,6 +34,7 @@ export function createDesignFromTemplate({
   height,
   quantity,
   customerId = null,
+  jobName = null,
 }: CreateDesignFromTemplateInput): DesignProject {
   const now = createIsoTimestamp();
   const project: DesignProject = {
@@ -43,6 +46,7 @@ export function createDesignFromTemplate({
     height,
     quantity,
     jobStatus: 'draft',
+    jobName,
     unit: 'mm',
     rootNode: cloneTemplateTree(template.rootNode),
     profileSystem: null,

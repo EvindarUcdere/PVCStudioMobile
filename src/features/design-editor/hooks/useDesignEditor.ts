@@ -402,6 +402,27 @@ export function useDesignEditor(designId: string | undefined) {
     });
   }, []);
 
+  const updateJobName = useCallback((jobName: string | null) => {
+    setState((current) => {
+      if (!current.design || current.design.jobName === jobName) {
+        return current;
+      }
+
+      return {
+        ...current,
+        design: {
+          ...current.design,
+          jobName,
+        },
+        history: [...current.history, current.design],
+        future: [],
+        isDirty: true,
+        error: null,
+        saveMessage: null,
+      };
+    });
+  }, []);
+
   const saveDesign = useCallback(async () => {
     if (!state.design || state.isSaving) {
       return;
@@ -492,6 +513,7 @@ export function useDesignEditor(designId: string | undefined) {
     updateDefaultGlass,
     updateCustomerId,
     updateJobStatus,
+    updateJobName,
     saveDesign,
     undoLastChange,
     redoLastChange,

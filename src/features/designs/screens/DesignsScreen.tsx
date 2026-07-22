@@ -136,6 +136,7 @@ function DesignCard({ item, onPress }: { item: DesignListItem; onPress: () => vo
       </View>
       <View style={styles.cardBody}>
         <Text style={styles.title}>{project.name}</Text>
+        {project.jobName ? <Text style={styles.caption}>Is: {project.jobName}</Text> : null}
         <View style={[styles.badge, { backgroundColor: getJobStatusColor(project.jobStatus) }]}>
           <Text style={styles.badgeText}>{jobStatusLabels[project.jobStatus]}</Text>
         </View>

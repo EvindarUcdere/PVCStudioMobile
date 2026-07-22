@@ -32,6 +32,7 @@ import { createTemplateService } from '../../templates/services/templateService'
 
 type FormValues = {
   name: string;
+  jobName: string;
   width: string;
   height: string;
   quantity: string;
@@ -51,7 +52,7 @@ export function CreateDesignFromTemplateScreen() {
     reset,
     setError: setFieldError,
   } = useForm<FormValues>({
-    defaultValues: { name: '', width: '', height: '', quantity: '1' },
+    defaultValues: { name: '', jobName: '', width: '', height: '', quantity: '1' },
   });
 
   useEffect(() => {
@@ -70,6 +71,7 @@ export function CreateDesignFromTemplateScreen() {
         if (selectedTemplate) {
           reset({
             name: selectedTemplate.name,
+            jobName: '',
             width: String(selectedTemplate.defaultWidth),
             height: String(selectedTemplate.defaultHeight),
             quantity: '1',
@@ -93,6 +95,7 @@ export function CreateDesignFromTemplateScreen() {
 
     const parsed = createDesignFromTemplateInputSchema.safeParse({
       name: values.name.trim(),
+      jobName: nullableTrim(values.jobName),
       width: Number(values.width),
       height: Number(values.height),
       quantity: Number(values.quantity),
@@ -160,6 +163,7 @@ export function CreateDesignFromTemplateScreen() {
         <AppHeader title="Tasarım Oluştur" subtitle={template.name} />
         <View style={styles.form}>
           <FormField control={control} name="name" label="Tasarım Adı" keyboardType="default" />
+          <FormField control={control} name="jobName" label="Is adi" keyboardType="default" />
           <FormField control={control} name="width" label="Genişlik (mm)" keyboardType="numeric" />
           <FormField
             control={control}
@@ -216,6 +220,11 @@ function FormField({ control, name, label, keyboardType }: FormFieldProps) {
       )}
     />
   );
+}
+
+function nullableTrim(value: string): string | null {
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
 }
 
 const styles = StyleSheet.create({

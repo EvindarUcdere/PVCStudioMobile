@@ -350,6 +350,7 @@ function normalizeCloudDesign(design: DesignProject): DesignProject {
   return {
     ...design,
     jobStatus: design.jobStatus ?? 'draft',
+    jobName: design.jobName ?? null,
   };
 }
 

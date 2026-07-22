@@ -14,6 +14,7 @@ import {
 } from '../../../database/repositories/createRepositories';
 import { Customer } from '../../../domain/customers/entities/Customer';
 import { DesignProject } from '../../../domain/designs/entities/DesignProject';
+import { jobStatusLabels } from '../../../domain/designs/enums/JobStatus';
 import { backupCustomerToCloud } from '../../../services/firebase/fullSyncService';
 import { logger } from '../../../services/logger';
 import { colors, spacing, typography } from '../../../theme';
@@ -24,6 +25,7 @@ export function CustomerDetailsScreen() {
   const [designs, setDesigns] = useState<DesignProject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const groupedDesigns = groupDesignsByJobName(designs);
 
   const loadCustomer = useCallback(async () => {
     if (!customerId) {
@@ -110,8 +112,8 @@ export function CustomerDetailsScreen() {
         rightAction={<AppButton label="Geri" variant="ghost" onPress={() => router.back()} />}
       />
       <FlatList
-        data={designs}
-        keyExtractor={(item) => item.id}
+        data={groupedDesigns}
+        keyExtractor={(item) => item.key}
         contentContainerStyle={styles.list}
         ListHeaderComponent={
           <View style={styles.headerContent}>
@@ -139,11 +141,25 @@ export function CustomerDetailsScreen() {
           </View>
         }
         renderItem={({ item }) => (
-          <AppCard onPress={() => router.push(routes.designDetails(item.id))} style={styles.designCard}>
-            <Text style={styles.designTitle}>{item.name}</Text>
-            <Text style={styles.caption}>{`${item.width} x ${item.height} mm - ${item.quantity} adet`}</Text>
-            <Text style={styles.caption}>Guncellendi: {new Date(item.updatedAt).toLocaleDateString('tr-TR')}</Text>
-          </AppCard>
+          <View style={styles.jobGroup}>
+            <Text style={styles.jobGroupTitle}>{item.title}</Text>
+            {item.designs.map((design) => (
+              <AppCard
+                key={design.id}
+                onPress={() => router.push(routes.designDetails(design.id))}
+                style={styles.designCard}
+              >
+                <Text style={styles.designTitle}>{design.name}</Text>
+                <Text style={styles.caption}>
+                  {`${design.width} x ${design.height} mm - ${design.quantity} adet`}
+                </Text>
+                <Text style={styles.caption}>Durum: {jobStatusLabels[design.jobStatus]}</Text>
+                <Text style={styles.caption}>
+                  Guncellendi: {new Date(design.updatedAt).toLocaleDateString('tr-TR')}
+                </Text>
+              </AppCard>
+            ))}
+          </View>
         )}
         ListEmptyComponent={
           <EmptyState
@@ -154,6 +170,31 @@ export function CustomerDetailsScreen() {
       />
     </AppScreen>
   );
+}
+
+type DesignJobGroup = {
+  key: string;
+  title: string;
+  designs: DesignProject[];
+};
+
+function groupDesignsByJobName(designs: DesignProject[]): DesignJobGroup[] {
+  const groups = new Map<string, DesignJobGroup>();
+
+  designs.forEach((design) => {
+    const title = design.jobName ?? 'Tekil isler';
+    const key = title.toLocaleLowerCase('tr-TR');
+    const current = groups.get(key);
+
+    if (current) {
+      current.designs.push(design);
+      return;
+    }
+
+    groups.set(key, { key, title, designs: [design] });
+  });
+
+  return Array.from(groups.values());
 }
 
 function Info({ label, value }: { label: string; value: string }) {
@@ -208,6 +249,14 @@ const styles = StyleSheet.create({
   },
   designCard: {
     gap: spacing.xs,
+  },
+  jobGroup: {
+    gap: spacing.sm,
+  },
+  jobGroupTitle: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontWeight: '700',
   },
   designTitle: {
     ...typography.body,

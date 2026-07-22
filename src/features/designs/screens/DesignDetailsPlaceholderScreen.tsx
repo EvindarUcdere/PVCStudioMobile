@@ -97,6 +97,7 @@ export function DesignDetailsPlaceholderScreen() {
       <View style={styles.info}>
         <Info label="Kaynak sablon" value={template?.name ?? 'Ozel tasarim'} />
         <Info label="Musteri" value={customer?.fullName ?? 'Musterisiz'} />
+        <Info label="Is adi" value={project.jobName ?? project.name} />
         <Info label="Is durumu" value={jobStatusLabels[project.jobStatus]} />
         <Info label="Genislik" value={`${project.width} mm`} />
         <Info label="Yukseklik" value={`${project.height} mm`} />

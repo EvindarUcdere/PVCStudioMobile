@@ -6,6 +6,7 @@ import { createPanelNode } from './createPanelNode';
 type CreateEmptyDesignProjectInput = {
   name: string;
   customerId?: string | null;
+  jobName?: string | null;
   width?: number;
   height?: number;
   quantity?: number;
@@ -14,6 +15,7 @@ type CreateEmptyDesignProjectInput = {
 export function createEmptyDesignProject({
   name,
   customerId = null,
+  jobName = null,
   width = 1000,
   height = 1000,
   quantity = 1,
@@ -29,6 +31,7 @@ export function createEmptyDesignProject({
     height,
     quantity,
     jobStatus: 'draft',
+    jobName,
     unit: 'mm',
     rootNode: {
       id: createId(),
