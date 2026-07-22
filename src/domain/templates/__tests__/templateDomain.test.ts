@@ -8,9 +8,9 @@ import { templateCategories } from '../enums/TemplateCategory';
 import { systemTemplates } from '../../../database/seeds/systemTemplates';
 
 describe('system templates', () => {
-  it('contains exactly 29 active system templates with unique ids', () => {
-    expect(systemTemplates).toHaveLength(29);
-    expect(new Set(systemTemplates.map((template) => template.id)).size).toBe(29);
+  it('contains exactly 31 active system templates with unique ids', () => {
+    expect(systemTemplates).toHaveLength(31);
+    expect(new Set(systemTemplates.map((template) => template.id)).size).toBe(31);
     expect(
       systemTemplates.every((template) => template.source === 'system' && template.isActive),
     ).toBe(true);
