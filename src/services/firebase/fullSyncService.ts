@@ -1,9 +1,14 @@
 import { Firestore, collection, doc, getDocs, serverTimestamp, writeBatch } from 'firebase/firestore';
 
-import { createDesignRepository, createQuoteRepository } from '../../database/repositories/createRepositories';
+import {
+  createCustomerRepository,
+  createDesignRepository,
+  createQuoteRepository,
+} from '../../database/repositories/createRepositories';
 import { getCompanyProfile, saveCompanyProfile } from '../../database/repositories/CompanyProfileRepository';
 import { getPricingSettings, savePricingSettings } from '../../database/repositories/PricingSettingsRepository';
 import { CompanyProfile } from '../../domain/company/entities/CompanyProfile';
+import { Customer } from '../../domain/customers/entities/Customer';
 import { DesignProject } from '../../domain/designs/entities/DesignProject';
 import { PriceEstimateRates } from '../../domain/designs/pricing/calculateDesignPriceEstimate';
 import { Quote } from '../../domain/quotes/entities/Quote';
@@ -13,6 +18,7 @@ import { getFirebaseServices } from './firebaseConfig';
 
 export type FullSyncResult = {
   userId: string;
+  customers: number;
   designs: number;
   quotes: number;
   pricingSettings: boolean;
@@ -21,6 +27,11 @@ export type FullSyncResult = {
 
 type CloudDesignDocument = {
   data: DesignProject;
+  updatedAt: string;
+};
+
+type CloudCustomerDocument = {
+  data: Customer;
   updatedAt: string;
 };
 
@@ -45,14 +56,24 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
     return null;
   }
 
+  const customerRepository = await createCustomerRepository();
   const designRepository = await createDesignRepository();
   const quoteRepository = await createQuoteRepository();
+  const customers = await customerRepository.list({ includeDeleted: true, limit: 1000 });
   const designs = await designRepository.list({ includeDeleted: true, limit: 1000 });
   const quotes = await quoteRepository.list({ limit: 1000 });
   const pricingSettings = await getPricingSettings();
   const companyProfile = await getCompanyProfile();
   const batch = writeBatch(services.firestore);
   const userDoc = doc(services.firestore, 'users', user.uid);
+
+  customers.forEach((customer) => {
+    batch.set(doc(userDoc, 'customers', customer.id), {
+      data: customer,
+      updatedAt: customer.updatedAt,
+      syncedAt: serverTimestamp(),
+    });
+  });
 
   designs.forEach((design) => {
     batch.set(doc(userDoc, 'designs', design.id), {
@@ -77,6 +98,7 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
       pricingSettings,
       companyProfile,
       syncSummary: {
+        customerCount: customers.length,
         designCount: designs.length,
         quoteCount: quotes.length,
         pricingSettings: true,
@@ -105,6 +127,7 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
   batch.set(
     doc(userDoc, 'sync', 'summary'),
     {
+      customerCount: customers.length,
       designCount: designs.length,
       quoteCount: quotes.length,
       pricingSettings: true,
@@ -118,6 +141,7 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
     await batch.commit();
     return {
       userId: user.uid,
+      customers: customers.length,
       designs: designs.length,
       quotes: quotes.length,
       pricingSettings: true,
@@ -126,6 +150,27 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
   } catch (error) {
     logger.error('Full cloud backup failed', error);
     return null;
+  }
+}
+
+export async function backupCustomerToCloud(customer: Customer): Promise<boolean> {
+  const services = getFirebaseServices();
+  const user = await ensureFirebaseUser();
+
+  if (!services || !user) {
+    return false;
+  }
+
+  try {
+    await setSingleDocument(services.firestore, user.uid, 'customers', customer.id, {
+      data: customer,
+      updatedAt: customer.updatedAt,
+      syncedAt: serverTimestamp(),
+    });
+    return true;
+  } catch (error) {
+    logger.error('Customer cloud backup failed', error);
+    return false;
   }
 }
 
@@ -181,15 +226,38 @@ export async function restoreAllCloudDataToLocal(): Promise<FullSyncResult | nul
 
   try {
     const userDoc = doc(services.firestore, 'users', user.uid);
+    const customerRepository = await createCustomerRepository();
     const designRepository = await createDesignRepository();
     const quoteRepository = await createQuoteRepository();
+    const customerSnapshots = await getDocs(collection(userDoc, 'customers'));
     const designSnapshots = await getDocs(collection(userDoc, 'designs'));
     const quoteSnapshots = await getDocs(collection(userDoc, 'quotes'));
     const pricingSnapshots = await getDocs(collection(userDoc, 'settings'));
+    let restoredCustomers = 0;
     let restoredDesigns = 0;
     let restoredQuotes = 0;
     let restoredPricingSettings = false;
     let restoredCompanyProfile = false;
+
+    for (const snapshot of customerSnapshots.docs) {
+      const document = snapshot.data() as CloudCustomerDocument;
+      const cloudCustomer = document.data;
+      const localCustomer = await customerRepository.getById(cloudCustomer.id);
+
+      if (!localCustomer || isCloudNewer(cloudCustomer.updatedAt, localCustomer.updatedAt)) {
+        await customerRepository.save({
+          id: cloudCustomer.id,
+          fullName: cloudCustomer.fullName,
+          phone: cloudCustomer.phone,
+          address: cloudCustomer.address,
+          notes: cloudCustomer.notes,
+          deletedAt: cloudCustomer.deletedAt,
+          syncStatus: cloudCustomer.syncStatus,
+          version: cloudCustomer.version,
+        });
+        restoredCustomers += 1;
+      }
+    }
 
     for (const snapshot of designSnapshots.docs) {
       const document = snapshot.data() as CloudDesignDocument;
@@ -256,6 +324,7 @@ export async function restoreAllCloudDataToLocal(): Promise<FullSyncResult | nul
 
     return {
       userId: user.uid,
+      customers: restoredCustomers,
       designs: restoredDesigns,
       quotes: restoredQuotes,
       pricingSettings: restoredPricingSettings,
@@ -274,7 +343,7 @@ function isCloudNewer(cloudUpdatedAt: string, localUpdatedAt: string): boolean {
 async function setSingleDocument(
   firestore: Firestore,
   userId: string,
-  collectionName: 'designs' | 'quotes',
+  collectionName: 'customers' | 'designs' | 'quotes',
   documentId: string,
   data: unknown,
 ): Promise<void> {

@@ -12,4 +12,5 @@ export const routes = {
   designDetails: (designId: string) => `/designs/${designId}`,
   designEditor: (designId: string) => `/designs/${designId}/edit`,
   designQuote: (designId: string) => `/designs/${designId}/quote`,
+  customerDetails: (customerId: string) => `/customers/${customerId}`,
 } as const;
