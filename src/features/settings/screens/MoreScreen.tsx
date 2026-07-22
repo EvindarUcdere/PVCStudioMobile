@@ -71,7 +71,7 @@ export function MoreScreen() {
       }
 
       setSyncMessage(
-        `${result.designs} tasarim, ${result.quotes} teklif buluta yedeklendi. Firebase ID: ${result.userId}`,
+        `${result.customers} musteri, ${result.designs} tasarim, ${result.quotes} teklif buluta yedeklendi. Firma kodu: ${result.companyId}`,
       );
     } finally {
       setIsSyncing(false);
@@ -96,7 +96,7 @@ export function MoreScreen() {
       }
 
       setSyncMessage(
-        `${result.designs} tasarim, ${result.quotes} teklif cihaza alindi. Firebase ID: ${result.userId}`,
+        `${result.customers} musteri, ${result.designs} tasarim, ${result.quotes} teklif cihaza alindi. Firma kodu: ${result.companyId}`,
       );
     } finally {
       setIsSyncing(false);

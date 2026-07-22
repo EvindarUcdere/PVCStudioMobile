@@ -9,6 +9,7 @@ import { getDatabase } from '../client';
 const companyProfileKey = 'company_profile';
 
 const companyProfileSchema: z.ZodType<CompanyProfile> = z.object({
+  companyId: z.string(),
   companyName: z.string(),
   ownerName: z.string(),
   phone: z.string(),

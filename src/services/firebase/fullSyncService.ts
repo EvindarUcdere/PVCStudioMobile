@@ -13,11 +13,12 @@ import { DesignProject } from '../../domain/designs/entities/DesignProject';
 import { PriceEstimateRates } from '../../domain/designs/pricing/calculateDesignPriceEstimate';
 import { Quote } from '../../domain/quotes/entities/Quote';
 import { logger } from '../logger';
-import { ensureFirebaseUser } from './firebaseAuthService';
 import { getFirebaseServices } from './firebaseConfig';
+import { ensureCompanyWorkspace, getCloudWorkspacePath } from './companyWorkspaceService';
 
 export type FullSyncResult = {
   userId: string;
+  companyId: string;
   customers: number;
   designs: number;
   quotes: number;
@@ -50,11 +51,13 @@ type CloudCompanyProfileDocument = {
 
 export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null> {
   const services = getFirebaseServices();
-  const user = await ensureFirebaseUser();
+  const workspace = await getCloudWorkspacePath();
 
-  if (!services || !user) {
+  if (!services || !workspace) {
     return null;
   }
+
+  await ensureCompanyWorkspace();
 
   const customerRepository = await createCustomerRepository();
   const designRepository = await createDesignRepository();
@@ -65,10 +68,10 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
   const pricingSettings = await getPricingSettings();
   const companyProfile = await getCompanyProfile();
   const batch = writeBatch(services.firestore);
-  const userDoc = doc(services.firestore, 'users', user.uid);
+  const workspaceDoc = doc(services.firestore, workspace.rootCollection, workspace.rootId);
 
   customers.forEach((customer) => {
-    batch.set(doc(userDoc, 'customers', customer.id), {
+    batch.set(doc(workspaceDoc, 'customers', customer.id), {
       data: customer,
       updatedAt: customer.updatedAt,
       syncedAt: serverTimestamp(),
@@ -76,7 +79,7 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
   });
 
   designs.forEach((design) => {
-    batch.set(doc(userDoc, 'designs', design.id), {
+    batch.set(doc(workspaceDoc, 'designs', design.id), {
       data: design,
       updatedAt: design.updatedAt,
       syncedAt: serverTimestamp(),
@@ -84,7 +87,7 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
   });
 
   quotes.forEach((quote) => {
-    batch.set(doc(userDoc, 'quotes', quote.id), {
+    batch.set(doc(workspaceDoc, 'quotes', quote.id), {
       data: quote,
       updatedAt: quote.updatedAt,
       syncedAt: serverTimestamp(),
@@ -92,9 +95,9 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
   });
 
   batch.set(
-    userDoc,
+    workspaceDoc,
     {
-      uid: user.uid,
+      companyId: workspace.rootId,
       pricingSettings,
       companyProfile,
       syncSummary: {
@@ -109,7 +112,7 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
     { merge: true },
   );
   batch.set(
-    doc(userDoc, 'settings', 'pricing-settings'),
+    doc(workspaceDoc, 'settings', 'pricing-settings'),
     {
       settings: pricingSettings,
       syncedAt: serverTimestamp(),
@@ -117,7 +120,7 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
     { merge: true },
   );
   batch.set(
-    doc(userDoc, 'settings', 'company-profile'),
+    doc(workspaceDoc, 'settings', 'company-profile'),
     {
       profile: companyProfile,
       syncedAt: serverTimestamp(),
@@ -125,7 +128,7 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
     { merge: true },
   );
   batch.set(
-    doc(userDoc, 'sync', 'summary'),
+    doc(workspaceDoc, 'sync', 'summary'),
     {
       customerCount: customers.length,
       designCount: designs.length,
@@ -140,7 +143,8 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
   try {
     await batch.commit();
     return {
-      userId: user.uid,
+      userId: workspace.userId,
+      companyId: workspace.rootId,
       customers: customers.length,
       designs: designs.length,
       quotes: quotes.length,
@@ -155,14 +159,14 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
 
 export async function backupCustomerToCloud(customer: Customer): Promise<boolean> {
   const services = getFirebaseServices();
-  const user = await ensureFirebaseUser();
+  const workspace = await getCloudWorkspacePath();
 
-  if (!services || !user) {
+  if (!services || !workspace) {
     return false;
   }
 
   try {
-    await setSingleDocument(services.firestore, user.uid, 'customers', customer.id, {
+    await setSingleDocument(services.firestore, workspace.rootId, 'customers', customer.id, {
       data: customer,
       updatedAt: customer.updatedAt,
       syncedAt: serverTimestamp(),
@@ -176,14 +180,14 @@ export async function backupCustomerToCloud(customer: Customer): Promise<boolean
 
 export async function backupDesignToCloud(design: DesignProject): Promise<boolean> {
   const services = getFirebaseServices();
-  const user = await ensureFirebaseUser();
+  const workspace = await getCloudWorkspacePath();
 
-  if (!services || !user) {
+  if (!services || !workspace) {
     return false;
   }
 
   try {
-    await setSingleDocument(services.firestore, user.uid, 'designs', design.id, {
+    await setSingleDocument(services.firestore, workspace.rootId, 'designs', design.id, {
       data: design,
       updatedAt: design.updatedAt,
       syncedAt: serverTimestamp(),
@@ -197,14 +201,14 @@ export async function backupDesignToCloud(design: DesignProject): Promise<boolea
 
 export async function backupQuoteToCloud(quote: Quote): Promise<boolean> {
   const services = getFirebaseServices();
-  const user = await ensureFirebaseUser();
+  const workspace = await getCloudWorkspacePath();
 
-  if (!services || !user) {
+  if (!services || !workspace) {
     return false;
   }
 
   try {
-    await setSingleDocument(services.firestore, user.uid, 'quotes', quote.id, {
+    await setSingleDocument(services.firestore, workspace.rootId, 'quotes', quote.id, {
       data: quote,
       updatedAt: quote.updatedAt,
       syncedAt: serverTimestamp(),
@@ -218,21 +222,22 @@ export async function backupQuoteToCloud(quote: Quote): Promise<boolean> {
 
 export async function restoreAllCloudDataToLocal(): Promise<FullSyncResult | null> {
   const services = getFirebaseServices();
-  const user = await ensureFirebaseUser();
+  const workspace = await getCloudWorkspacePath();
 
-  if (!services || !user) {
+  if (!services || !workspace) {
     return null;
   }
 
   try {
-    const userDoc = doc(services.firestore, 'users', user.uid);
+    await ensureCompanyWorkspace();
+    const workspaceDoc = doc(services.firestore, workspace.rootCollection, workspace.rootId);
     const customerRepository = await createCustomerRepository();
     const designRepository = await createDesignRepository();
     const quoteRepository = await createQuoteRepository();
-    const customerSnapshots = await getDocs(collection(userDoc, 'customers'));
-    const designSnapshots = await getDocs(collection(userDoc, 'designs'));
-    const quoteSnapshots = await getDocs(collection(userDoc, 'quotes'));
-    const pricingSnapshots = await getDocs(collection(userDoc, 'settings'));
+    const customerSnapshots = await getDocs(collection(workspaceDoc, 'customers'));
+    const designSnapshots = await getDocs(collection(workspaceDoc, 'designs'));
+    const quoteSnapshots = await getDocs(collection(workspaceDoc, 'quotes'));
+    const pricingSnapshots = await getDocs(collection(workspaceDoc, 'settings'));
     let restoredCustomers = 0;
     let restoredDesigns = 0;
     let restoredQuotes = 0;
@@ -323,7 +328,8 @@ export async function restoreAllCloudDataToLocal(): Promise<FullSyncResult | nul
     }
 
     return {
-      userId: user.uid,
+      userId: workspace.userId,
+      companyId: workspace.rootId,
       customers: restoredCustomers,
       designs: restoredDesigns,
       quotes: restoredQuotes,
@@ -342,18 +348,18 @@ function isCloudNewer(cloudUpdatedAt: string, localUpdatedAt: string): boolean {
 
 async function setSingleDocument(
   firestore: Firestore,
-  userId: string,
+  companyId: string,
   collectionName: 'customers' | 'designs' | 'quotes',
   documentId: string,
   data: unknown,
 ): Promise<void> {
   const batch = writeBatch(firestore);
-  const userDoc = doc(firestore, 'users', userId);
-  batch.set(doc(userDoc, collectionName, documentId), data);
+  const workspaceDoc = doc(firestore, 'companies', companyId);
+  batch.set(doc(workspaceDoc, collectionName, documentId), data);
   batch.set(
-    userDoc,
+    workspaceDoc,
     {
-      uid: userId,
+      companyId,
       lastAutoSyncedAt: serverTimestamp(),
     },
     { merge: true },

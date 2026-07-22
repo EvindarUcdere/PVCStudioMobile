@@ -1,4 +1,5 @@
 export type CompanyProfile = {
+  companyId: string;
   companyName: string;
   ownerName: string;
   phone: string;
@@ -9,6 +10,7 @@ export type CompanyProfile = {
 };
 
 export const defaultCompanyProfile: CompanyProfile = {
+  companyId: '',
   companyName: '',
   ownerName: '',
   phone: '',

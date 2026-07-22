@@ -21,6 +21,7 @@ import {
   subscribeFirebaseUser,
 } from '../../../services/firebase/firebaseAuthService';
 import { isFirebaseConfigured } from '../../../services/firebase/firebaseConfig';
+import { createCompanyCode, normalizeCompanyId } from '../../../services/firebase/companyWorkspaceService';
 import {
   backupCompanyProfileToCloud,
   restoreCompanyProfileFromCloud,
@@ -32,6 +33,7 @@ import { colors, radius, spacing, typography } from '../../../theme';
 type CompanyProfileForm = Record<keyof CompanyProfile, string>;
 
 const fields: { key: keyof CompanyProfile; label: string; keyboardType?: 'default' | 'numeric' | 'phone-pad' }[] = [
+  { key: 'companyId', label: 'Firma kodu' },
   { key: 'companyName', label: 'Firma adi' },
   { key: 'ownerName', label: 'Yetkili kisi' },
   { key: 'phone', label: 'Telefon', keyboardType: 'phone-pad' },
@@ -102,6 +104,11 @@ export function CompanyProfileScreen() {
 
   async function register() {
     await runAuthAction(async () => {
+      if (!hasCompanyCode()) {
+        setError('Ortak kullanim icin once firma kodu girilmeli veya olusturulmali.');
+        return;
+      }
+
       await registerWithEmail(email, password);
       await backupAllLocalDataToCloud();
       setMessage('Hesap olusturuldu ve veriler buluta yedeklendi.');
@@ -110,6 +117,11 @@ export function CompanyProfileScreen() {
 
   async function signIn() {
     await runAuthAction(async () => {
+      if (!hasCompanyCode()) {
+        setError('Buluttaki firma verilerini almak icin firma kodu girilmeli.');
+        return;
+      }
+
       await signInWithEmail(email, password);
       await restoreAllCloudDataToLocal();
       const restoredProfile = await getCompanyProfile();
@@ -146,6 +158,11 @@ export function CompanyProfileScreen() {
   }
 
   async function restoreProfile() {
+    if (!hasCompanyCode()) {
+      setError('Buluttan almak icin firma kodu girilmeli.');
+      return;
+    }
+
     setIsSaving(true);
     setError(null);
     setMessage(null);
@@ -193,6 +210,14 @@ export function CompanyProfileScreen() {
     setError(null);
   }
 
+  function generateCompanyCode() {
+    updateValue('companyId', createCompanyCode());
+  }
+
+  function hasCompanyCode(): boolean {
+    return normalizeCompanyId(values.companyId).length > 0;
+  }
+
   if (isLoading) {
     return (
       <AppScreen centered>
@@ -216,6 +241,9 @@ export function CompanyProfileScreen() {
               {firebaseReady
                 ? user?.email ?? (user?.isAnonymous ? 'Anonim Firebase kullanicisi' : 'Giris yapilmadi')
                 : 'Firebase config girilmedi'}
+            </Text>
+            <Text style={styles.statusCaption}>
+              Firma kodu: {hasCompanyCode() ? normalizeCompanyId(values.companyId) : 'Girilmedi'}
             </Text>
           </View>
 
@@ -279,6 +307,11 @@ export function CompanyProfileScreen() {
                 />
               </View>
             ))}
+            <AppButton
+              label="Firma Kodu Olustur"
+              variant="secondary"
+              onPress={generateCompanyCode}
+            />
           </View>
 
           {message ? <Text style={styles.success}>{message}</Text> : null}
@@ -309,6 +342,7 @@ export function CompanyProfileScreen() {
 
 function toFormValues(profile: CompanyProfile): CompanyProfileForm {
   return {
+    companyId: profile.companyId,
     companyName: profile.companyName,
     ownerName: profile.ownerName,
     phone: profile.phone,
@@ -327,6 +361,7 @@ function parseProfile(values: CompanyProfileForm): CompanyProfile | null {
   }
 
   return {
+    companyId: normalizeCompanyId(values.companyId),
     companyName: values.companyName.trim(),
     ownerName: values.ownerName.trim(),
     phone: values.phone.trim(),

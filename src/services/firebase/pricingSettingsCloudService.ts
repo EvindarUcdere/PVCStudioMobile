@@ -2,22 +2,23 @@ import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 
 import { PriceEstimateRates } from '../../domain/designs/pricing/calculateDesignPriceEstimate';
 import { logger } from '../logger';
-import { ensureFirebaseUser } from './firebaseAuthService';
+import { ensureCompanyWorkspace, getCloudWorkspacePath } from './companyWorkspaceService';
 import { getFirebaseServices } from './firebaseConfig';
 
 const pricingSettingsDocumentId = 'pricing-settings';
 
 export async function backupPricingSettingsToCloud(settings: PriceEstimateRates): Promise<boolean> {
   const services = getFirebaseServices();
-  const user = await ensureFirebaseUser();
+  const workspace = await getCloudWorkspacePath();
 
-  if (!services || !user) {
+  if (!services || !workspace) {
     return false;
   }
 
   try {
+    await ensureCompanyWorkspace();
     await setDoc(
-      doc(services.firestore, 'users', user.uid, 'settings', pricingSettingsDocumentId),
+      doc(services.firestore, 'companies', workspace.rootId, 'settings', pricingSettingsDocumentId),
       {
         settings,
         updatedAt: serverTimestamp(),
@@ -33,14 +34,17 @@ export async function backupPricingSettingsToCloud(settings: PriceEstimateRates)
 
 export async function restorePricingSettingsFromCloud(): Promise<PriceEstimateRates | null> {
   const services = getFirebaseServices();
-  const user = await ensureFirebaseUser();
+  const workspace = await getCloudWorkspacePath();
 
-  if (!services || !user) {
+  if (!services || !workspace) {
     return null;
   }
 
   try {
-    const snapshot = await getDoc(doc(services.firestore, 'users', user.uid, 'settings', pricingSettingsDocumentId));
+    await ensureCompanyWorkspace();
+    const snapshot = await getDoc(
+      doc(services.firestore, 'companies', workspace.rootId, 'settings', pricingSettingsDocumentId),
+    );
     const data = snapshot.data();
     return snapshot.exists() && data?.settings ? (data.settings as PriceEstimateRates) : null;
   } catch (error) {
