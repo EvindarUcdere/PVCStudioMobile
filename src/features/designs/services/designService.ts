@@ -3,6 +3,7 @@ import { DesignRepository } from '../../../database/repositories/DesignRepositor
 
 type CreateAndSaveDesignInput = {
   name: string;
+  customerId?: string | null;
   width?: number;
   height?: number;
   quantity?: number;

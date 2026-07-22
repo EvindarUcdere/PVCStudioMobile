@@ -10,6 +10,7 @@ import { EmptyState } from '../../../components/ui/EmptyState';
 import { routes } from '../../../constants/routes';
 import { getPricingSettings } from '../../../database/repositories/PricingSettingsRepository';
 import {
+  createCustomerRepository,
   createDesignRepository,
   createQuoteRepository,
 } from '../../../database/repositories/createRepositories';
@@ -63,6 +64,13 @@ export function QuotePreviewScreen() {
 
           setDesign(loadedDesign);
           setEstimate(loadedDesign ? calculateDesignPriceEstimate(loadedDesign, pricingSettings) : null);
+
+          if (loadedDesign?.customerId) {
+            const customerRepository = await createCustomerRepository();
+            const customer = await customerRepository.getById(loadedDesign.customerId);
+            setCustomerName(customer?.fullName ?? '');
+            setCustomerPhone(customer?.phone ?? '');
+          }
         } catch (loadError) {
           logger.error('Quote preview load failed', loadError);
           if (isActive) {

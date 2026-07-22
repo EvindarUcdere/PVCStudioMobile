@@ -7,7 +7,9 @@ import { AppHeader } from '../../../components/ui/AppHeader';
 import { AppScreen } from '../../../components/ui/AppScreen';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { routes } from '../../../constants/routes';
+import { createCustomerRepository } from '../../../database/repositories/createRepositories';
 import { getPricingSettings } from '../../../database/repositories/PricingSettingsRepository';
+import { Customer } from '../../../domain/customers/entities/Customer';
 import {
   createCustomColorId,
   getDesignProfileColor,
@@ -22,6 +24,7 @@ import {
 import { isArchTopFrame } from '../../../domain/designs/utils/frameShape';
 import { logger } from '../../../services/logger';
 import { colors, radius, spacing, typography } from '../../../theme';
+import { CustomerSelector } from '../../customers/components/CustomerSelector';
 import { DesignCanvas } from '../components/DesignCanvas';
 import { DesignMaterialSummaryCard } from '../components/DesignMaterialSummaryCard';
 import { DesignPriceEstimateCard } from '../components/DesignPriceEstimateCard';
@@ -53,11 +56,13 @@ export function DesignEditorScreen() {
     updateSelectedProfileColor,
     updateProfileSystem,
     updateDefaultGlass,
+    updateCustomerId,
     saveDesign,
     undoLastChange,
     redoLastChange,
   } = useDesignEditor(designId);
   const [customColor, setCustomColor] = useState('#87552F');
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [pricingRates, setPricingRates] = useState<PriceEstimateRates>(defaultPriceEstimateRates);
   const [addPanelSize, setAddPanelSize] = useState('');
   const canAdjustArch = design?.rootNode.type === 'frame' && isArchTopFrame(design.rootNode);
@@ -70,8 +75,11 @@ export function DesignEditorScreen() {
       async function loadPricingRates() {
         try {
           const settings = await getPricingSettings();
+          const customerRepository = await createCustomerRepository();
+          const loadedCustomers = await customerRepository.list({ limit: 100 });
           if (isActive) {
             setPricingRates(settings);
+            setCustomers(loadedCustomers);
           }
         } catch (loadError) {
           logger.error('Editor pricing settings load failed', loadError);
@@ -145,6 +153,11 @@ export function DesignEditorScreen() {
           </Text>
           <View style={styles.tools}>
             <ToolSection title="Kayit">
+              <CustomerSelector
+                customers={customers}
+                selectedCustomerId={design.customerId}
+                onSelectCustomer={updateCustomerId}
+              />
               <View style={styles.row}>
                 <AppButton
                   label="Geri al"

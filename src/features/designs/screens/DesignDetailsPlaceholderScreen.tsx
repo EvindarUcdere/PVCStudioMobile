@@ -8,9 +8,11 @@ import { AppScreen } from '../../../components/ui/AppScreen';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { routes } from '../../../constants/routes';
 import {
+  createCustomerRepository,
   createDesignRepository,
   createTemplateRepository,
 } from '../../../database/repositories/createRepositories';
+import { Customer } from '../../../domain/customers/entities/Customer';
 import { DesignProject } from '../../../domain/designs/entities/DesignProject';
 import { getDesignProfileColor } from '../../../domain/designs/colors/profileColorOptions';
 import { DesignTemplate } from '../../../domain/templates/entities/DesignTemplate';
@@ -22,6 +24,7 @@ export function DesignDetailsPlaceholderScreen() {
   const { designId } = useLocalSearchParams<{ designId: string }>();
   const [project, setProject] = useState<DesignProject | null>(null);
   const [template, setTemplate] = useState<DesignTemplate | null>(null);
+  const [customer, setCustomer] = useState<Customer | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,6 +43,13 @@ export function DesignDetailsPlaceholderScreen() {
         if (loadedProject?.templateId) {
           const templateRepository = await createTemplateRepository();
           setTemplate(await templateRepository.getById(loadedProject.templateId));
+        }
+
+        if (loadedProject?.customerId) {
+          const customerRepository = await createCustomerRepository();
+          setCustomer(await customerRepository.getById(loadedProject.customerId));
+        } else {
+          setCustomer(null);
         }
       } catch (loadError) {
         logger.error('Design details load failed', loadError);
@@ -85,6 +95,7 @@ export function DesignDetailsPlaceholderScreen() {
       </View>
       <View style={styles.info}>
         <Info label="Kaynak sablon" value={template?.name ?? 'Ozel tasarim'} />
+        <Info label="Musteri" value={customer?.fullName ?? 'Musterisiz'} />
         <Info label="Genislik" value={`${project.width} mm`} />
         <Info label="Yukseklik" value={`${project.height} mm`} />
         <Info label="Adet" value={String(project.quantity)} />

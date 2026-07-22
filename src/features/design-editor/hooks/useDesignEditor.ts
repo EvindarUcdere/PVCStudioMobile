@@ -359,6 +359,27 @@ export function useDesignEditor(designId: string | undefined) {
     });
   }, []);
 
+  const updateCustomerId = useCallback((customerId: string | null) => {
+    setState((current) => {
+      if (!current.design || current.design.customerId === customerId) {
+        return current;
+      }
+
+      return {
+        ...current,
+        design: {
+          ...current.design,
+          customerId,
+        },
+        history: [...current.history, current.design],
+        future: [],
+        isDirty: true,
+        error: null,
+        saveMessage: null,
+      };
+    });
+  }, []);
+
   const saveDesign = useCallback(async () => {
     if (!state.design || state.isSaving) {
       return;
@@ -447,6 +468,7 @@ export function useDesignEditor(designId: string | undefined) {
     updateSelectedProfileColor,
     updateProfileSystem,
     updateDefaultGlass,
+    updateCustomerId,
     saveDesign,
     undoLastChange,
     redoLastChange,

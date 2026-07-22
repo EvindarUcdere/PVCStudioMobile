@@ -17,14 +17,17 @@ import { AppScreen } from '../../../components/ui/AppScreen';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { routes } from '../../../constants/routes';
 import {
+  createCustomerRepository,
   createDesignRepository,
   createTemplateRepository,
 } from '../../../database/repositories/createRepositories';
+import { Customer } from '../../../domain/customers/entities/Customer';
 import { createDesignFromTemplateInputSchema } from '../../../domain/templates/factories/createDesignFromTemplate';
 import { DesignTemplate } from '../../../domain/templates/entities/DesignTemplate';
 import { backupDesignToCloud } from '../../../services/firebase/fullSyncService';
 import { logger } from '../../../services/logger';
 import { colors, radius, spacing, typography } from '../../../theme';
+import { CustomerSelector } from '../../customers/components/CustomerSelector';
 import { createTemplateService } from '../../templates/services/templateService';
 
 type FormValues = {
@@ -37,6 +40,8 @@ type FormValues = {
 export function CreateDesignFromTemplateScreen() {
   const { templateId } = useLocalSearchParams<{ templateId: string }>();
   const [template, setTemplate] = useState<DesignTemplate | null>(null);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +62,9 @@ export function CreateDesignFromTemplateScreen() {
 
       try {
         const repository = await createTemplateRepository();
+        const customerRepository = await createCustomerRepository();
         const selectedTemplate = await repository.getById(templateId);
+        setCustomers(await customerRepository.list({ limit: 100 }));
         setTemplate(selectedTemplate);
         if (selectedTemplate) {
           reset({
@@ -88,6 +95,7 @@ export function CreateDesignFromTemplateScreen() {
       width: Number(values.width),
       height: Number(values.height),
       quantity: Number(values.quantity),
+      customerId: selectedCustomerId,
     });
 
     if (!parsed.success) {
@@ -159,6 +167,11 @@ export function CreateDesignFromTemplateScreen() {
             keyboardType="numeric"
           />
           <FormField control={control} name="quantity" label="Adet" keyboardType="numeric" />
+          <CustomerSelector
+            customers={customers}
+            selectedCustomerId={selectedCustomerId}
+            onSelectCustomer={setSelectedCustomerId}
+          />
           {error ? <Text style={styles.error}>{error}</Text> : null}
           <AppButton
             label="Tasarımı Oluştur"
