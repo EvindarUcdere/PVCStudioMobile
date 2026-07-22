@@ -38,7 +38,7 @@ type FormValues = {
 };
 
 export function CreateDesignFromTemplateScreen() {
-  const { templateId } = useLocalSearchParams<{ templateId: string }>();
+  const { templateId, customerId } = useLocalSearchParams<{ templateId: string; customerId?: string }>();
   const [template, setTemplate] = useState<DesignTemplate | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
@@ -65,6 +65,7 @@ export function CreateDesignFromTemplateScreen() {
         const customerRepository = await createCustomerRepository();
         const selectedTemplate = await repository.getById(templateId);
         setCustomers(await customerRepository.list({ limit: 100 }));
+        setSelectedCustomerId(customerId ?? null);
         setTemplate(selectedTemplate);
         if (selectedTemplate) {
           reset({
@@ -83,7 +84,7 @@ export function CreateDesignFromTemplateScreen() {
     }
 
     void loadTemplate();
-  }, [reset, templateId]);
+  }, [customerId, reset, templateId]);
 
   async function submit(values: FormValues) {
     if (!template || isSaving) {

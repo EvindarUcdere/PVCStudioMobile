@@ -8,9 +8,13 @@ export const routes = {
   pricingSettings: '/pricing-settings',
   companyProfile: '/company-profile',
   templateDetails: (templateId: string) => `/templates/${templateId}`,
-  createDesignFromTemplate: (templateId: string) => `/templates/${templateId}/create`,
+  templateDetailsForCustomer: (templateId: string, customerId: string) =>
+    `/templates/${templateId}?customerId=${customerId}`,
+  createDesignFromTemplate: (templateId: string, customerId?: string | null) =>
+    customerId ? `/templates/${templateId}/create?customerId=${customerId}` : `/templates/${templateId}/create`,
   designDetails: (designId: string) => `/designs/${designId}`,
   designEditor: (designId: string) => `/designs/${designId}/edit`,
   designQuote: (designId: string) => `/designs/${designId}/quote`,
   customerDetails: (customerId: string) => `/customers/${customerId}`,
+  newDesignForCustomer: (customerId: string) => `/new-design?customerId=${customerId}`,
 } as const;

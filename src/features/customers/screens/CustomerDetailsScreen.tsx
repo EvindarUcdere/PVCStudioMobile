@@ -125,7 +125,7 @@ export function CustomerDetailsScreen() {
             <View style={styles.actions}>
               <AppButton
                 label="Yeni Tasarim"
-                onPress={() => router.push(routes.newDesign)}
+                onPress={() => router.push(routes.newDesignForCustomer(customer.id))}
                 style={styles.actionButton}
               />
               <AppButton

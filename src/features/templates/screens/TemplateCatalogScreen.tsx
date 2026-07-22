@@ -12,7 +12,11 @@ import { TemplateCategoryTabs } from '../components/TemplateCategoryTabs';
 import { TemplateSearchBar } from '../components/TemplateSearchBar';
 import { useTemplates } from '../hooks/useTemplates';
 
-export function TemplateCatalogScreen() {
+type TemplateCatalogScreenProps = {
+  customerId?: string | null;
+};
+
+export function TemplateCatalogScreen({ customerId = null }: TemplateCatalogScreenProps) {
   const { width } = useWindowDimensions();
   const columns = width < 390 ? 1 : 2;
   const {
@@ -56,7 +60,13 @@ export function TemplateCatalogScreen() {
             <View style={columns > 1 ? styles.gridItem : styles.singleItem}>
               <TemplateCard
                 template={item}
-                onPress={() => router.push(routes.templateDetails(item.id))}
+                onPress={() =>
+                  router.push(
+                    customerId
+                      ? routes.templateDetailsForCustomer(item.id, customerId)
+                      : routes.templateDetails(item.id),
+                  )
+                }
                 onToggleFavorite={() => void toggleFavorite(item)}
               />
             </View>

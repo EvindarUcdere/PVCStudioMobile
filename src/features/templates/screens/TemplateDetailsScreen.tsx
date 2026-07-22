@@ -16,7 +16,7 @@ import { FavoriteButton } from '../components/FavoriteButton';
 import { TemplatePreview } from '../components/TemplatePreview';
 
 export function TemplateDetailsScreen() {
-  const { templateId } = useLocalSearchParams<{ templateId: string }>();
+  const { templateId, customerId } = useLocalSearchParams<{ templateId: string; customerId?: string }>();
   const [template, setTemplate] = useState<DesignTemplate | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -95,7 +95,11 @@ export function TemplateDetailsScreen() {
         }
       />
       <View style={styles.preview}>
-        <TemplatePreview rootNode={template.rootNode} aspectRatio={template.previewAspectRatio} />
+        <TemplatePreview
+          rootNode={template.rootNode}
+          aspectRatio={template.previewAspectRatio}
+          designHeight={template.defaultHeight}
+        />
       </View>
       <Text style={styles.description}>{template.description}</Text>
       <Text style={styles.meta}>
@@ -103,7 +107,7 @@ export function TemplateDetailsScreen() {
       </Text>
       <AppButton
         label="Bu Modeli Kullan"
-        onPress={() => router.push(routes.createDesignFromTemplate(template.id))}
+        onPress={() => router.push(routes.createDesignFromTemplate(template.id, customerId ?? null))}
       />
     </AppScreen>
   );

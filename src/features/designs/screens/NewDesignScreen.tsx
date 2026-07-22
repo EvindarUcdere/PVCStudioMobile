@@ -1,5 +1,8 @@
+import { useLocalSearchParams } from 'expo-router';
+
 import { TemplateCatalogScreen } from '../../templates/screens/TemplateCatalogScreen';
 
 export function NewDesignScreen() {
-  return <TemplateCatalogScreen />;
+  const { customerId } = useLocalSearchParams<{ customerId?: string }>();
+  return <TemplateCatalogScreen customerId={customerId ?? null} />;
 }
