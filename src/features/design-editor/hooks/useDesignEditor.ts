@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { createDesignRepository } from '../../../database/repositories/createRepositories';
 import { DesignProject } from '../../../domain/designs/entities/DesignProject';
+import { JobStatus } from '../../../domain/designs/enums/JobStatus';
 import { OpeningType } from '../../../domain/designs/enums/OpeningType';
 import { SplitDirection } from '../../../domain/designs/enums/SplitDirection';
 import { GlassPriceOption, ProfileSystemPriceOption } from '../../../domain/designs/pricing/calculateDesignPriceEstimate';
@@ -380,6 +381,27 @@ export function useDesignEditor(designId: string | undefined) {
     });
   }, []);
 
+  const updateJobStatus = useCallback((jobStatus: JobStatus) => {
+    setState((current) => {
+      if (!current.design || current.design.jobStatus === jobStatus) {
+        return current;
+      }
+
+      return {
+        ...current,
+        design: {
+          ...current.design,
+          jobStatus,
+        },
+        history: [...current.history, current.design],
+        future: [],
+        isDirty: true,
+        error: null,
+        saveMessage: null,
+      };
+    });
+  }, []);
+
   const saveDesign = useCallback(async () => {
     if (!state.design || state.isSaving) {
       return;
@@ -469,6 +491,7 @@ export function useDesignEditor(designId: string | undefined) {
     updateProfileSystem,
     updateDefaultGlass,
     updateCustomerId,
+    updateJobStatus,
     saveDesign,
     undoLastChange,
     redoLastChange,

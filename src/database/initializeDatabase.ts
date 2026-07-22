@@ -6,6 +6,7 @@ import { designTemplatesMigration } from './migrations/003_design_templates';
 import { profileMeasurementSettingsMigration } from './migrations/004_profile_measurement_settings';
 import { quotesMigration } from './migrations/005_quotes';
 import { customersMigration } from './migrations/006_customers';
+import { designJobStatusMigration } from './migrations/007_design_job_status';
 import { DatabaseMigration, MigrationDatabase } from './migrations/types';
 import { seedReferenceData } from './seeds/seedReferenceData';
 import { seedProfileMeasurementSettings } from './seeds/seedProfileMeasurementSettings';
@@ -19,6 +20,7 @@ const migrations: DatabaseMigration[] = [
   profileMeasurementSettingsMigration,
   quotesMigration,
   customersMigration,
+  designJobStatusMigration,
 ];
 
 type MetadataRow = {

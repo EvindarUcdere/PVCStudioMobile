@@ -66,10 +66,10 @@ export class SqliteDesignRepository implements DesignRepository {
       try {
         await this.database.runAsync(
           `INSERT INTO design_projects
-           (id, name, customer_id, template_id, width, height, quantity, unit, root_node_json,
+           (id, name, customer_id, template_id, width, height, quantity, job_status, unit, root_node_json,
             profile_system_json, default_glass_json, accessories_json, notes, created_at,
             updated_at, deleted_at, sync_status, version)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
           [
             row.id,
             row.name,
@@ -78,6 +78,7 @@ export class SqliteDesignRepository implements DesignRepository {
             row.width,
             row.height,
             row.quantity,
+            row.job_status,
             row.unit,
             row.root_node_json,
             row.profile_system_json,
@@ -135,6 +136,11 @@ export class SqliteDesignRepository implements DesignRepository {
         params.push(options.customerId);
       }
 
+      if (options.jobStatus) {
+        where.push('job_status = ?');
+        params.push(options.jobStatus);
+      }
+
       if (options.search) {
         where.push('name LIKE ?');
         params.push(`%${options.search}%`);
@@ -183,6 +189,7 @@ export class SqliteDesignRepository implements DesignRepository {
             width = ?,
             height = ?,
             quantity = ?,
+            job_status = ?,
             unit = ?,
             root_node_json = ?,
             profile_system_json = ?,
@@ -200,6 +207,7 @@ export class SqliteDesignRepository implements DesignRepository {
             row.width,
             row.height,
             row.quantity,
+            row.job_status,
             row.unit,
             row.root_node_json,
             row.profile_system_json,

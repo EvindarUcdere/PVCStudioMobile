@@ -16,6 +16,7 @@ export const designProjectSchema: z.ZodType<DesignProject> = z.object({
   width: z.number().positive(),
   height: z.number().positive(),
   quantity: z.number().int().positive(),
+  jobStatus: z.enum(['draft', 'quoted', 'approved', 'production', 'installation', 'done', 'canceled']),
   unit: z.enum(['mm']),
   rootNode: designNodeSchema,
   profileSystem: profileSystemSelectionSchema.nullable(),

@@ -13,10 +13,12 @@ import {
 } from '../../../database/repositories/createRepositories';
 import { DesignProject } from '../../../domain/designs/entities/DesignProject';
 import { getDesignProfileColor } from '../../../domain/designs/colors/profileColorOptions';
+import { JobStatus, jobStatusLabels, jobStatuses } from '../../../domain/designs/enums/JobStatus';
 import { DesignTemplate } from '../../../domain/templates/entities/DesignTemplate';
 import { logger } from '../../../services/logger';
 import { colors, radius, spacing, typography } from '../../../theme';
 import { TemplatePreview } from '../../templates/components/TemplatePreview';
+import { getJobStatusColor } from '../components/JobStatusSelector';
 
 type DesignListItem = {
   project: DesignProject;
@@ -25,6 +27,7 @@ type DesignListItem = {
 
 export function DesignsScreen() {
   const [items, setItems] = useState<DesignListItem[]>([]);
+  const [statusFilter, setStatusFilter] = useState<JobStatus | 'all'>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,7 +37,9 @@ export function DesignsScreen() {
     try {
       const designRepository = await createDesignRepository();
       const templateRepository = await createTemplateRepository();
-      const projects = await designRepository.list();
+      const projects = await designRepository.list({
+        jobStatus: statusFilter === 'all' ? undefined : statusFilter,
+      });
       const nextItems = await Promise.all(
         projects.map(async (project) => ({
           project,
@@ -46,11 +51,11 @@ export function DesignsScreen() {
       setItems(nextItems);
     } catch (loadError) {
       logger.error('Design list load failed', loadError);
-      setError('Tasarımlar yüklenemedi. Lütfen tekrar deneyin.');
+      setError('Tasarimlar yuklenemedi. Lutfen tekrar deneyin.');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [statusFilter]);
 
   useFocusEffect(
     useCallback(() => {
@@ -60,14 +65,29 @@ export function DesignsScreen() {
 
   return (
     <AppScreen scroll={false}>
-      <AppHeader title="Tasarımlar" subtitle="Kaydettiğiniz PVC tasarımları" />
+      <AppHeader title="Tasarimlar" subtitle="Kaydettiginiz PVC isleri" />
+      <View style={styles.filters}>
+        <StatusFilterChip
+          label="Tumu"
+          selected={statusFilter === 'all'}
+          onPress={() => setStatusFilter('all')}
+        />
+        {jobStatuses.map((status) => (
+          <StatusFilterChip
+            key={status}
+            label={jobStatusLabels[status]}
+            selected={statusFilter === status}
+            onPress={() => setStatusFilter(status)}
+          />
+        ))}
+      </View>
       {isLoading ? (
         <View style={styles.center}>
           <ActivityIndicator color={colors.primary} />
         </View>
       ) : error ? (
         <EmptyState
-          title="Tasarımlar yüklenemedi."
+          title="Tasarimlar yuklenemedi."
           description={error}
           action={<AppButton label="Tekrar Dene" onPress={() => void loadDesigns()} />}
         />
@@ -84,11 +104,9 @@ export function DesignsScreen() {
           )}
           ListEmptyComponent={
             <EmptyState
-              title="Henüz tasarım bulunmuyor."
-              description="Yeni bir tasarım oluşturarak başlayın."
-              action={
-                <AppButton label="Yeni Tasarım" onPress={() => router.push(routes.newDesign)} />
-              }
+              title="Henuz tasarim bulunmuyor."
+              description="Yeni bir tasarim olusturarak baslayin."
+              action={<AppButton label="Yeni Tasarim" onPress={() => router.push(routes.newDesign)} />}
             />
           }
         />
@@ -102,7 +120,7 @@ function DesignCard({ item, onPress }: { item: DesignListItem; onPress: () => vo
   const profileColor = getDesignProfileColor(project.profileSystem);
   return (
     <Pressable
-      accessibilityLabel={`${project.name} tasarımını aç`}
+      accessibilityLabel={`${project.name} tasarimini ac`}
       accessibilityRole="button"
       onPress={onPress}
       style={({ pressed }) => [styles.card, pressed ? styles.pressed : null]}
@@ -118,14 +136,41 @@ function DesignCard({ item, onPress }: { item: DesignListItem; onPress: () => vo
       </View>
       <View style={styles.cardBody}>
         <Text style={styles.title}>{project.name}</Text>
+        <View style={[styles.badge, { backgroundColor: getJobStatusColor(project.jobStatus) }]}>
+          <Text style={styles.badgeText}>{jobStatusLabels[project.jobStatus]}</Text>
+        </View>
         <Text style={styles.meta}>
-          {project.width} × {project.height} mm · {project.quantity} adet
+          {project.width} x {project.height} mm - {project.quantity} adet
         </Text>
-        <Text style={styles.caption}>{template?.name ?? 'Özel tasarım'}</Text>
+        <Text style={styles.caption}>{template?.name ?? 'Ozel tasarim'}</Text>
         <Text style={styles.caption}>
-          Güncellendi: {new Date(project.updatedAt).toLocaleDateString('tr-TR')}
+          Guncellendi: {new Date(project.updatedAt).toLocaleDateString('tr-TR')}
         </Text>
       </View>
+    </Pressable>
+  );
+}
+
+function StatusFilterChip({
+  label,
+  selected,
+  onPress,
+}: {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.filterChip,
+        selected ? styles.filterChipSelected : null,
+        pressed ? styles.pressed : null,
+      ]}
+    >
+      <Text style={[styles.filterChipText, selected ? styles.filterChipTextSelected : null]}>{label}</Text>
     </Pressable>
   );
 }
@@ -135,6 +180,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
     justifyContent: 'center',
+  },
+  filters: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  filterChip: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  filterChipSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  filterChipText: {
+    ...typography.caption,
+    color: colors.textPrimary,
+    fontWeight: '700',
+  },
+  filterChipTextSelected: {
+    color: colors.surface,
   },
   list: {
     gap: spacing.md,
@@ -170,6 +241,17 @@ const styles = StyleSheet.create({
   title: {
     ...typography.body,
     color: colors.textPrimary,
+    fontWeight: '700',
+  },
+  badge: {
+    alignSelf: 'flex-start',
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+  },
+  badgeText: {
+    ...typography.caption,
+    color: colors.surface,
     fontWeight: '700',
   },
   meta: {

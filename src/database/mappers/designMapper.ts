@@ -20,6 +20,7 @@ export type DesignProjectRow = {
   width: number;
   height: number;
   quantity: number;
+  job_status: string;
   unit: string;
   root_node_json: string;
   profile_system_json: string | null;
@@ -64,6 +65,7 @@ export function toDatabaseRow(project: DesignProject): DesignProjectRow {
     width: parsed.width,
     height: parsed.height,
     quantity: parsed.quantity,
+    job_status: parsed.jobStatus,
     unit: parsed.unit,
     root_node_json: JSON.stringify(parsed.rootNode),
     profile_system_json:
@@ -105,6 +107,7 @@ export function toDomain(row: DesignProjectRow): DesignProject {
     width: row.width,
     height: row.height,
     quantity: row.quantity,
+    jobStatus: row.job_status ?? 'draft',
     unit: row.unit,
     rootNode,
     profileSystem,

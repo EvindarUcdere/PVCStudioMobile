@@ -3,6 +3,7 @@ import { DesignNode } from './DesignNode';
 import { GlassSelection } from './GlassSelection';
 import { ProfileSystemSelection } from './ProfileSystemSelection';
 import { DesignUnit } from '../enums/DesignUnit';
+import { JobStatus } from '../enums/JobStatus';
 import { SyncStatus } from '../enums/SyncStatus';
 
 export type DesignProject = {
@@ -13,6 +14,7 @@ export type DesignProject = {
   width: number;
   height: number;
   quantity: number;
+  jobStatus: JobStatus;
   unit: DesignUnit;
   rootNode: DesignNode;
   profileSystem: ProfileSystemSelection | null;

@@ -21,7 +21,7 @@ import {
   DesignPriceEstimate,
 } from '../../../domain/designs/pricing/calculateDesignPriceEstimate';
 import { Quote } from '../../../domain/quotes/entities/Quote';
-import { backupQuoteToCloud } from '../../../services/firebase/fullSyncService';
+import { backupDesignToCloud, backupQuoteToCloud } from '../../../services/firebase/fullSyncService';
 import { logger } from '../../../services/logger';
 import { colors, radius, spacing, typography } from '../../../theme';
 import { shareCustomerQuotePdf, shareProductionPdf } from '../services/pdfService';
@@ -260,6 +260,14 @@ export function QuotePreviewScreen() {
     setQuoteId(saved.id);
     setSaveMessage(status === 'sent' ? 'Teklif gonderildi olarak kaydedildi.' : 'Teklif kaydedildi.');
     void backupQuoteToCloud(saved);
+
+    if (status === 'sent' && design.jobStatus === 'draft') {
+      const designRepository = await createDesignRepository();
+      const updatedDesign = await designRepository.update({ ...design, jobStatus: 'quoted' });
+      setDesign(updatedDesign);
+      void backupDesignToCloud(updatedDesign);
+    }
+
     return saved;
   }
 

@@ -35,17 +35,18 @@ class InMemoryDatabase implements SqliteDatabaseLike, MigrationDatabase {
         width: Number(params[4]),
         height: Number(params[5]),
         quantity: Number(params[6]),
-        unit: String(params[7]),
-        root_node_json: String(params[8]),
-        profile_system_json: params[9] === null ? null : String(params[9]),
-        default_glass_json: params[10] === null ? null : String(params[10]),
-        accessories_json: String(params[11]),
-        notes: params[12] === null ? null : String(params[12]),
-        created_at: String(params[13]),
-        updated_at: String(params[14]),
-        deleted_at: params[15] === null ? null : String(params[15]),
-        sync_status: String(params[16]),
-        version: Number(params[17]),
+        job_status: String(params[7]),
+        unit: String(params[8]),
+        root_node_json: String(params[9]),
+        profile_system_json: params[10] === null ? null : String(params[10]),
+        default_glass_json: params[11] === null ? null : String(params[11]),
+        accessories_json: String(params[12]),
+        notes: params[13] === null ? null : String(params[13]),
+        created_at: String(params[14]),
+        updated_at: String(params[15]),
+        deleted_at: params[16] === null ? null : String(params[16]),
+        sync_status: String(params[17]),
+        version: Number(params[18]),
       };
 
       if (this.designProjects.has(row.id)) {
@@ -60,7 +61,7 @@ class InMemoryDatabase implements SqliteDatabaseLike, MigrationDatabase {
       normalized.startsWith('update design_projects set') &&
       normalized.includes('root_node_json')
     ) {
-      const id = String(params[15]);
+      const id = String(params[16]);
       const existing = this.designProjects.get(id);
       if (!existing || existing.deleted_at !== null) {
         return {};
@@ -74,15 +75,16 @@ class InMemoryDatabase implements SqliteDatabaseLike, MigrationDatabase {
         width: Number(params[3]),
         height: Number(params[4]),
         quantity: Number(params[5]),
-        unit: String(params[6]),
-        root_node_json: String(params[7]),
-        profile_system_json: params[8] === null ? null : String(params[8]),
-        default_glass_json: params[9] === null ? null : String(params[9]),
-        accessories_json: String(params[10]),
-        notes: params[11] === null ? null : String(params[11]),
-        updated_at: String(params[12]),
-        sync_status: String(params[13]),
-        version: Number(params[14]),
+        job_status: String(params[6]),
+        unit: String(params[7]),
+        root_node_json: String(params[8]),
+        profile_system_json: params[9] === null ? null : String(params[9]),
+        default_glass_json: params[10] === null ? null : String(params[10]),
+        accessories_json: String(params[11]),
+        notes: params[12] === null ? null : String(params[12]),
+        updated_at: String(params[13]),
+        sync_status: String(params[14]),
+        version: Number(params[15]),
       });
       return {};
     }
@@ -153,6 +155,12 @@ class InMemoryDatabase implements SqliteDatabaseLike, MigrationDatabase {
       const customerId = String(params[paramIndex]);
       paramIndex += 1;
       rows = rows.filter((row) => row.customer_id === customerId);
+    }
+
+    if (normalized.includes('job_status = ?')) {
+      const jobStatus = String(params[paramIndex]);
+      paramIndex += 1;
+      rows = rows.filter((row) => row.job_status === jobStatus);
     }
 
     if (normalized.includes('name like ?')) {

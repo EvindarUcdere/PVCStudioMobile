@@ -3,6 +3,7 @@ import { DesignProject } from '../../domain/designs/entities/DesignProject';
 export type ListDesignsOptions = {
   includeDeleted?: boolean;
   customerId?: string;
+  jobStatus?: string | undefined;
   limit?: number;
   offset?: number;
   search?: string;

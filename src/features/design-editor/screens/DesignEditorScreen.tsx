@@ -25,6 +25,7 @@ import { isArchTopFrame } from '../../../domain/designs/utils/frameShape';
 import { logger } from '../../../services/logger';
 import { colors, radius, spacing, typography } from '../../../theme';
 import { CustomerSelector } from '../../customers/components/CustomerSelector';
+import { JobStatusSelector } from '../../designs/components/JobStatusSelector';
 import { DesignCanvas } from '../components/DesignCanvas';
 import { DesignMaterialSummaryCard } from '../components/DesignMaterialSummaryCard';
 import { DesignPriceEstimateCard } from '../components/DesignPriceEstimateCard';
@@ -57,6 +58,7 @@ export function DesignEditorScreen() {
     updateProfileSystem,
     updateDefaultGlass,
     updateCustomerId,
+    updateJobStatus,
     saveDesign,
     undoLastChange,
     redoLastChange,
@@ -158,6 +160,7 @@ export function DesignEditorScreen() {
                 selectedCustomerId={design.customerId}
                 onSelectCustomer={updateCustomerId}
               />
+              <JobStatusSelector value={design.jobStatus} onChange={updateJobStatus} />
               <View style={styles.row}>
                 <AppButton
                   label="Geri al"

@@ -42,6 +42,7 @@ export function createDesignFromTemplate({
     width,
     height,
     quantity,
+    jobStatus: 'draft',
     unit: 'mm',
     rootNode: cloneTemplateTree(template.rootNode),
     profileSystem: null,

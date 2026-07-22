@@ -28,6 +28,7 @@ export function createEmptyDesignProject({
     width,
     height,
     quantity,
+    jobStatus: 'draft',
     unit: 'mm',
     rootNode: {
       id: createId(),

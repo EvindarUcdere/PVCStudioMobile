@@ -14,6 +14,7 @@ import {
 } from '../../../database/repositories/createRepositories';
 import { Customer } from '../../../domain/customers/entities/Customer';
 import { DesignProject } from '../../../domain/designs/entities/DesignProject';
+import { jobStatusLabels } from '../../../domain/designs/enums/JobStatus';
 import { getDesignProfileColor } from '../../../domain/designs/colors/profileColorOptions';
 import { DesignTemplate } from '../../../domain/templates/entities/DesignTemplate';
 import { logger } from '../../../services/logger';
@@ -96,6 +97,7 @@ export function DesignDetailsPlaceholderScreen() {
       <View style={styles.info}>
         <Info label="Kaynak sablon" value={template?.name ?? 'Ozel tasarim'} />
         <Info label="Musteri" value={customer?.fullName ?? 'Musterisiz'} />
+        <Info label="Is durumu" value={jobStatusLabels[project.jobStatus]} />
         <Info label="Genislik" value={`${project.width} mm`} />
         <Info label="Yukseklik" value={`${project.height} mm`} />
         <Info label="Adet" value={String(project.quantity)} />

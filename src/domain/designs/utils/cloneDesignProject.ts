@@ -88,6 +88,7 @@ export function cloneDesignProject(project: DesignProject, newName?: string): De
     ...project,
     id: createId(),
     name: newName ?? `${project.name} - Kopya`,
+    jobStatus: 'draft',
     rootNode,
     accessories: project.accessories.map((accessory) => cloneAccessory(accessory, nodeIdMap)),
     createdAt: now,

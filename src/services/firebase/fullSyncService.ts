@@ -266,7 +266,7 @@ export async function restoreAllCloudDataToLocal(): Promise<FullSyncResult | nul
 
     for (const snapshot of designSnapshots.docs) {
       const document = snapshot.data() as CloudDesignDocument;
-      const cloudDesign = document.data;
+      const cloudDesign = normalizeCloudDesign(document.data);
       const localDesign = await designRepository.getById(cloudDesign.id);
 
       if (!localDesign) {
@@ -344,6 +344,13 @@ export async function restoreAllCloudDataToLocal(): Promise<FullSyncResult | nul
 
 function isCloudNewer(cloudUpdatedAt: string, localUpdatedAt: string): boolean {
   return new Date(cloudUpdatedAt).getTime() > new Date(localUpdatedAt).getTime();
+}
+
+function normalizeCloudDesign(design: DesignProject): DesignProject {
+  return {
+    ...design,
+    jobStatus: design.jobStatus ?? 'draft',
+  };
 }
 
 async function setSingleDocument(
