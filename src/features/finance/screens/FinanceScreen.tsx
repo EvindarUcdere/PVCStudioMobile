@@ -56,13 +56,15 @@ const defaultForm: FinanceForm = {
   notes: '',
 };
 
-const categoryOptions: CashTransactionCategory[] = [
-  'job_payment',
-  'material',
+const incomeCategoryOptions: CashTransactionCategory[] = ['job_payment', 'other'];
+
+const expenseCategoryOptions: CashTransactionCategory[] = [
+  'pvc_profile',
+  'glass',
+  'accessory',
+  'hardware',
   'labor',
   'transport',
-  'rent',
-  'utilities',
   'other',
 ];
 
@@ -115,6 +117,7 @@ export function FinanceScreen() {
       ...current,
       [key]: value,
       ...(key === 'type' && value === 'income' ? { category: 'job_payment' as const } : null),
+      ...(key === 'type' && value === 'expense' ? { category: 'pvc_profile' as const } : null),
     }));
     setError(null);
     setMessage(null);
@@ -163,7 +166,7 @@ export function FinanceScreen() {
       <AppScreen scroll={false}>
         <AppHeader
           title="Gelir / Gider"
-          subtitle="Kasa, masraf ve is odemeleri"
+          subtitle="Musteri odemesi ve malzeme maliyeti"
           rightAction={<AppButton label="Geri" variant="ghost" onPress={() => router.back()} />}
         />
         {isLoading ? (
@@ -180,7 +183,7 @@ export function FinanceScreen() {
               <View style={styles.headerContent}>
                 <SummaryCard summary={monthSummary} />
                 <AppCard style={styles.formCard}>
-                  <Text style={styles.sectionTitle}>Hizli kayit</Text>
+                  <Text style={styles.sectionTitle}>Kasa kaydi</Text>
                   <View style={styles.row}>
                     <SegmentButton
                       label="Gelir"
@@ -196,7 +199,7 @@ export function FinanceScreen() {
                   <TextInput
                     accessibilityLabel="Baslik"
                     onChangeText={(value) => updateForm('title', value)}
-                    placeholder={form.type === 'income' ? 'Orn: Ahmet is odemesi' : 'Orn: Profil alimi'}
+                    placeholder={form.type === 'income' ? 'Orn: Musteriden alinan odeme' : 'Orn: PVC profil alimi'}
                     placeholderTextColor={colors.textSecondary}
                     style={styles.input}
                     value={form.title}
@@ -221,7 +224,7 @@ export function FinanceScreen() {
                     />
                   </View>
                   <View style={styles.chips}>
-                    {categoryOptions.map((category) => (
+                    {(form.type === 'income' ? incomeCategoryOptions : expenseCategoryOptions).map((category) => (
                       <Chip
                         key={category}
                         label={cashTransactionCategoryLabels[category]}
@@ -238,11 +241,11 @@ export function FinanceScreen() {
                     onChange={(value) => updateForm('customerId', value)}
                   />
                   <Selector
-                    label="Is / Tasarim"
+                    label="Bagli is"
                     emptyLabel="Baglama"
                     options={designs.map((design) => ({
                       id: design.id,
-                      label: design.jobName ? `${design.jobName} - ${design.name}` : design.name,
+                      label: formatDesignOption(design),
                     }))}
                     value={form.designId}
                     onChange={(value) => updateForm('designId', value)}
@@ -273,7 +276,7 @@ export function FinanceScreen() {
             ListEmptyComponent={
               <EmptyState
                 title="Kayit yok"
-                description="Gelir veya gider ekleyerek kasayi basitce takip edebilirsiniz."
+                description="Musteri odemesi veya PVC/cam gideri ekleyerek isi basitce takip edebilirsiniz."
               />
             }
           />
@@ -414,6 +417,11 @@ function summarize(transactions: CashTransaction[]): { income: number; expense: 
     .filter((item) => item.type === 'expense')
     .reduce((total, item) => total + item.amount, 0);
   return { income, expense, net: income - expense };
+}
+
+function formatDesignOption(design: DesignProject): string {
+  const baseName = design.jobName ?? design.name;
+  return `${baseName} (${design.width}x${design.height})`;
 }
 
 function getCurrentMonthRange(): { from: string; to: string } {

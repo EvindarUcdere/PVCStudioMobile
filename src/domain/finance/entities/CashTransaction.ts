@@ -2,9 +2,13 @@ export type CashTransactionType = 'income' | 'expense';
 
 export type CashTransactionCategory =
   | 'job_payment'
-  | 'material'
+  | 'pvc_profile'
+  | 'glass'
+  | 'accessory'
+  | 'hardware'
   | 'labor'
   | 'transport'
+  | 'material'
   | 'rent'
   | 'utilities'
   | 'other';
@@ -26,10 +30,14 @@ export type CashTransaction = {
 };
 
 export const cashTransactionCategoryLabels: Record<CashTransactionCategory, string> = {
-  job_payment: 'Is odemesi',
-  material: 'Malzeme',
+  job_payment: 'Musteri odemesi',
+  pvc_profile: 'PVC profil',
+  glass: 'Cam',
+  accessory: 'Aksesuar',
+  hardware: 'Mekanizma',
   labor: 'Iscilik',
   transport: 'Nakliye',
+  material: 'Malzeme',
   rent: 'Kira',
   utilities: 'Fatura',
   other: 'Diger',
