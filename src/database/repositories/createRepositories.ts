@@ -4,6 +4,7 @@ import { getDatabase } from '../client';
 import { SqliteCashTransactionRepository } from './SqliteCashTransactionRepository';
 import { SqliteCustomerRepository } from './SqliteCustomerRepository';
 import { SqliteDesignRepository } from './SqliteDesignRepository';
+import { SqliteJobRepository } from './SqliteJobRepository';
 import { SqliteQuoteRepository } from './SqliteQuoteRepository';
 import { SqliteStockRepository } from './SqliteStockRepository';
 import { SqliteTemplateRepository } from './SqliteTemplateRepository';
@@ -31,6 +32,10 @@ export async function createDesignRepository() {
 
 export async function createCashTransactionRepository() {
   return new SqliteCashTransactionRepository(createDatabaseAdapter(await getDatabase()));
+}
+
+export async function createJobRepository() {
+  return new SqliteJobRepository(createDatabaseAdapter(await getDatabase()));
 }
 
 export async function createStockRepository() {

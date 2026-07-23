@@ -7,7 +7,10 @@ import { AppHeader } from '../../../components/ui/AppHeader';
 import { AppScreen } from '../../../components/ui/AppScreen';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { routes } from '../../../constants/routes';
-import { createCustomerRepository } from '../../../database/repositories/createRepositories';
+import {
+  createCustomerRepository,
+  createJobRepository,
+} from '../../../database/repositories/createRepositories';
 import { getPricingSettings } from '../../../database/repositories/PricingSettingsRepository';
 import { Customer } from '../../../domain/customers/entities/Customer';
 import {
@@ -24,6 +27,7 @@ import {
 } from '../../../domain/designs/pricing/calculateDesignPriceEstimate';
 import { isArchTopFrame } from '../../../domain/designs/utils/frameShape';
 import { consumeDesignStock } from '../../../domain/inventory/consumeDesignStock';
+import { JobProject } from '../../../domain/jobs/entities/JobProject';
 import { logger } from '../../../services/logger';
 import { colors, radius, spacing, typography } from '../../../theme';
 import { CustomerSelector } from '../../customers/components/CustomerSelector';
@@ -63,12 +67,14 @@ export function DesignEditorScreen() {
     updateCustomerId,
     updateJobStatus,
     updateJobName,
+    updateJobId,
     saveDesign,
     undoLastChange,
     redoLastChange,
   } = useDesignEditor(designId);
   const [customColor, setCustomColor] = useState('#87552F');
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [jobs, setJobs] = useState<JobProject[]>([]);
   const [pricingRates, setPricingRates] = useState<PriceEstimateRates>(defaultPriceEstimateRates);
   const [addPanelSize, setAddPanelSize] = useState('');
   const canAdjustArch = design?.rootNode.type === 'frame' && isArchTopFrame(design.rootNode);
@@ -82,10 +88,13 @@ export function DesignEditorScreen() {
         try {
           const settings = await getPricingSettings();
           const customerRepository = await createCustomerRepository();
+          const jobRepository = await createJobRepository();
           const loadedCustomers = await customerRepository.list({ limit: 100 });
+          const loadedJobs = await jobRepository.list({ limit: 100 });
           if (isActive) {
             setPricingRates(settings);
             setCustomers(loadedCustomers);
+            setJobs(loadedJobs);
           }
         } catch (loadError) {
           logger.error('Editor pricing settings load failed', loadError);
@@ -218,6 +227,7 @@ export function DesignEditorScreen() {
                 style={styles.jobNameInput}
                 value={design.jobName ?? ''}
               />
+              <JobSelector jobs={jobs} selectedJobId={design.jobId} onSelectJob={updateJobId} />
               <JobStatusSelector value={design.jobStatus} onChange={handleJobStatusChange} />
               <View style={styles.row}>
                 <AppButton
@@ -414,6 +424,48 @@ function ToolSection({ title, children }: { title: string; children: ReactNode }
     <View style={styles.toolSection}>
       <Text style={styles.toolTitle}>{title}</Text>
       {children}
+    </View>
+  );
+}
+
+function JobSelector({
+  jobs,
+  selectedJobId,
+  onSelectJob,
+}: {
+  jobs: JobProject[];
+  selectedJobId: string | null;
+  onSelectJob: (jobId: string | null) => void;
+}) {
+  if (jobs.length === 0) {
+    return (
+      <View style={styles.jobSelector}>
+        <Text style={styles.toolTitle}>Bagli is</Text>
+        <Text style={styles.caption}>Is yok. Diger &gt; Isler ekranindan is olusturabilirsiniz.</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.jobSelector}>
+      <Text style={styles.toolTitle}>Bagli is</Text>
+      <View style={styles.optionGrid}>
+        <AppButton
+          label="Yok"
+          variant={selectedJobId === null ? 'primary' : 'secondary'}
+          onPress={() => onSelectJob(null)}
+          style={styles.optionButton}
+        />
+        {jobs.slice(0, 8).map((job) => (
+          <AppButton
+            key={job.id}
+            label={job.name}
+            variant={selectedJobId === job.id ? 'primary' : 'secondary'}
+            onPress={() => onSelectJob(job.id)}
+            style={styles.optionButton}
+          />
+        ))}
+      </View>
     </View>
   );
 }
@@ -663,5 +715,12 @@ const styles = StyleSheet.create({
   error: {
     ...typography.caption,
     color: colors.error,
+  },
+  caption: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  jobSelector: {
+    gap: spacing.xs,
   },
 });

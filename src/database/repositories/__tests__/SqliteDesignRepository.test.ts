@@ -37,17 +37,18 @@ class InMemoryDatabase implements SqliteDatabaseLike, MigrationDatabase {
         quantity: Number(params[6]),
         job_status: String(params[7]),
         job_name: params[8] === null ? null : String(params[8]),
-        unit: String(params[9]),
-        root_node_json: String(params[10]),
-        profile_system_json: params[11] === null ? null : String(params[11]),
-        default_glass_json: params[12] === null ? null : String(params[12]),
-        accessories_json: String(params[13]),
-        notes: params[14] === null ? null : String(params[14]),
-        created_at: String(params[15]),
-        updated_at: String(params[16]),
-        deleted_at: params[17] === null ? null : String(params[17]),
-        sync_status: String(params[18]),
-        version: Number(params[19]),
+        job_id: params[9] === null ? null : String(params[9]),
+        unit: String(params[10]),
+        root_node_json: String(params[11]),
+        profile_system_json: params[12] === null ? null : String(params[12]),
+        default_glass_json: params[13] === null ? null : String(params[13]),
+        accessories_json: String(params[14]),
+        notes: params[15] === null ? null : String(params[15]),
+        created_at: String(params[16]),
+        updated_at: String(params[17]),
+        deleted_at: params[18] === null ? null : String(params[18]),
+        sync_status: String(params[19]),
+        version: Number(params[20]),
       };
 
       if (this.designProjects.has(row.id)) {
@@ -62,7 +63,7 @@ class InMemoryDatabase implements SqliteDatabaseLike, MigrationDatabase {
       normalized.startsWith('update design_projects set') &&
       normalized.includes('root_node_json')
     ) {
-      const id = String(params[17]);
+      const id = String(params[18]);
       const existing = this.designProjects.get(id);
       if (!existing || existing.deleted_at !== null) {
         return {};
@@ -78,15 +79,16 @@ class InMemoryDatabase implements SqliteDatabaseLike, MigrationDatabase {
         quantity: Number(params[5]),
         job_status: String(params[6]),
         job_name: params[7] === null ? null : String(params[7]),
-        unit: String(params[8]),
-        root_node_json: String(params[9]),
-        profile_system_json: params[10] === null ? null : String(params[10]),
-        default_glass_json: params[11] === null ? null : String(params[11]),
-        accessories_json: String(params[12]),
-        notes: params[13] === null ? null : String(params[13]),
-        updated_at: String(params[14]),
-        sync_status: String(params[15]),
-        version: Number(params[16]),
+        job_id: params[8] === null ? null : String(params[8]),
+        unit: String(params[9]),
+        root_node_json: String(params[10]),
+        profile_system_json: params[11] === null ? null : String(params[11]),
+        default_glass_json: params[12] === null ? null : String(params[12]),
+        accessories_json: String(params[13]),
+        notes: params[14] === null ? null : String(params[14]),
+        updated_at: String(params[15]),
+        sync_status: String(params[16]),
+        version: Number(params[17]),
       });
       return {};
     }

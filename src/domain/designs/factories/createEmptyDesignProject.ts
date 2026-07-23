@@ -7,6 +7,7 @@ type CreateEmptyDesignProjectInput = {
   name: string;
   customerId?: string | null;
   jobName?: string | null;
+  jobId?: string | null;
   width?: number;
   height?: number;
   quantity?: number;
@@ -16,6 +17,7 @@ export function createEmptyDesignProject({
   name,
   customerId = null,
   jobName = null,
+  jobId = null,
   width = 1000,
   height = 1000,
   quantity = 1,
@@ -32,6 +34,7 @@ export function createEmptyDesignProject({
     quantity,
     jobStatus: 'draft',
     jobName,
+    jobId,
     unit: 'mm',
     rootNode: {
       id: createId(),

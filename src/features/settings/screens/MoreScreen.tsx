@@ -36,6 +36,12 @@ const options: MoreOption[] = [
     onPress: () => router.push(routes.finance),
   },
   {
+    title: 'Isler',
+    icon: 'briefcase-outline',
+    state: 'Ac',
+    onPress: () => router.push(routes.jobs),
+  },
+  {
     title: 'Stok',
     icon: 'cube-outline',
     state: 'Ac',
@@ -83,7 +89,7 @@ export function MoreScreen() {
       }
 
       setSyncMessage(
-        `${result.customers} musteri, ${result.designs} tasarim, ${result.quotes} teklif, ${result.cashTransactions} kasa kaydi, ${result.stockItems} stok urunu buluta yedeklendi. Firma kodu: ${result.companyId}`,
+        `${result.customers} musteri, ${result.jobs} is, ${result.designs} tasarim, ${result.quotes} teklif, ${result.cashTransactions} kasa kaydi, ${result.stockItems} stok urunu buluta yedeklendi. Firma kodu: ${result.companyId}`,
       );
     } finally {
       setIsSyncing(false);
@@ -108,7 +114,7 @@ export function MoreScreen() {
       }
 
       setSyncMessage(
-        `${result.customers} musteri, ${result.designs} tasarim, ${result.quotes} teklif, ${result.cashTransactions} kasa kaydi, ${result.stockItems} stok urunu cihaza alindi. Firma kodu: ${result.companyId}`,
+        `${result.customers} musteri, ${result.jobs} is, ${result.designs} tasarim, ${result.quotes} teklif, ${result.cashTransactions} kasa kaydi, ${result.stockItems} stok urunu cihaza alindi. Firma kodu: ${result.companyId}`,
       );
     } finally {
       setIsSyncing(false);

@@ -16,6 +16,7 @@ export type DesignProject = {
   quantity: number;
   jobStatus: JobStatus;
   jobName: string | null;
+  jobId: string | null;
   unit: DesignUnit;
   rootNode: DesignNode;
   profileSystem: ProfileSystemSelection | null;

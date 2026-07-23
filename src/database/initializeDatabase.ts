@@ -11,6 +11,7 @@ import { designJobNameMigration } from './migrations/008_design_job_name';
 import { cashTransactionsMigration } from './migrations/009_cash_transactions';
 import { stockItemsMigration } from './migrations/010_stock_items';
 import { stockConsumptionsMigration } from './migrations/011_stock_consumptions';
+import { jobProjectsMigration } from './migrations/012_job_projects';
 import { DatabaseMigration, MigrationDatabase } from './migrations/types';
 import { seedReferenceData } from './seeds/seedReferenceData';
 import { seedProfileMeasurementSettings } from './seeds/seedProfileMeasurementSettings';
@@ -29,6 +30,7 @@ const migrations: DatabaseMigration[] = [
   cashTransactionsMigration,
   stockItemsMigration,
   stockConsumptionsMigration,
+  jobProjectsMigration,
 ];
 
 type MetadataRow = {

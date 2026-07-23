@@ -7,6 +7,7 @@ export const routes = {
   quotes: '/quotes',
   finance: '/finance',
   stock: '/stock',
+  jobs: '/jobs',
   pricingSettings: '/pricing-settings',
   companyProfile: '/company-profile',
   templateDetails: (templateId: string) => `/templates/${templateId}`,
@@ -17,6 +18,7 @@ export const routes = {
   designDetails: (designId: string) => `/designs/${designId}`,
   designEditor: (designId: string) => `/designs/${designId}/edit`,
   designQuote: (designId: string) => `/designs/${designId}/quote`,
+  jobDetails: (jobId: string) => `/jobs/${jobId}`,
   customerDetails: (customerId: string) => `/customers/${customerId}`,
   newDesignForCustomer: (customerId: string) => `/new-design?customerId=${customerId}`,
 } as const;

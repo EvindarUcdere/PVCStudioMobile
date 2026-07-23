@@ -4,6 +4,7 @@ import {
   createCashTransactionRepository,
   createCustomerRepository,
   createDesignRepository,
+  createJobRepository,
   createQuoteRepository,
   createStockRepository,
 } from '../../database/repositories/createRepositories';
@@ -20,6 +21,7 @@ import { DesignProject } from '../../domain/designs/entities/DesignProject';
 import { PriceEstimateRates } from '../../domain/designs/pricing/calculateDesignPriceEstimate';
 import { CashTransaction } from '../../domain/finance/entities/CashTransaction';
 import { StockItem } from '../../domain/inventory/entities/StockItem';
+import { JobProject } from '../../domain/jobs/entities/JobProject';
 import { Quote } from '../../domain/quotes/entities/Quote';
 import { logger } from '../logger';
 import { getFirebaseServices } from './firebaseConfig';
@@ -30,6 +32,7 @@ export type FullSyncResult = {
   companyId: string;
   customers: number;
   designs: number;
+  jobs: number;
   quotes: number;
   cashTransactions: number;
   stockItems: number;
@@ -45,6 +48,11 @@ type CloudDesignDocument = {
 
 type CloudCustomerDocument = {
   data: Customer;
+  updatedAt: string;
+};
+
+type CloudJobProjectDocument = {
+  data: JobProject;
   updatedAt: string;
 };
 
@@ -89,11 +97,13 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
 
   const customerRepository = await createCustomerRepository();
   const designRepository = await createDesignRepository();
+  const jobRepository = await createJobRepository();
   const quoteRepository = await createQuoteRepository();
   const cashTransactionRepository = await createCashTransactionRepository();
   const stockRepository = await createStockRepository();
   const customers = await customerRepository.list({ includeDeleted: true, limit: 1000 });
   const designs = await designRepository.list({ includeDeleted: true, limit: 1000 });
+  const jobs = await jobRepository.list({ includeDeleted: true, limit: 1000 });
   const quotes = await quoteRepository.list({ limit: 1000 });
   const cashTransactions = await cashTransactionRepository.list({ limit: 1000 });
   const stockItems = await stockRepository.list({ includeInactive: true, limit: 1000 });
@@ -115,6 +125,14 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
     batch.set(doc(workspaceDoc, 'designs', design.id), {
       data: design,
       updatedAt: design.updatedAt,
+      syncedAt: serverTimestamp(),
+    });
+  });
+
+  jobs.forEach((job) => {
+    batch.set(doc(workspaceDoc, 'jobProjects', job.id), {
+      data: job,
+      updatedAt: job.updatedAt,
       syncedAt: serverTimestamp(),
     });
   });
@@ -161,6 +179,7 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
       syncSummary: {
         customerCount: customers.length,
         designCount: designs.length,
+        jobCount: jobs.length,
         quoteCount: quotes.length,
         cashTransactionCount: cashTransactions.length,
         stockItemCount: stockItems.length,
@@ -193,6 +212,7 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
     {
       customerCount: customers.length,
       designCount: designs.length,
+      jobCount: jobs.length,
       quoteCount: quotes.length,
       cashTransactionCount: cashTransactions.length,
       stockItemCount: stockItems.length,
@@ -211,6 +231,7 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
       companyId: workspace.rootId,
       customers: customers.length,
       designs: designs.length,
+      jobs: jobs.length,
       quotes: quotes.length,
       cashTransactions: cashTransactions.length,
       stockItems: stockItems.length,
@@ -221,6 +242,27 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
   } catch (error) {
     logger.error('Full cloud backup failed', error);
     return null;
+  }
+}
+
+export async function backupJobToCloud(job: JobProject): Promise<boolean> {
+  const services = getFirebaseServices();
+  const workspace = await getCloudWorkspacePath();
+
+  if (!services || !workspace) {
+    return false;
+  }
+
+  try {
+    await setSingleDocument(services.firestore, workspace.rootId, 'jobProjects', job.id, {
+      data: job,
+      updatedAt: job.updatedAt,
+      syncedAt: serverTimestamp(),
+    });
+    return true;
+  } catch (error) {
+    logger.error('Job project cloud backup failed', error);
+    return false;
   }
 }
 
@@ -387,11 +429,13 @@ export async function restoreAllCloudDataToLocal(): Promise<FullSyncResult | nul
     const workspaceDoc = doc(services.firestore, workspace.rootCollection, workspace.rootId);
     const customerRepository = await createCustomerRepository();
     const designRepository = await createDesignRepository();
+    const jobRepository = await createJobRepository();
     const quoteRepository = await createQuoteRepository();
     const cashTransactionRepository = await createCashTransactionRepository();
     const stockRepository = await createStockRepository();
     const customerSnapshots = await getDocs(collection(workspaceDoc, 'customers'));
     const designSnapshots = await getDocs(collection(workspaceDoc, 'designs'));
+    const jobSnapshots = await getDocs(collection(workspaceDoc, 'jobProjects'));
     const quoteSnapshots = await getDocs(collection(workspaceDoc, 'quotes'));
     const cashTransactionSnapshots = await getDocs(collection(workspaceDoc, 'cashTransactions'));
     const stockItemSnapshots = await getDocs(collection(workspaceDoc, 'stockItems'));
@@ -399,6 +443,7 @@ export async function restoreAllCloudDataToLocal(): Promise<FullSyncResult | nul
     const pricingSnapshots = await getDocs(collection(workspaceDoc, 'settings'));
     let restoredCustomers = 0;
     let restoredDesigns = 0;
+    let restoredJobs = 0;
     let restoredQuotes = 0;
     let restoredCashTransactions = 0;
     let restoredStockItems = 0;
@@ -440,6 +485,26 @@ export async function restoreAllCloudDataToLocal(): Promise<FullSyncResult | nul
       if (isCloudNewer(cloudDesign.updatedAt, localDesign.updatedAt)) {
         await designRepository.update(cloudDesign);
         restoredDesigns += 1;
+      }
+    }
+
+    for (const snapshot of jobSnapshots.docs) {
+      const document = snapshot.data() as CloudJobProjectDocument;
+      const cloudJob = document.data;
+      const localJob = await jobRepository.getById(cloudJob.id);
+
+      if (!localJob || isCloudNewer(cloudJob.updatedAt, localJob.updatedAt)) {
+        await jobRepository.save({
+          id: cloudJob.id,
+          name: cloudJob.name,
+          customerId: cloudJob.customerId,
+          status: cloudJob.status,
+          notes: cloudJob.notes,
+          deletedAt: cloudJob.deletedAt,
+          syncStatus: cloudJob.syncStatus,
+          version: cloudJob.version,
+        });
+        restoredJobs += 1;
       }
     }
 
@@ -548,6 +613,7 @@ export async function restoreAllCloudDataToLocal(): Promise<FullSyncResult | nul
       companyId: workspace.rootId,
       customers: restoredCustomers,
       designs: restoredDesigns,
+      jobs: restoredJobs,
       quotes: restoredQuotes,
       cashTransactions: restoredCashTransactions,
       stockItems: restoredStockItems,
@@ -570,6 +636,7 @@ function normalizeCloudDesign(design: DesignProject): DesignProject {
     ...design,
     jobStatus: design.jobStatus ?? 'draft',
     jobName: design.jobName ?? null,
+    jobId: design.jobId ?? null,
   };
 }
 
@@ -580,6 +647,7 @@ async function setSingleDocument(
     | 'cashTransactions'
     | 'customers'
     | 'designs'
+    | 'jobProjects'
     | 'quotes'
     | 'stockItems'
     | 'stockConsumptions',
