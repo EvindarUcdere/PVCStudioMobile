@@ -1,6 +1,6 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { ReactNode, useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { AppButton } from '../../../components/ui/AppButton';
 import { AppHeader } from '../../../components/ui/AppHeader';
@@ -17,11 +17,13 @@ import {
   profileColorOptions,
 } from '../../../domain/designs/colors/profileColorOptions';
 import { OpeningType } from '../../../domain/designs/enums/OpeningType';
+import { JobStatus } from '../../../domain/designs/enums/JobStatus';
 import {
   defaultPriceEstimateRates,
   PriceEstimateRates,
 } from '../../../domain/designs/pricing/calculateDesignPriceEstimate';
 import { isArchTopFrame } from '../../../domain/designs/utils/frameShape';
+import { consumeDesignStock } from '../../../domain/inventory/consumeDesignStock';
 import { logger } from '../../../services/logger';
 import { colors, radius, spacing, typography } from '../../../theme';
 import { CustomerSelector } from '../../customers/components/CustomerSelector';
@@ -110,6 +112,52 @@ export function DesignEditorScreen() {
     router.push(routes.designQuote(design.id));
   }
 
+  function handleJobStatusChange(jobStatus: JobStatus) {
+    updateJobStatus(jobStatus);
+
+    if (!design || !shouldOfferStockConsumption(jobStatus)) {
+      return;
+    }
+
+    Alert.alert(
+      'Stoktan dusulsun mu?',
+      'Bu isin tahmini profil, cam ve mekanizma ihtiyaci stoktan dusulecek. Ayni is icin tekrar dusme engellenir.',
+      [
+        { text: 'Hayir', style: 'cancel' },
+        {
+          text: 'Evet, dus',
+          onPress: () => {
+            void consumeStockForDesign();
+          },
+        },
+      ],
+    );
+  }
+
+  async function consumeStockForDesign() {
+    if (!design) {
+      return;
+    }
+
+    try {
+      const result = await consumeDesignStock(design, pricingRates);
+      if (result.status === 'already-consumed') {
+        Alert.alert('Zaten dusulmus', 'Bu is icin stok daha once dusulmus.');
+        return;
+      }
+
+      if (result.status === 'missing-stock') {
+        Alert.alert('Stok yetersiz', result.message);
+        return;
+      }
+
+      Alert.alert('Stok dusuldu', `${result.lines.length} stok satiri guncellendi.`);
+    } catch (stockError) {
+      logger.error('Design stock consumption failed', stockError);
+      Alert.alert('Stok dusulemedi', 'Islem tamamlanamadi. Lutfen tekrar deneyin.');
+    }
+  }
+
   if (isLoading) {
     return (
       <AppScreen centered scroll={false}>
@@ -170,7 +218,7 @@ export function DesignEditorScreen() {
                 style={styles.jobNameInput}
                 value={design.jobName ?? ''}
               />
-              <JobStatusSelector value={design.jobStatus} onChange={updateJobStatus} />
+              <JobStatusSelector value={design.jobStatus} onChange={handleJobStatusChange} />
               <View style={styles.row}>
                 <AppButton
                   label="Geri al"
@@ -455,6 +503,10 @@ function parseOptionalPositiveNumber(value: string): number | undefined {
 function nullableTrim(value: string): string | null {
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
+}
+
+function shouldOfferStockConsumption(jobStatus: JobStatus): boolean {
+  return jobStatus === 'production' || jobStatus === 'installation' || jobStatus === 'done';
 }
 
 const styles = StyleSheet.create({

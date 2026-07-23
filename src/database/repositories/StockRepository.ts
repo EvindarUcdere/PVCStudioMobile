@@ -27,4 +27,5 @@ export interface StockRepository {
   getById(id: string): Promise<StockItem | null>;
   list(options?: ListStockItemsOptions): Promise<StockItem[]>;
   setActive(id: string, isActive: boolean): Promise<StockItem>;
+  adjustQuantity(id: string, delta: number): Promise<StockItem>;
 }

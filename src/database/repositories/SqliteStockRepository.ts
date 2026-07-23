@@ -128,6 +128,30 @@ export class SqliteStockRepository implements StockRepository {
 
     return saved;
   }
+
+  async adjustQuantity(id: string, delta: number): Promise<StockItem> {
+    const existing = await this.getById(id);
+    if (!existing) {
+      throw new EntityNotFoundError('StockItem', id);
+    }
+
+    const nextQuantity = existing.quantity + delta;
+    if (nextQuantity < 0) {
+      throw new RepositoryError('Stock item quantity cannot be negative.');
+    }
+
+    await this.database.runAsync(
+      'UPDATE stock_items SET quantity = ?, updated_at = ?, sync_status = ?, version = ? WHERE id = ?;',
+      [nextQuantity, createIsoTimestamp(), 'pending', existing.version + 1, id],
+    );
+
+    const saved = await this.getById(id);
+    if (!saved) {
+      throw new RepositoryError('Adjusted stock item could not be read.');
+    }
+
+    return saved;
+  }
 }
 
 function normalizeOptionalText(value: string | null | undefined): string | null {

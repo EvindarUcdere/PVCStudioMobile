@@ -1,4 +1,4 @@
-import { Firestore, collection, doc, getDocs, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { Firestore, collection, doc, getDoc, getDocs, serverTimestamp, writeBatch } from 'firebase/firestore';
 
 import {
   createCashTransactionRepository,
@@ -9,6 +9,11 @@ import {
 } from '../../database/repositories/createRepositories';
 import { getCompanyProfile, saveCompanyProfile } from '../../database/repositories/CompanyProfileRepository';
 import { getPricingSettings, savePricingSettings } from '../../database/repositories/PricingSettingsRepository';
+import {
+  listStockConsumptions,
+  saveStockConsumptionForDesign,
+  StockConsumptionLine,
+} from '../../database/repositories/StockConsumptionRepository';
 import { CompanyProfile } from '../../domain/company/entities/CompanyProfile';
 import { Customer } from '../../domain/customers/entities/Customer';
 import { DesignProject } from '../../domain/designs/entities/DesignProject';
@@ -28,6 +33,7 @@ export type FullSyncResult = {
   quotes: number;
   cashTransactions: number;
   stockItems: number;
+  stockConsumptions: number;
   pricingSettings: boolean;
   companyProfile: boolean;
 };
@@ -55,6 +61,12 @@ type CloudCashTransactionDocument = {
 type CloudStockItemDocument = {
   data: StockItem;
   updatedAt: string;
+};
+
+type CloudStockConsumptionDocument = {
+  designId: string;
+  consumedAt: string;
+  lines: StockConsumptionLine[];
 };
 
 type CloudPricingDocument = {
@@ -85,6 +97,7 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
   const quotes = await quoteRepository.list({ limit: 1000 });
   const cashTransactions = await cashTransactionRepository.list({ limit: 1000 });
   const stockItems = await stockRepository.list({ includeInactive: true, limit: 1000 });
+  const stockConsumptions = await listStockConsumptions();
   const pricingSettings = await getPricingSettings();
   const companyProfile = await getCompanyProfile();
   const batch = writeBatch(services.firestore);
@@ -130,6 +143,15 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
     });
   });
 
+  stockConsumptions.forEach((consumption) => {
+    batch.set(doc(workspaceDoc, 'stockConsumptions', consumption.designId), {
+      designId: consumption.designId,
+      consumedAt: consumption.consumedAt,
+      lines: consumption.lines,
+      syncedAt: serverTimestamp(),
+    });
+  });
+
   batch.set(
     workspaceDoc,
     {
@@ -142,6 +164,7 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
         quoteCount: quotes.length,
         cashTransactionCount: cashTransactions.length,
         stockItemCount: stockItems.length,
+        stockConsumptionCount: stockConsumptions.length,
         pricingSettings: true,
         companyProfile: true,
       },
@@ -173,6 +196,7 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
       quoteCount: quotes.length,
       cashTransactionCount: cashTransactions.length,
       stockItemCount: stockItems.length,
+      stockConsumptionCount: stockConsumptions.length,
       pricingSettings: true,
       companyProfile: true,
       updatedAt: serverTimestamp(),
@@ -190,12 +214,58 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
       quotes: quotes.length,
       cashTransactions: cashTransactions.length,
       stockItems: stockItems.length,
+      stockConsumptions: stockConsumptions.length,
       pricingSettings: true,
       companyProfile: true,
     };
   } catch (error) {
     logger.error('Full cloud backup failed', error);
     return null;
+  }
+}
+
+export async function hasCloudStockConsumptionForDesign(designId: string): Promise<boolean> {
+  const services = getFirebaseServices();
+  const workspace = await getCloudWorkspacePath();
+
+  if (!services || !workspace) {
+    return false;
+  }
+
+  try {
+    const snapshot = await getDoc(
+      doc(services.firestore, workspace.rootCollection, workspace.rootId, 'stockConsumptions', designId),
+    );
+    return snapshot.exists();
+  } catch (error) {
+    logger.error('Stock consumption cloud check failed', error);
+    return false;
+  }
+}
+
+export async function backupStockConsumptionToCloud(
+  designId: string,
+  consumedAt: string,
+  lines: StockConsumptionLine[],
+): Promise<boolean> {
+  const services = getFirebaseServices();
+  const workspace = await getCloudWorkspacePath();
+
+  if (!services || !workspace) {
+    return false;
+  }
+
+  try {
+    await setSingleDocument(services.firestore, workspace.rootId, 'stockConsumptions', designId, {
+      designId,
+      consumedAt,
+      lines,
+      syncedAt: serverTimestamp(),
+    });
+    return true;
+  } catch (error) {
+    logger.error('Stock consumption cloud backup failed', error);
+    return false;
   }
 }
 
@@ -325,12 +395,14 @@ export async function restoreAllCloudDataToLocal(): Promise<FullSyncResult | nul
     const quoteSnapshots = await getDocs(collection(workspaceDoc, 'quotes'));
     const cashTransactionSnapshots = await getDocs(collection(workspaceDoc, 'cashTransactions'));
     const stockItemSnapshots = await getDocs(collection(workspaceDoc, 'stockItems'));
+    const stockConsumptionSnapshots = await getDocs(collection(workspaceDoc, 'stockConsumptions'));
     const pricingSnapshots = await getDocs(collection(workspaceDoc, 'settings'));
     let restoredCustomers = 0;
     let restoredDesigns = 0;
     let restoredQuotes = 0;
     let restoredCashTransactions = 0;
     let restoredStockItems = 0;
+    let restoredStockConsumptions = 0;
     let restoredPricingSettings = false;
     let restoredCompanyProfile = false;
 
@@ -445,6 +517,14 @@ export async function restoreAllCloudDataToLocal(): Promise<FullSyncResult | nul
       }
     }
 
+    for (const snapshot of stockConsumptionSnapshots.docs) {
+      const data = snapshot.data() as CloudStockConsumptionDocument;
+      if (data.designId && data.consumedAt && Array.isArray(data.lines)) {
+        await saveStockConsumptionForDesign(data.designId, data.lines, data.consumedAt);
+        restoredStockConsumptions += 1;
+      }
+    }
+
     const pricingDocument = pricingSnapshots.docs.find((snapshot) => snapshot.id === 'pricing-settings');
     if (pricingDocument) {
       const data = pricingDocument.data() as CloudPricingDocument;
@@ -471,6 +551,7 @@ export async function restoreAllCloudDataToLocal(): Promise<FullSyncResult | nul
       quotes: restoredQuotes,
       cashTransactions: restoredCashTransactions,
       stockItems: restoredStockItems,
+      stockConsumptions: restoredStockConsumptions,
       pricingSettings: restoredPricingSettings,
       companyProfile: restoredCompanyProfile,
     };
@@ -495,7 +576,13 @@ function normalizeCloudDesign(design: DesignProject): DesignProject {
 async function setSingleDocument(
   firestore: Firestore,
   companyId: string,
-  collectionName: 'cashTransactions' | 'customers' | 'designs' | 'quotes' | 'stockItems',
+  collectionName:
+    | 'cashTransactions'
+    | 'customers'
+    | 'designs'
+    | 'quotes'
+    | 'stockItems'
+    | 'stockConsumptions',
   documentId: string,
   data: unknown,
 ): Promise<void> {
