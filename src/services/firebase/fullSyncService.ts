@@ -1,6 +1,7 @@
 import { Firestore, collection, doc, getDocs, serverTimestamp, writeBatch } from 'firebase/firestore';
 
 import {
+  createCashTransactionRepository,
   createCustomerRepository,
   createDesignRepository,
   createQuoteRepository,
@@ -11,6 +12,7 @@ import { CompanyProfile } from '../../domain/company/entities/CompanyProfile';
 import { Customer } from '../../domain/customers/entities/Customer';
 import { DesignProject } from '../../domain/designs/entities/DesignProject';
 import { PriceEstimateRates } from '../../domain/designs/pricing/calculateDesignPriceEstimate';
+import { CashTransaction } from '../../domain/finance/entities/CashTransaction';
 import { Quote } from '../../domain/quotes/entities/Quote';
 import { logger } from '../logger';
 import { getFirebaseServices } from './firebaseConfig';
@@ -22,6 +24,7 @@ export type FullSyncResult = {
   customers: number;
   designs: number;
   quotes: number;
+  cashTransactions: number;
   pricingSettings: boolean;
   companyProfile: boolean;
 };
@@ -38,6 +41,11 @@ type CloudCustomerDocument = {
 
 type CloudQuoteDocument = {
   data: Quote;
+  updatedAt: string;
+};
+
+type CloudCashTransactionDocument = {
+  data: CashTransaction;
   updatedAt: string;
 };
 
@@ -62,9 +70,11 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
   const customerRepository = await createCustomerRepository();
   const designRepository = await createDesignRepository();
   const quoteRepository = await createQuoteRepository();
+  const cashTransactionRepository = await createCashTransactionRepository();
   const customers = await customerRepository.list({ includeDeleted: true, limit: 1000 });
   const designs = await designRepository.list({ includeDeleted: true, limit: 1000 });
   const quotes = await quoteRepository.list({ limit: 1000 });
+  const cashTransactions = await cashTransactionRepository.list({ limit: 1000 });
   const pricingSettings = await getPricingSettings();
   const companyProfile = await getCompanyProfile();
   const batch = writeBatch(services.firestore);
@@ -94,6 +104,14 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
     });
   });
 
+  cashTransactions.forEach((transaction) => {
+    batch.set(doc(workspaceDoc, 'cashTransactions', transaction.id), {
+      data: transaction,
+      updatedAt: transaction.updatedAt,
+      syncedAt: serverTimestamp(),
+    });
+  });
+
   batch.set(
     workspaceDoc,
     {
@@ -104,6 +122,7 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
         customerCount: customers.length,
         designCount: designs.length,
         quoteCount: quotes.length,
+        cashTransactionCount: cashTransactions.length,
         pricingSettings: true,
         companyProfile: true,
       },
@@ -133,6 +152,7 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
       customerCount: customers.length,
       designCount: designs.length,
       quoteCount: quotes.length,
+      cashTransactionCount: cashTransactions.length,
       pricingSettings: true,
       companyProfile: true,
       updatedAt: serverTimestamp(),
@@ -148,12 +168,34 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
       customers: customers.length,
       designs: designs.length,
       quotes: quotes.length,
+      cashTransactions: cashTransactions.length,
       pricingSettings: true,
       companyProfile: true,
     };
   } catch (error) {
     logger.error('Full cloud backup failed', error);
     return null;
+  }
+}
+
+export async function backupCashTransactionToCloud(transaction: CashTransaction): Promise<boolean> {
+  const services = getFirebaseServices();
+  const workspace = await getCloudWorkspacePath();
+
+  if (!services || !workspace) {
+    return false;
+  }
+
+  try {
+    await setSingleDocument(services.firestore, workspace.rootId, 'cashTransactions', transaction.id, {
+      data: transaction,
+      updatedAt: transaction.updatedAt,
+      syncedAt: serverTimestamp(),
+    });
+    return true;
+  } catch (error) {
+    logger.error('Cash transaction cloud backup failed', error);
+    return false;
   }
 }
 
@@ -234,13 +276,16 @@ export async function restoreAllCloudDataToLocal(): Promise<FullSyncResult | nul
     const customerRepository = await createCustomerRepository();
     const designRepository = await createDesignRepository();
     const quoteRepository = await createQuoteRepository();
+    const cashTransactionRepository = await createCashTransactionRepository();
     const customerSnapshots = await getDocs(collection(workspaceDoc, 'customers'));
     const designSnapshots = await getDocs(collection(workspaceDoc, 'designs'));
     const quoteSnapshots = await getDocs(collection(workspaceDoc, 'quotes'));
+    const cashTransactionSnapshots = await getDocs(collection(workspaceDoc, 'cashTransactions'));
     const pricingSnapshots = await getDocs(collection(workspaceDoc, 'settings'));
     let restoredCustomers = 0;
     let restoredDesigns = 0;
     let restoredQuotes = 0;
+    let restoredCashTransactions = 0;
     let restoredPricingSettings = false;
     let restoredCompanyProfile = false;
 
@@ -309,6 +354,29 @@ export async function restoreAllCloudDataToLocal(): Promise<FullSyncResult | nul
       }
     }
 
+    for (const snapshot of cashTransactionSnapshots.docs) {
+      const document = snapshot.data() as CloudCashTransactionDocument;
+      const cloudTransaction = document.data;
+      const localTransaction = await cashTransactionRepository.getById(cloudTransaction.id);
+
+      if (!localTransaction || isCloudNewer(cloudTransaction.updatedAt, localTransaction.updatedAt)) {
+        await cashTransactionRepository.save({
+          id: cloudTransaction.id,
+          type: cloudTransaction.type,
+          category: cloudTransaction.category,
+          title: cloudTransaction.title,
+          amount: cloudTransaction.amount,
+          transactionDate: cloudTransaction.transactionDate,
+          customerId: cloudTransaction.customerId,
+          designId: cloudTransaction.designId,
+          notes: cloudTransaction.notes,
+          syncStatus: cloudTransaction.syncStatus,
+          version: cloudTransaction.version,
+        });
+        restoredCashTransactions += 1;
+      }
+    }
+
     const pricingDocument = pricingSnapshots.docs.find((snapshot) => snapshot.id === 'pricing-settings');
     if (pricingDocument) {
       const data = pricingDocument.data() as CloudPricingDocument;
@@ -333,6 +401,7 @@ export async function restoreAllCloudDataToLocal(): Promise<FullSyncResult | nul
       customers: restoredCustomers,
       designs: restoredDesigns,
       quotes: restoredQuotes,
+      cashTransactions: restoredCashTransactions,
       pricingSettings: restoredPricingSettings,
       companyProfile: restoredCompanyProfile,
     };
@@ -357,7 +426,7 @@ function normalizeCloudDesign(design: DesignProject): DesignProject {
 async function setSingleDocument(
   firestore: Firestore,
   companyId: string,
-  collectionName: 'customers' | 'designs' | 'quotes',
+  collectionName: 'cashTransactions' | 'customers' | 'designs' | 'quotes',
   documentId: string,
   data: unknown,
 ): Promise<void> {

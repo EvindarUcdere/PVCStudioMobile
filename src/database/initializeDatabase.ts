@@ -8,6 +8,7 @@ import { quotesMigration } from './migrations/005_quotes';
 import { customersMigration } from './migrations/006_customers';
 import { designJobStatusMigration } from './migrations/007_design_job_status';
 import { designJobNameMigration } from './migrations/008_design_job_name';
+import { cashTransactionsMigration } from './migrations/009_cash_transactions';
 import { DatabaseMigration, MigrationDatabase } from './migrations/types';
 import { seedReferenceData } from './seeds/seedReferenceData';
 import { seedProfileMeasurementSettings } from './seeds/seedProfileMeasurementSettings';
@@ -23,6 +24,7 @@ const migrations: DatabaseMigration[] = [
   customersMigration,
   designJobStatusMigration,
   designJobNameMigration,
+  cashTransactionsMigration,
 ];
 
 type MetadataRow = {

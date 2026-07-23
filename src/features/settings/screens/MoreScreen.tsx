@@ -30,6 +30,12 @@ const options: MoreOption[] = [
     onPress: () => router.push(routes.quotes),
   },
   {
+    title: 'Gelir / Gider',
+    icon: 'cash-outline',
+    state: 'Ac',
+    onPress: () => router.push(routes.finance),
+  },
+  {
     title: 'Fiyat Ayarlari',
     icon: 'calculator-outline',
     state: 'Ac',
@@ -71,7 +77,7 @@ export function MoreScreen() {
       }
 
       setSyncMessage(
-        `${result.customers} musteri, ${result.designs} tasarim, ${result.quotes} teklif buluta yedeklendi. Firma kodu: ${result.companyId}`,
+        `${result.customers} musteri, ${result.designs} tasarim, ${result.quotes} teklif, ${result.cashTransactions} kasa kaydi buluta yedeklendi. Firma kodu: ${result.companyId}`,
       );
     } finally {
       setIsSyncing(false);
@@ -96,7 +102,7 @@ export function MoreScreen() {
       }
 
       setSyncMessage(
-        `${result.customers} musteri, ${result.designs} tasarim, ${result.quotes} teklif cihaza alindi. Firma kodu: ${result.companyId}`,
+        `${result.customers} musteri, ${result.designs} tasarim, ${result.quotes} teklif, ${result.cashTransactions} kasa kaydi cihaza alindi. Firma kodu: ${result.companyId}`,
       );
     } finally {
       setIsSyncing(false);
