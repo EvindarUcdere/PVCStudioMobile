@@ -19,6 +19,7 @@ import { getDesignProfileColor } from '../../../domain/designs/colors/profileCol
 import { DesignTemplate } from '../../../domain/templates/entities/DesignTemplate';
 import { logger } from '../../../services/logger';
 import { colors, spacing, typography } from '../../../theme';
+import { DesignStockNeedsCard } from '../../design-editor/components/DesignStockNeedsCard';
 import { TemplatePreview } from '../../templates/components/TemplatePreview';
 
 export function DesignDetailsPlaceholderScreen() {
@@ -106,6 +107,9 @@ export function DesignDetailsPlaceholderScreen() {
       </View>
       <AppButton label="Tasarimi Ac" onPress={() => router.push(routes.designEditor(project.id))} />
       <AppButton label="Teklif Olustur" variant="secondary" onPress={() => router.push(routes.designQuote(project.id))} />
+      <View style={styles.stockNeeds}>
+        <DesignStockNeedsCard design={project} />
+      </View>
       <AppButton label="Tasarimlara Don" variant="ghost" onPress={() => router.replace(routes.designs)} />
     </AppScreen>
   );
@@ -133,6 +137,9 @@ const styles = StyleSheet.create({
   info: {
     gap: spacing.sm,
     marginBottom: spacing.lg,
+  },
+  stockNeeds: {
+    marginTop: spacing.sm,
   },
   infoRow: {
     flexDirection: 'row',

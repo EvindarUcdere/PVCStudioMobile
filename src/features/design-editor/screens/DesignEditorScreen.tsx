@@ -29,6 +29,7 @@ import { JobStatusSelector } from '../../designs/components/JobStatusSelector';
 import { DesignCanvas } from '../components/DesignCanvas';
 import { DesignMaterialSummaryCard } from '../components/DesignMaterialSummaryCard';
 import { DesignPriceEstimateCard } from '../components/DesignPriceEstimateCard';
+import { DesignStockNeedsCard } from '../components/DesignStockNeedsCard';
 import { DesignSpecificationPicker } from '../components/DesignSpecificationPicker';
 import { SelectedPanelSheet } from '../components/SelectedPanelSheet';
 import { useDesignEditor } from '../hooks/useDesignEditor';
@@ -352,6 +353,7 @@ export function DesignEditorScreen() {
           />
           <DesignMaterialSummaryCard design={design} />
           <DesignPriceEstimateCard design={design} />
+          <DesignStockNeedsCard design={design} rates={pricingRates} />
           <SelectedPanelSheet design={design} selectedNodeId={selectedNodeId} />
         </ScrollView>
       </View>
