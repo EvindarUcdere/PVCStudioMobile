@@ -18,6 +18,7 @@ import { AppHeader } from '../../../components/ui/AppHeader';
 import { AppScreen } from '../../../components/ui/AppScreen';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { createStockRepository } from '../../../database/repositories/createRepositories';
+import { seedSampleStockItems } from '../../../database/seeds/seedSampleStockItems';
 import {
   StockItem,
   StockItemType,
@@ -58,6 +59,7 @@ export function StockScreen() {
   const [showInactive, setShowInactive] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSeeding, setIsSeeding] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const lowStockItems = useMemo(
@@ -139,6 +141,30 @@ export function StockScreen() {
     }
   }
 
+  async function loadSampleStock() {
+    setIsSeeding(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const result = await seedSampleStockItems();
+      result.savedItems.forEach((item) => {
+        void backupStockItemToCloud(item);
+      });
+      setMessage(
+        result.created > 0
+          ? `${result.created} ornek stok urunu eklendi.`
+          : 'Ornek stok zaten yuklu, yeni urun eklenmedi.',
+      );
+      await loadStock();
+    } catch (seedError) {
+      logger.error('Sample stock seed failed', seedError);
+      setError('Ornek stok yuklenemedi.');
+    } finally {
+      setIsSeeding(false);
+    }
+  }
+
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.keyboard}>
       <AppScreen scroll={false}>
@@ -169,6 +195,14 @@ export function StockScreen() {
                   ) : (
                     <Text style={styles.success}>Dusuk stok yok.</Text>
                   )}
+                  <AppButton
+                    label="Ornek Stok Yukle"
+                    variant="secondary"
+                    loading={isSeeding}
+                    disabled={isSeeding}
+                    onPress={() => void loadSampleStock()}
+                    style={styles.seedButton}
+                  />
                 </AppCard>
 
                 <AppCard style={styles.formCard}>
@@ -267,6 +301,14 @@ export function StockScreen() {
               <EmptyState
                 title="Stok urunu yok"
                 description="Kullanmak isterseniz PVC, cam ve aksesuar stoklarini buradan takip edebilirsiniz."
+                action={
+                  <AppButton
+                    label="Ornek Stok Yukle"
+                    loading={isSeeding}
+                    disabled={isSeeding}
+                    onPress={() => void loadSampleStock()}
+                  />
+                }
               />
             }
           />
@@ -467,6 +509,9 @@ const styles = StyleSheet.create({
   smallButton: {
     minHeight: 38,
     paddingHorizontal: spacing.sm,
+  },
+  seedButton: {
+    marginTop: spacing.xs,
   },
   stockCard: {
     gap: spacing.sm,
