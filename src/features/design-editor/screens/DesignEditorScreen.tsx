@@ -1,6 +1,17 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { ReactNode, useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 
 import { AppButton } from '../../../components/ui/AppButton';
 import { AppHeader } from '../../../components/ui/AppHeader';
@@ -67,6 +78,7 @@ export function DesignEditorScreen() {
     updateCustomerId,
     updateJobStatus,
     updateJobName,
+    updateQuantity,
     updateJobId,
     saveDesign,
     undoLastChange,
@@ -189,6 +201,7 @@ export function DesignEditorScreen() {
   }
 
   return (
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboard}>
     <AppScreen scroll={false} contentStyle={styles.content}>
       <AppHeader
         title={design.name}
@@ -228,6 +241,20 @@ export function DesignEditorScreen() {
                 value={design.jobName ?? ''}
               />
               <JobSelector jobs={jobs} selectedJobId={design.jobId} onSelectJob={updateJobId} />
+              <TextInput
+                accessibilityLabel="Adet"
+                keyboardType="numeric"
+                onChangeText={(value) => {
+                  const parsed = Number(value.replace(',', '.').trim());
+                  if (Number.isInteger(parsed) && parsed > 0) {
+                    updateQuantity(parsed);
+                  }
+                }}
+                placeholder="Adet"
+                placeholderTextColor={colors.textSecondary}
+                style={styles.jobNameInput}
+                value={String(design.quantity)}
+              />
               <JobStatusSelector value={design.jobStatus} onChange={handleJobStatusChange} />
               <View style={styles.row}>
                 <AppButton
@@ -416,6 +443,7 @@ export function DesignEditorScreen() {
         </ScrollView>
       </View>
     </AppScreen>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -482,10 +510,14 @@ function ProfileColorPicker({
   onSelectColor: (colorId: string) => void;
 }) {
   const customColorIsValid = isValidHexColor(customColor);
+  const selectedPreset = profileColorOptions.find((option) => option.id === selectedColorId);
 
   return (
     <View style={styles.colorPanel}>
       <Text style={styles.toolTitle}>Cerceve rengi</Text>
+      <Text style={styles.caption}>
+        Secili renk kodu: {selectedPreset?.hexValue ?? customColor.toUpperCase()}
+      </Text>
       <View style={styles.colorGrid}>
         {profileColorOptions.map((option) => (
           <Pressable
@@ -501,6 +533,9 @@ function ProfileColorPicker({
             <View style={[styles.colorDot, { backgroundColor: option.hexValue }]} />
             <Text numberOfLines={1} style={styles.colorLabel}>
               {option.name}
+            </Text>
+            <Text numberOfLines={1} style={styles.colorCode}>
+              {option.hexValue}
             </Text>
           </Pressable>
         ))}
@@ -562,6 +597,9 @@ function shouldOfferStockConsumption(jobStatus: JobStatus): boolean {
 }
 
 const styles = StyleSheet.create({
+  keyboard: {
+    flex: 1,
+  },
   content: {
     gap: spacing.md,
   },
@@ -653,7 +691,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     borderWidth: 1,
     gap: 4,
-    minHeight: 58,
+    minHeight: 72,
     padding: spacing.xs,
     width: '30.5%',
   },
@@ -672,6 +710,12 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textPrimary,
     fontSize: 11,
+    textAlign: 'center',
+  },
+  colorCode: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    fontSize: 10,
     textAlign: 'center',
   },
   customColorRow: {

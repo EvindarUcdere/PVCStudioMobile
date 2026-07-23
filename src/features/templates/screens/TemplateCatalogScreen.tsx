@@ -14,9 +14,10 @@ import { useTemplates } from '../hooks/useTemplates';
 
 type TemplateCatalogScreenProps = {
   customerId?: string | null;
+  jobId?: string | null;
 };
 
-export function TemplateCatalogScreen({ customerId = null }: TemplateCatalogScreenProps) {
+export function TemplateCatalogScreen({ customerId = null, jobId = null }: TemplateCatalogScreenProps) {
   const { width } = useWindowDimensions();
   const columns = width < 390 ? 1 : 2;
   const {
@@ -62,7 +63,9 @@ export function TemplateCatalogScreen({ customerId = null }: TemplateCatalogScre
                 template={item}
                 onPress={() =>
                   router.push(
-                    customerId
+                    jobId
+                      ? routes.templateDetailsForJob(item.id, jobId, customerId)
+                      : customerId
                       ? routes.templateDetailsForCustomer(item.id, customerId)
                       : routes.templateDetails(item.id),
                   )

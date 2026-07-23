@@ -26,7 +26,7 @@ export const createDesignFromTemplateInputSchema = z.object({
   quantity: z.number().int().min(1).max(999),
   customerId: z.string().min(1).nullable().optional(),
   jobName: z.string().nullable().optional(),
-  jobId: z.string().nullable().optional(),
+  jobId: z.string().min(1).nullable().optional(),
 });
 
 export function createDesignFromTemplate({

@@ -39,7 +39,11 @@ type FormValues = {
 };
 
 export function CreateDesignFromTemplateScreen() {
-  const { templateId, customerId } = useLocalSearchParams<{ templateId: string; customerId?: string }>();
+  const { templateId, customerId, jobId } = useLocalSearchParams<{
+    templateId: string;
+    customerId?: string;
+    jobId?: string;
+  }>();
   const [template, setTemplate] = useState<DesignTemplate | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
@@ -100,6 +104,7 @@ export function CreateDesignFromTemplateScreen() {
       height: Number(values.height),
       quantity: Number(values.quantity),
       customerId: selectedCustomerId,
+      jobId: jobId ?? null,
     });
 
     if (!parsed.success) {

@@ -162,7 +162,12 @@ export function JobDetailsScreen() {
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Bagli tasarimlar</Text>
-        <AppButton label="Yeni Tasarim" variant="secondary" onPress={() => router.push(routes.newDesign)} style={styles.smallButton} />
+        <AppButton
+          label="Yeni Tasarim"
+          variant="secondary"
+          onPress={() => router.push(routes.newDesignForJob(job.id, job.customerId))}
+          style={styles.smallButton}
+        />
       </View>
       {designs.length === 0 ? (
         <EmptyState

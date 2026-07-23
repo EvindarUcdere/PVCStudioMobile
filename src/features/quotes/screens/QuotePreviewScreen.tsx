@@ -12,6 +12,7 @@ import { getPricingSettings } from '../../../database/repositories/PricingSettin
 import {
   createCustomerRepository,
   createDesignRepository,
+  createJobRepository,
   createQuoteRepository,
 } from '../../../database/repositories/createRepositories';
 import { DesignProject } from '../../../domain/designs/entities/DesignProject';
@@ -65,9 +66,10 @@ export function QuotePreviewScreen() {
           setDesign(loadedDesign);
           setEstimate(loadedDesign ? calculateDesignPriceEstimate(loadedDesign, pricingSettings) : null);
 
-          if (loadedDesign?.customerId) {
+          const quoteCustomerId = loadedDesign?.customerId ?? (await getDesignJobCustomerId(loadedDesign));
+          if (quoteCustomerId) {
             const customerRepository = await createCustomerRepository();
-            const customer = await customerRepository.getById(loadedDesign.customerId);
+            const customer = await customerRepository.getById(quoteCustomerId);
             setCustomerName(customer?.fullName ?? '');
             setCustomerPhone(customer?.phone ?? '');
           }
@@ -396,6 +398,16 @@ export function QuotePreviewScreen() {
       <AppButton label="Tasarimi Duzenle" variant="secondary" onPress={() => router.push(routes.designEditor(design.id))} />
     </AppScreen>
   );
+}
+
+async function getDesignJobCustomerId(design: DesignProject | null): Promise<string | null> {
+  if (!design?.jobId) {
+    return null;
+  }
+
+  const jobRepository = await createJobRepository();
+  const job = await jobRepository.getById(design.jobId);
+  return job?.customerId ?? null;
 }
 
 function Info({ label, value }: { label: string; value: string }) {

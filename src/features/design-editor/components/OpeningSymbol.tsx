@@ -65,7 +65,7 @@ function renderOpeningSymbol(bounds: LayoutBounds, openingType: OpeningType): Re
     return (
       <>
         {renderOpeningSymbol(bounds, openingType.endsWith('left') ? 'open-left' : 'open-right')}
-        {renderOpeningSymbol(bounds, 'tilt-top')}
+        {renderTiltSymbol(bounds, 'top')}
       </>
     );
   }
@@ -89,6 +89,21 @@ function renderOpeningSymbol(bounds: LayoutBounds, openingType: OpeningType): Re
   }
 
   return null;
+}
+
+function renderTiltSymbol(bounds: LayoutBounds, side: 'top' | 'bottom'): ReactNode {
+  const x1 = bounds.x;
+  const y1 = bounds.y;
+  const x2 = bounds.x + bounds.width;
+  const y2 = bounds.y + bounds.height;
+  const midX = bounds.x + bounds.width / 2;
+  const stroke = colors.textPrimary;
+
+  if (side === 'top') {
+    return <Path d={`M ${x1} ${y2} L ${midX} ${y1} L ${x2} ${y2}`} stroke={stroke} strokeWidth={1.6} fill="none" />;
+  }
+
+  return <Path d={`M ${x1} ${y1} L ${midX} ${y2} L ${x2} ${y1}`} stroke={stroke} strokeWidth={1.6} fill="none" />;
 }
 
 function renderHandle(bounds: LayoutBounds, side: 'left' | 'right' | 'top' | 'bottom') {

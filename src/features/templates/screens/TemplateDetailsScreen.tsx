@@ -16,7 +16,11 @@ import { FavoriteButton } from '../components/FavoriteButton';
 import { TemplatePreview } from '../components/TemplatePreview';
 
 export function TemplateDetailsScreen() {
-  const { templateId, customerId } = useLocalSearchParams<{ templateId: string; customerId?: string }>();
+  const { templateId, customerId, jobId } = useLocalSearchParams<{
+    templateId: string;
+    customerId?: string;
+    jobId?: string;
+  }>();
   const [template, setTemplate] = useState<DesignTemplate | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -107,7 +111,7 @@ export function TemplateDetailsScreen() {
       </Text>
       <AppButton
         label="Bu Modeli Kullan"
-        onPress={() => router.push(routes.createDesignFromTemplate(template.id, customerId ?? null))}
+        onPress={() => router.push(routes.createDesignFromTemplate(template.id, customerId ?? null, jobId ?? null))}
       />
     </AppScreen>
   );

@@ -116,7 +116,7 @@ function renderOpeningSymbol(panel: PanelLayout, compact: boolean): ReactNode {
           },
           compact,
         )}
-        {renderOpeningSymbol({ ...panel, openingType: 'tilt-top' }, compact)}
+        {renderPreviewTiltSymbol(panel)}
       </>
     );
   }
@@ -140,6 +140,24 @@ function renderOpeningSymbol(panel: PanelLayout, compact: boolean): ReactNode {
   }
 
   return null;
+}
+
+function renderPreviewTiltSymbol(panel: PanelLayout): ReactNode {
+  const stroke = colors.primary;
+  const x1 = panel.x;
+  const y1 = panel.y;
+  const x2 = panel.x + panel.width;
+  const y2 = panel.y + panel.height;
+  const midX = panel.x + panel.width / 2;
+
+  return (
+    <Path
+      d={`M ${x1} ${y2} L ${midX} ${y1} L ${x2} ${y2}`}
+      stroke={stroke}
+      strokeWidth={1.8}
+      fill="none"
+    />
+  );
 }
 
 function renderPreviewHandle(

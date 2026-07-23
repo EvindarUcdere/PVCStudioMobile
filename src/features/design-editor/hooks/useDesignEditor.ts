@@ -423,6 +423,27 @@ export function useDesignEditor(designId: string | undefined) {
     });
   }, []);
 
+  const updateQuantity = useCallback((quantity: number) => {
+    setState((current) => {
+      if (!current.design || current.design.quantity === quantity || !Number.isInteger(quantity) || quantity < 1) {
+        return current;
+      }
+
+      return {
+        ...current,
+        design: {
+          ...current.design,
+          quantity,
+        },
+        history: [...current.history, current.design],
+        future: [],
+        isDirty: true,
+        error: null,
+        saveMessage: null,
+      };
+    });
+  }, []);
+
   const updateJobId = useCallback((jobId: string | null) => {
     setState((current) => {
       if (!current.design || current.design.jobId === jobId) {
@@ -535,6 +556,7 @@ export function useDesignEditor(designId: string | undefined) {
     updateCustomerId,
     updateJobStatus,
     updateJobName,
+    updateQuantity,
     updateJobId,
     saveDesign,
     undoLastChange,
