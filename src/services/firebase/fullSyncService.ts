@@ -5,6 +5,7 @@ import {
   createCustomerRepository,
   createDesignRepository,
   createQuoteRepository,
+  createStockRepository,
 } from '../../database/repositories/createRepositories';
 import { getCompanyProfile, saveCompanyProfile } from '../../database/repositories/CompanyProfileRepository';
 import { getPricingSettings, savePricingSettings } from '../../database/repositories/PricingSettingsRepository';
@@ -13,6 +14,7 @@ import { Customer } from '../../domain/customers/entities/Customer';
 import { DesignProject } from '../../domain/designs/entities/DesignProject';
 import { PriceEstimateRates } from '../../domain/designs/pricing/calculateDesignPriceEstimate';
 import { CashTransaction } from '../../domain/finance/entities/CashTransaction';
+import { StockItem } from '../../domain/inventory/entities/StockItem';
 import { Quote } from '../../domain/quotes/entities/Quote';
 import { logger } from '../logger';
 import { getFirebaseServices } from './firebaseConfig';
@@ -25,6 +27,7 @@ export type FullSyncResult = {
   designs: number;
   quotes: number;
   cashTransactions: number;
+  stockItems: number;
   pricingSettings: boolean;
   companyProfile: boolean;
 };
@@ -46,6 +49,11 @@ type CloudQuoteDocument = {
 
 type CloudCashTransactionDocument = {
   data: CashTransaction;
+  updatedAt: string;
+};
+
+type CloudStockItemDocument = {
+  data: StockItem;
   updatedAt: string;
 };
 
@@ -71,10 +79,12 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
   const designRepository = await createDesignRepository();
   const quoteRepository = await createQuoteRepository();
   const cashTransactionRepository = await createCashTransactionRepository();
+  const stockRepository = await createStockRepository();
   const customers = await customerRepository.list({ includeDeleted: true, limit: 1000 });
   const designs = await designRepository.list({ includeDeleted: true, limit: 1000 });
   const quotes = await quoteRepository.list({ limit: 1000 });
   const cashTransactions = await cashTransactionRepository.list({ limit: 1000 });
+  const stockItems = await stockRepository.list({ includeInactive: true, limit: 1000 });
   const pricingSettings = await getPricingSettings();
   const companyProfile = await getCompanyProfile();
   const batch = writeBatch(services.firestore);
@@ -112,6 +122,14 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
     });
   });
 
+  stockItems.forEach((item) => {
+    batch.set(doc(workspaceDoc, 'stockItems', item.id), {
+      data: item,
+      updatedAt: item.updatedAt,
+      syncedAt: serverTimestamp(),
+    });
+  });
+
   batch.set(
     workspaceDoc,
     {
@@ -123,6 +141,7 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
         designCount: designs.length,
         quoteCount: quotes.length,
         cashTransactionCount: cashTransactions.length,
+        stockItemCount: stockItems.length,
         pricingSettings: true,
         companyProfile: true,
       },
@@ -153,6 +172,7 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
       designCount: designs.length,
       quoteCount: quotes.length,
       cashTransactionCount: cashTransactions.length,
+      stockItemCount: stockItems.length,
       pricingSettings: true,
       companyProfile: true,
       updatedAt: serverTimestamp(),
@@ -169,12 +189,34 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
       designs: designs.length,
       quotes: quotes.length,
       cashTransactions: cashTransactions.length,
+      stockItems: stockItems.length,
       pricingSettings: true,
       companyProfile: true,
     };
   } catch (error) {
     logger.error('Full cloud backup failed', error);
     return null;
+  }
+}
+
+export async function backupStockItemToCloud(item: StockItem): Promise<boolean> {
+  const services = getFirebaseServices();
+  const workspace = await getCloudWorkspacePath();
+
+  if (!services || !workspace) {
+    return false;
+  }
+
+  try {
+    await setSingleDocument(services.firestore, workspace.rootId, 'stockItems', item.id, {
+      data: item,
+      updatedAt: item.updatedAt,
+      syncedAt: serverTimestamp(),
+    });
+    return true;
+  } catch (error) {
+    logger.error('Stock item cloud backup failed', error);
+    return false;
   }
 }
 
@@ -277,15 +319,18 @@ export async function restoreAllCloudDataToLocal(): Promise<FullSyncResult | nul
     const designRepository = await createDesignRepository();
     const quoteRepository = await createQuoteRepository();
     const cashTransactionRepository = await createCashTransactionRepository();
+    const stockRepository = await createStockRepository();
     const customerSnapshots = await getDocs(collection(workspaceDoc, 'customers'));
     const designSnapshots = await getDocs(collection(workspaceDoc, 'designs'));
     const quoteSnapshots = await getDocs(collection(workspaceDoc, 'quotes'));
     const cashTransactionSnapshots = await getDocs(collection(workspaceDoc, 'cashTransactions'));
+    const stockItemSnapshots = await getDocs(collection(workspaceDoc, 'stockItems'));
     const pricingSnapshots = await getDocs(collection(workspaceDoc, 'settings'));
     let restoredCustomers = 0;
     let restoredDesigns = 0;
     let restoredQuotes = 0;
     let restoredCashTransactions = 0;
+    let restoredStockItems = 0;
     let restoredPricingSettings = false;
     let restoredCompanyProfile = false;
 
@@ -377,6 +422,29 @@ export async function restoreAllCloudDataToLocal(): Promise<FullSyncResult | nul
       }
     }
 
+    for (const snapshot of stockItemSnapshots.docs) {
+      const document = snapshot.data() as CloudStockItemDocument;
+      const cloudItem = document.data;
+      const localItem = await stockRepository.getById(cloudItem.id);
+
+      if (!localItem || isCloudNewer(cloudItem.updatedAt, localItem.updatedAt)) {
+        await stockRepository.save({
+          id: cloudItem.id,
+          name: cloudItem.name,
+          type: cloudItem.type,
+          quantity: cloudItem.quantity,
+          unit: cloudItem.unit,
+          minimumQuantity: cloudItem.minimumQuantity,
+          purchasePrice: cloudItem.purchasePrice,
+          isActive: cloudItem.isActive,
+          notes: cloudItem.notes,
+          syncStatus: cloudItem.syncStatus,
+          version: cloudItem.version,
+        });
+        restoredStockItems += 1;
+      }
+    }
+
     const pricingDocument = pricingSnapshots.docs.find((snapshot) => snapshot.id === 'pricing-settings');
     if (pricingDocument) {
       const data = pricingDocument.data() as CloudPricingDocument;
@@ -402,6 +470,7 @@ export async function restoreAllCloudDataToLocal(): Promise<FullSyncResult | nul
       designs: restoredDesigns,
       quotes: restoredQuotes,
       cashTransactions: restoredCashTransactions,
+      stockItems: restoredStockItems,
       pricingSettings: restoredPricingSettings,
       companyProfile: restoredCompanyProfile,
     };
@@ -426,7 +495,7 @@ function normalizeCloudDesign(design: DesignProject): DesignProject {
 async function setSingleDocument(
   firestore: Firestore,
   companyId: string,
-  collectionName: 'cashTransactions' | 'customers' | 'designs' | 'quotes',
+  collectionName: 'cashTransactions' | 'customers' | 'designs' | 'quotes' | 'stockItems',
   documentId: string,
   data: unknown,
 ): Promise<void> {
