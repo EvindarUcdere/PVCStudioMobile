@@ -1,4 +1,5 @@
 import { DesignProject } from '../entities/DesignProject';
+import { InsectScreenType } from '../entities/PanelNode';
 import { OpeningType } from '../enums/OpeningType';
 import { getDesignProfileColor } from '../colors/profileColorOptions';
 import { collectPanels } from '../utils/findNodeById';
@@ -9,6 +10,7 @@ import { getProfileMeasurementSettings } from './profileMeasurementDefaults';
 export type MaterialSummaryPanel = {
   panelId: string;
   openingType: OpeningType;
+  insectScreen: InsectScreenType | null;
   panelWidth: number;
   panelHeight: number;
   glassWidth: number;
@@ -34,6 +36,7 @@ export type DesignMaterialSummary = {
   mullionWidth: number;
   glassRebate: number;
   archHeight: number | null;
+  rollerShutterHeight: number | null;
   panels: MaterialSummaryPanel[];
 };
 
@@ -42,7 +45,14 @@ export function calculateDesignMaterialSummary(design: DesignProject): DesignMat
   const profile = getProfileMeasurementSettings(design.profileSystem);
   const profileColor = getDesignProfileColor(design.profileSystem);
   const panelSummaries = panels
-    .map((panel) => toMaterialPanel(panel.id, panel.openingType, calculatePanelMeasurements(design, panel.id, panel.openingType)))
+    .map((panel) =>
+      toMaterialPanel(
+        panel.id,
+        panel.openingType,
+        panel.insectScreen ?? null,
+        calculatePanelMeasurements(design, panel.id, panel.openingType),
+      ),
+    )
     .filter((panel): panel is MaterialSummaryPanel => panel !== null);
   const openingPanelCount = panelSummaries.filter((panel) => panel.usesSash).length;
   const archHeight =
@@ -66,6 +76,10 @@ export function calculateDesignMaterialSummary(design: DesignProject): DesignMat
     mullionWidth: profile.mullionWidth,
     glassRebate: profile.glassRebate,
     archHeight,
+    rollerShutterHeight:
+      design.rootNode.type === 'frame' && design.rootNode.rollerShutter?.enabled
+        ? design.rootNode.rollerShutter.height
+        : null,
     panels: panelSummaries,
   };
 }
@@ -73,6 +87,7 @@ export function calculateDesignMaterialSummary(design: DesignProject): DesignMat
 function toMaterialPanel(
   panelId: string,
   openingType: OpeningType,
+  insectScreen: InsectScreenType | null,
   measurements: PanelMeasurementResult | null,
 ): MaterialSummaryPanel | null {
   if (!measurements) {
@@ -82,6 +97,7 @@ function toMaterialPanel(
   return {
     panelId,
     openingType,
+    insectScreen,
     panelWidth: measurements.panelWidth,
     panelHeight: measurements.panelHeight,
     glassWidth: measurements.glassWidth,

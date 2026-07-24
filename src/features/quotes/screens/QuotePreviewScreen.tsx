@@ -542,6 +542,10 @@ export function QuotePreviewScreen() {
           style={styles.actionButton}
         />
       </View>
+      <Text style={styles.helperText}>
+        Teklifi Kaydet, bu fiyat ve musteri bilgileriyle teklif kaydi olusturur. Tasarim cizimi
+        icin editor ekranindaki Kaydet kullanilir.
+      </Text>
       <AppButton label="Teklifi Kaydet" loading={isSaving} disabled={isSaving} onPress={() => void saveDraftQuote()} />
       <AppButton label="Teklifi Paylas" loading={isSharing} disabled={isSharing} onPress={() => void shareQuote()} />
       <View style={styles.actionRow}>
@@ -757,5 +761,9 @@ const styles = StyleSheet.create({
   success: {
     ...typography.caption,
     color: colors.success,
+  },
+  helperText: {
+    ...typography.caption,
+    color: colors.textSecondary,
   },
 });

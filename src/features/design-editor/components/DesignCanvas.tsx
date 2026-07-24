@@ -196,6 +196,16 @@ export const DesignCanvas = memo(function DesignCanvas({
               label={`${Math.round(archHeight / Math.max(layoutState.layout.scale, 0.001))} mm`}
             />
           ) : null}
+          {shutterHeight > 0 && frameNode?.rollerShutter ? (
+            <DimensionLine
+              orientation="vertical"
+              x1={layoutState.layout.frameBounds.x + layoutState.layout.frameBounds.width + 32}
+              y1={layoutState.layout.frameBounds.y}
+              x2={layoutState.layout.frameBounds.x + layoutState.layout.frameBounds.width + 32}
+              y2={layoutState.layout.frameBounds.y + shutterHeight}
+              label={`Panjur ${frameNode.rollerShutter.height} mm`}
+            />
+          ) : null}
           {selectedPanel ? (
             <>
               <DimensionLine

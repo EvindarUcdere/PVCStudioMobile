@@ -15,12 +15,16 @@ import {
 import { getPricingSettings } from '../../../database/repositories/PricingSettingsRepository';
 import { DesignProject } from '../../../domain/designs/entities/DesignProject';
 import { JobStatus, jobStatusLabels } from '../../../domain/designs/enums/JobStatus';
-import { PriceEstimateRates } from '../../../domain/designs/pricing/calculateDesignPriceEstimate';
+import {
+  calculateDesignPriceEstimate,
+  PriceEstimateRates,
+} from '../../../domain/designs/pricing/calculateDesignPriceEstimate';
 import { calculateDesignStockNeeds } from '../../../domain/inventory/calculateDesignStockNeeds';
 import { StockItem, stockUnitLabels } from '../../../domain/inventory/entities/StockItem';
 import { backupDesignToCloud } from '../../../services/firebase/fullSyncService';
 import { logger } from '../../../services/logger';
 import { colors, radius, spacing, typography } from '../../../theme';
+import { shareProductionPdf } from '../../quotes/services/pdfService';
 
 const workshopStatuses: JobStatus[] = ['approved', 'production', 'installation'];
 
@@ -88,6 +92,30 @@ export function WorkshopScreen() {
     }
   }
 
+  async function shareProductionForm(design: DesignProject) {
+    if (!rates) {
+      setError('Fiyat ayarlari yuklenmeden imalat PDF olusturulamaz.');
+      return;
+    }
+
+    setUpdatingId(design.id);
+    setError(null);
+    try {
+      await shareProductionPdf({
+        design,
+        estimate: calculateDesignPriceEstimate(design, rates),
+        customerName: '',
+        customerPhone: '',
+        note: design.jobName ?? '',
+      });
+    } catch (pdfError) {
+      logger.error('Workshop production PDF share failed', pdfError);
+      setError('Imalat PDF paylasilamadi.');
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
   if (isLoading) {
     return (
       <AppScreen centered>
@@ -124,6 +152,7 @@ export function WorkshopScreen() {
             rates={rates}
             isUpdating={updatingId === item.id}
             onOpen={() => router.push(routes.designEditor(item.id))}
+            onShareProductionPdf={() => void shareProductionForm(item)}
             onProduction={() => void updateDesignStatus(item, 'production')}
             onInstallation={() => void updateDesignStatus(item, 'installation')}
             onDone={() => void updateDesignStatus(item, 'done')}
@@ -156,6 +185,7 @@ function WorkshopCard({
   rates,
   isUpdating,
   onOpen,
+  onShareProductionPdf,
   onProduction,
   onInstallation,
   onDone,
@@ -165,6 +195,7 @@ function WorkshopCard({
   rates: PriceEstimateRates | null;
   isUpdating: boolean;
   onOpen: () => void;
+  onShareProductionPdf: () => void;
   onProduction: () => void;
   onInstallation: () => void;
   onDone: () => void;
@@ -201,6 +232,15 @@ function WorkshopCard({
       ))}
       <View style={styles.actions}>
         <AppButton label="Tasarim" variant="secondary" onPress={onOpen} style={styles.actionButton} />
+        <AppButton
+          label="Imalat PDF"
+          variant="secondary"
+          disabled={isUpdating}
+          onPress={onShareProductionPdf}
+          style={styles.actionButton}
+        />
+      </View>
+      <View style={styles.actions}>
         <AppButton
           label="Uretime Al"
           disabled={isUpdating || design.jobStatus === 'production'}

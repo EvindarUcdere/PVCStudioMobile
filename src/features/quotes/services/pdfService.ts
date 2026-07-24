@@ -6,8 +6,11 @@ import { CompanyProfile, defaultCompanyProfile } from '../../../domain/company/e
 import { DesignProject } from '../../../domain/designs/entities/DesignProject';
 import { getDesignProfileColor } from '../../../domain/designs/colors/profileColorOptions';
 import { calculateDesignLayout } from '../../../domain/designs/layout/calculateDesignLayout';
+import { PanelBounds } from '../../../domain/designs/layout/layoutTypes';
 import { calculateDesignMaterialSummary } from '../../../domain/designs/measurement/calculateDesignMaterialSummary';
 import { DesignPriceEstimate } from '../../../domain/designs/pricing/calculateDesignPriceEstimate';
+import { collectPanels } from '../../../domain/designs/utils/findNodeById';
+import { getArchHeight, isArchTopFrame } from '../../../domain/designs/utils/frameShape';
 import { Quote } from '../../../domain/quotes/entities/Quote';
 
 export type QuotePdfInput = {
@@ -122,6 +125,7 @@ function buildProductionHtml(
           <td>${panel.glassWidth} x ${panel.glassHeight}</td>
           <td>${panel.estimatedCutWidth} x ${panel.estimatedCutHeight}</td>
           <td>${panel.usesSash ? 'Kanatli' : 'Sabit'}</td>
+          <td>${panel.insectScreen ? insectScreenLabel(panel.insectScreen) : 'Yok'}</td>
         </tr>
       `,
     )
@@ -145,6 +149,7 @@ function buildProductionHtml(
         ['Kasa/kanat payi', `Kasa ${summary.frameWidth} mm, kanat ${summary.sashWidth} mm`],
         ['Kayit/cam payi', `Kayit ${summary.mullionWidth} mm, cam ${summary.glassRebate} mm`],
         ['Kemer yuksekligi', summary.archHeight ? `${summary.archHeight} mm` : 'Yok'],
+        ['Panjur alani', summary.rollerShutterHeight ? `${summary.rollerShutterHeight} mm` : 'Yok'],
       ])}
       <h2>Panel ve Cam Kesim Listesi</h2>
       <table>
@@ -156,6 +161,7 @@ function buildProductionHtml(
             <th>Cam mm</th>
             <th>Tahmini kesim mm</th>
             <th>Tip</th>
+            <th>Sineklik</th>
           </tr>
         </thead>
         <tbody>${panelRows}</tbody>
@@ -241,32 +247,44 @@ function companyBlock(companyProfile: CompanyProfile): string {
 }
 
 function buildDesignSvg(design: DesignProject): string {
-  const canvasWidth = 420;
-  const canvasHeight = 300;
+  const canvasWidth = 520;
+  const canvasHeight = 390;
   const layout = calculateDesignLayout({
     rootNode: design.rootNode,
     designWidth: design.width,
     designHeight: design.height,
     canvasWidth,
     canvasHeight,
-    padding: 42,
+    padding: 58,
   });
   const profileColor = getDesignProfileColor(design.profileSystem).hexValue;
   const frame = layout.frameBounds;
-  const frameStroke = 10;
+  const rootFrame = design.rootNode.type === 'frame' ? design.rootNode : null;
+  const isArch = rootFrame ? isArchTopFrame(rootFrame) : false;
+  const archHeight = isArch && rootFrame ? getArchHeight(rootFrame, design.height) * layout.scale : 0;
+  const framePath = isArch ? buildArchFramePath(frame.x, frame.y, frame.width, frame.height, archHeight) : '';
+  const frameStroke = 8;
   const glassInset = 12;
   const splitStroke = 8;
+  const panelNodes = new Map(collectPanels(design.rootNode).map((panel) => [panel.id, panel]));
+  const shutterHeight =
+    rootFrame?.rollerShutter?.enabled
+      ? Math.min(frame.height * 0.34, Math.max(16, rootFrame.rollerShutter.height * layout.scale))
+      : 0;
 
   const panels = layout.panelBounds
     .map((panel, index) => {
+      const panelNode = panelNodes.get(panel.nodeId);
       const x = round(panel.x + glassInset);
       const y = round(panel.y + glassInset);
       const width = round(Math.max(8, panel.width - glassInset * 2));
       const height = round(Math.max(8, panel.height - glassInset * 2));
       const opening = buildOpeningSymbol(panel.openingType, x, y, width, height);
+      const insectScreen = panelNode?.insectScreen ? buildInsectScreenSymbol(panel, glassInset) : '';
 
       return `
         <rect x="${x}" y="${y}" width="${width}" height="${height}" fill="#d7e8f8" stroke="#879a93" stroke-width="2" />
+        ${insectScreen}
         ${opening}
         <text x="${round(x + width / 2)}" y="${round(y + height / 2 + 4)}" text-anchor="middle" font-size="13" font-weight="700" fill="#16211d">${index + 1}</text>
       `;
@@ -287,15 +305,79 @@ function buildDesignSvg(design: DesignProject): string {
   return `
     <svg class="design-svg" width="${canvasWidth}" height="${canvasHeight}" viewBox="0 0 ${canvasWidth} ${canvasHeight}" xmlns="http://www.w3.org/2000/svg">
       <rect x="0" y="0" width="${canvasWidth}" height="${canvasHeight}" rx="10" fill="#eef3f0" />
-      <rect x="${round(frame.x)}" y="${round(frame.y)}" width="${round(frame.width)}" height="${round(frame.height)}" fill="#f8fbf9" stroke="${profileColor}" stroke-width="${frameStroke}" />
+      ${
+        isArch
+          ? `<path d="${framePath}" fill="#f8fbf9" stroke="${profileColor}" stroke-width="${frameStroke}" />`
+          : `<rect x="${round(frame.x)}" y="${round(frame.y)}" width="${round(frame.width)}" height="${round(frame.height)}" fill="#f8fbf9" stroke="${profileColor}" stroke-width="${frameStroke}" />`
+      }
+      ${shutterHeight > 0 ? buildRollerShutterSvg(frame.x, frame.y, frame.width, shutterHeight) : ''}
       ${panels}
       ${splits}
-      <rect x="${round(frame.x)}" y="${round(frame.y)}" width="${round(frame.width)}" height="${round(frame.height)}" fill="none" stroke="#24302c" stroke-width="2" />
+      ${
+        isArch
+          ? `<path d="${framePath}" fill="none" stroke="#24302c" stroke-width="2" />`
+          : `<rect x="${round(frame.x)}" y="${round(frame.y)}" width="${round(frame.width)}" height="${round(frame.height)}" fill="none" stroke="#24302c" stroke-width="2" />`
+      }
       <line x1="${round(frame.x)}" y1="${round(frame.y + frame.height + 22)}" x2="${round(frame.x + frame.width)}" y2="${round(frame.y + frame.height + 22)}" stroke="#16211d" stroke-width="1" />
       <text x="${round(frame.x + frame.width / 2)}" y="${round(frame.y + frame.height + 38)}" text-anchor="middle" font-size="12" fill="#16211d">${design.width} mm</text>
       <line x1="${round(frame.x - 24)}" y1="${round(frame.y)}" x2="${round(frame.x - 24)}" y2="${round(frame.y + frame.height)}" stroke="#16211d" stroke-width="1" />
       <text x="${round(frame.x - 34)}" y="${round(frame.y + frame.height / 2)}" transform="rotate(-90 ${round(frame.x - 34)} ${round(frame.y + frame.height / 2)})" text-anchor="middle" font-size="12" fill="#16211d">${design.height} mm</text>
+      ${shutterHeight > 0 && rootFrame?.rollerShutter ? buildVerticalDimension(frame.x + frame.width + 28, frame.y, frame.y + shutterHeight, `Panjur ${rootFrame.rollerShutter.height} mm`) : ''}
+      ${isArch ? buildVerticalDimension(frame.x + frame.width + 48, frame.y, frame.y + Math.min(archHeight, frame.height * 0.46), `Kemer ${Math.round(archHeight / Math.max(layout.scale, 0.001))} mm`) : ''}
     </svg>
+  `;
+}
+
+function buildArchFramePath(x: number, y: number, width: number, height: number, archHeight: number): string {
+  const safeArchHeight = Math.min(height * 0.46, width / 2, Math.max(20, archHeight));
+  const bodyTop = y + safeArchHeight;
+  const centerX = x + width / 2;
+
+  return [
+    `M ${round(x)} ${round(y + height)}`,
+    `L ${round(x)} ${round(bodyTop)}`,
+    `C ${round(x)} ${round(y + safeArchHeight * 0.45)} ${round(x + width * 0.24)} ${round(y)} ${round(centerX)} ${round(y)}`,
+    `C ${round(x + width * 0.76)} ${round(y)} ${round(x + width)} ${round(y + safeArchHeight * 0.45)} ${round(x + width)} ${round(bodyTop)}`,
+    `L ${round(x + width)} ${round(y + height)}`,
+    'Z',
+  ].join(' ');
+}
+
+function buildRollerShutterSvg(x: number, y: number, width: number, height: number): string {
+  const lineCount = Math.max(3, Math.floor(height / 9));
+  const lines = Array.from(
+    { length: lineCount },
+    (_, index) =>
+      `<line x1="${round(x + 10)}" y1="${round(y + ((index + 1) * height) / (lineCount + 1))}" x2="${round(x + width - 10)}" y2="${round(y + ((index + 1) * height) / (lineCount + 1))}" stroke="#8A9693" stroke-width="1" />`,
+  ).join('');
+
+  return `<rect x="${round(x + 5)}" y="${round(y + 5)}" width="${round(width - 10)}" height="${round(height - 10)}" fill="#c9d0cf" stroke="#6f7b78" stroke-width="1.5" />${lines}`;
+}
+
+function buildInsectScreenSymbol(panel: PanelBounds, inset: number): string {
+  const x = round(panel.x + inset + 2);
+  const y = round(panel.y + inset + 2);
+  const width = round(Math.max(0, panel.width - (inset + 2) * 2));
+  const height = round(Math.max(0, panel.height - (inset + 2) * 2));
+  const meshOne = round(x + width / 3);
+  const meshTwo = round(x + (width * 2) / 3);
+
+  return `
+    <rect x="${x}" y="${y}" width="${width}" height="${height}" fill="none" stroke="#166e61" stroke-width="1.6" stroke-dasharray="5 4" />
+    <line x1="${meshOne}" y1="${round(y + 3)}" x2="${meshOne}" y2="${round(y + height - 3)}" stroke="#166e61" stroke-width="1" opacity="0.35" />
+    <line x1="${meshTwo}" y1="${round(y + 3)}" x2="${meshTwo}" y2="${round(y + height - 3)}" stroke="#166e61" stroke-width="1" opacity="0.35" />
+  `;
+}
+
+function buildVerticalDimension(x: number, y1: number, y2: number, label: string): string {
+  const midY = (y1 + y2) / 2;
+
+  return `
+    <line x1="${round(x)}" y1="${round(y1)}" x2="${round(x)}" y2="${round(y2)}" stroke="#16211d" stroke-width="1" />
+    <line x1="${round(x - 5)}" y1="${round(y1)}" x2="${round(x + 5)}" y2="${round(y1)}" stroke="#16211d" stroke-width="1" />
+    <line x1="${round(x - 5)}" y1="${round(y2)}" x2="${round(x + 5)}" y2="${round(y2)}" stroke="#16211d" stroke-width="1" />
+    <rect x="${round(x - 34)}" y="${round(midY - 9)}" width="68" height="18" rx="4" fill="#ffffff" stroke="#d9e2dc" />
+    <text x="${round(x)}" y="${round(midY + 4)}" text-anchor="middle" font-size="9" fill="#16211d">${escapeHtml(label)}</text>
   `;
 }
 
@@ -373,6 +455,16 @@ function openingLabel(value: string): string {
     'tilt-turn-right': 'Sag cift acilim',
     'sliding-left': 'Surme sol',
     'sliding-right': 'Surme sag',
+  };
+
+  return labels[value] ?? value;
+}
+
+function insectScreenLabel(value: string): string {
+  const labels: Record<string, string> = {
+    fixed: 'Sabit',
+    'sliding-horizontal': 'Surme sag/sol',
+    'sliding-vertical': 'Surme yukari',
   };
 
   return labels[value] ?? value;
