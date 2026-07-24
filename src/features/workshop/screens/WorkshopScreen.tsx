@@ -9,10 +9,13 @@ import { AppScreen } from '../../../components/ui/AppScreen';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { routes } from '../../../constants/routes';
 import {
+  createCustomerRepository,
   createDesignRepository,
+  createJobRepository,
   createStockRepository,
 } from '../../../database/repositories/createRepositories';
 import { getPricingSettings } from '../../../database/repositories/PricingSettingsRepository';
+import { Customer } from '../../../domain/customers/entities/Customer';
 import { DesignProject } from '../../../domain/designs/entities/DesignProject';
 import { JobStatus, jobStatusLabels } from '../../../domain/designs/enums/JobStatus';
 import {
@@ -21,15 +24,26 @@ import {
 } from '../../../domain/designs/pricing/calculateDesignPriceEstimate';
 import { calculateDesignStockNeeds } from '../../../domain/inventory/calculateDesignStockNeeds';
 import { StockItem, stockUnitLabels } from '../../../domain/inventory/entities/StockItem';
+import { JobProject } from '../../../domain/jobs/entities/JobProject';
 import { backupDesignToCloud } from '../../../services/firebase/fullSyncService';
 import { logger } from '../../../services/logger';
 import { colors, radius, spacing, typography } from '../../../theme';
-import { shareProductionPdf } from '../../quotes/services/pdfService';
+import { shareJobProductionPdf, shareProductionPdf } from '../../quotes/services/pdfService';
 
 const workshopStatuses: JobStatus[] = ['approved', 'production', 'installation'];
 
+type WorkshopJobGroup = {
+  id: string;
+  title: string;
+  job: JobProject | null;
+  customer: Customer | null;
+  designs: DesignProject[];
+};
+
 export function WorkshopScreen() {
   const [designs, setDesigns] = useState<DesignProject[]>([]);
+  const [jobs, setJobs] = useState<JobProject[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [rates, setRates] = useState<PriceEstimateRates | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -42,14 +56,20 @@ export function WorkshopScreen() {
 
     try {
       const designRepository = await createDesignRepository();
+      const jobRepository = await createJobRepository();
+      const customerRepository = await createCustomerRepository();
       const stockRepository = await createStockRepository();
-      const [loadedDesigns, loadedStockItems, loadedRates] = await Promise.all([
+      const [loadedDesigns, loadedJobs, loadedCustomers, loadedStockItems, loadedRates] = await Promise.all([
         designRepository.list({ limit: 500 }),
+        jobRepository.list({ limit: 500 }),
+        customerRepository.list({ limit: 500 }),
         stockRepository.list({ includeInactive: false, limit: 500 }),
         getPricingSettings(),
       ]);
 
       setDesigns(loadedDesigns.filter((design) => workshopStatuses.includes(design.jobStatus)));
+      setJobs(loadedJobs);
+      setCustomers(loadedCustomers);
       setStockItems(loadedStockItems);
       setRates(loadedRates);
     } catch (loadError) {
@@ -73,6 +93,10 @@ export function WorkshopScreen() {
       installation: designs.filter((design) => design.jobStatus === 'installation'),
     }),
     [designs],
+  );
+  const jobGroups = useMemo(
+    () => buildWorkshopJobGroups(designs, jobs, customers),
+    [customers, designs, jobs],
   );
 
   async function updateDesignStatus(design: DesignProject, jobStatus: JobStatus) {
@@ -116,6 +140,31 @@ export function WorkshopScreen() {
     }
   }
 
+  async function shareJobProductionForm(group: WorkshopJobGroup) {
+    if (!rates || group.designs.length === 0) {
+      setError('Toplu imalat PDF icin bu ise bagli tasarim olmali.');
+      return;
+    }
+
+    setUpdatingId(group.id);
+    setError(null);
+    try {
+      await shareJobProductionPdf({
+        jobName: group.title,
+        customerName: group.customer?.fullName ?? '',
+        customerPhone: group.customer?.phone ?? '',
+        designs: group.designs,
+        rates,
+        stockItems,
+      });
+    } catch (pdfError) {
+      logger.error('Workshop job production PDF share failed', pdfError);
+      setError('Toplu imalat PDF paylasilamadi.');
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
   if (isLoading) {
     return (
       <AppScreen centered>
@@ -133,9 +182,9 @@ export function WorkshopScreen() {
       />
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <FlatList
-        data={designs}
-        keyExtractor={(design) => design.id}
-        contentContainerStyle={designs.length === 0 ? styles.emptyList : styles.list}
+        data={jobGroups}
+        keyExtractor={(group) => group.id}
+        contentContainerStyle={jobGroups.length === 0 ? styles.emptyList : styles.list}
         ListHeaderComponent={
           <View style={styles.headerContent}>
             <View style={styles.summaryGrid}>
@@ -146,16 +195,22 @@ export function WorkshopScreen() {
           </View>
         }
         renderItem={({ item }) => (
-          <WorkshopCard
-            design={item}
+          <WorkshopJobCard
+            group={item}
             stockItems={stockItems}
             rates={rates}
-            isUpdating={updatingId === item.id}
-            onOpen={() => router.push(routes.designEditor(item.id))}
-            onShareProductionPdf={() => void shareProductionForm(item)}
-            onProduction={() => void updateDesignStatus(item, 'production')}
-            onInstallation={() => void updateDesignStatus(item, 'installation')}
-            onDone={() => void updateDesignStatus(item, 'done')}
+            updatingId={updatingId}
+            onOpenJob={() => {
+              if (item.job) {
+                router.push(routes.jobDetails(item.job.id));
+              }
+            }}
+            onShareJobPdf={() => void shareJobProductionForm(item)}
+            onOpenDesign={(design) => router.push(routes.designEditor(design.id))}
+            onShareDesignPdf={(design) => void shareProductionForm(design)}
+            onProduction={(design) => void updateDesignStatus(design, 'production')}
+            onInstallation={(design) => void updateDesignStatus(design, 'installation')}
+            onDone={(design) => void updateDesignStatus(design, 'done')}
           />
         )}
         ListEmptyComponent={
@@ -179,7 +234,89 @@ function SummaryBox({ label, value }: { label: string; value: number }) {
   );
 }
 
-function WorkshopCard({
+function WorkshopJobCard({
+  group,
+  stockItems,
+  rates,
+  updatingId,
+  onOpenJob,
+  onShareJobPdf,
+  onOpenDesign,
+  onShareDesignPdf,
+  onProduction,
+  onInstallation,
+  onDone,
+}: {
+  group: WorkshopJobGroup;
+  stockItems: StockItem[];
+  rates: PriceEstimateRates | null;
+  updatingId: string | null;
+  onOpenJob: () => void;
+  onShareJobPdf: () => void;
+  onOpenDesign: (design: DesignProject) => void;
+  onShareDesignPdf: (design: DesignProject) => void;
+  onProduction: (design: DesignProject) => void;
+  onInstallation: (design: DesignProject) => void;
+  onDone: (design: DesignProject) => void;
+}) {
+  const totalQuantity = group.designs.reduce((sum, design) => sum + design.quantity, 0);
+  const missingNeedCount = rates
+    ? group.designs.flatMap((design) =>
+        calculateDesignStockNeeds(design, stockItems, rates).filter((need) => need.status === 'missing'),
+      ).length
+    : 0;
+
+  return (
+    <AppCard style={styles.jobGroupCard}>
+      <View style={styles.cardHeader}>
+        <View style={styles.titleColumn}>
+          <Text style={styles.groupTitle}>{group.title}</Text>
+          <Text style={styles.caption}>
+            {group.customer?.fullName ?? 'Musterisiz'} - {group.designs.length} tasarim - {totalQuantity} adet
+          </Text>
+        </View>
+      </View>
+      <Info
+        label="Toplu stok"
+        value={missingNeedCount > 0 ? `${missingNeedCount} eksik kalem` : 'Yeterli gorunuyor'}
+      />
+      <View style={styles.actions}>
+        <AppButton
+          label="Is Detayi"
+          variant="secondary"
+          disabled={!group.job}
+          onPress={onOpenJob}
+          style={styles.actionButton}
+        />
+        <AppButton
+          label="Toplu PDF"
+          disabled={updatingId === group.id}
+          loading={updatingId === group.id}
+          onPress={onShareJobPdf}
+          style={styles.actionButton}
+        />
+      </View>
+      <View style={styles.designList}>
+        {group.designs.map((design) => (
+          <WorkshopDesignCard
+            key={design.id}
+            design={design}
+            stockItems={stockItems}
+            rates={rates}
+            isUpdating={updatingId === design.id}
+            onOpen={() => onOpenDesign(design)}
+            onShareProductionPdf={() => onShareDesignPdf(design)}
+            onProduction={() => onProduction(design)}
+            onInstallation={() => onInstallation(design)}
+            onDone={() => onDone(design)}
+          />
+        ))}
+      </View>
+    </AppCard>
+  );
+}
+
+function WorkshopDesignCard({
   design,
   stockItems,
   rates,
@@ -204,7 +341,7 @@ function WorkshopCard({
   const missingNeeds = needs.filter((need) => need.status === 'missing');
 
   return (
-    <AppCard style={styles.card}>
+    <View style={styles.designSubCard}>
       <View style={styles.cardHeader}>
         <View style={styles.titleColumn}>
           <Text style={styles.title}>{design.name}</Text>
@@ -265,7 +402,41 @@ function WorkshopCard({
           style={styles.actionButton}
         />
       </View>
-    </AppCard>
+    </View>
+  );
+}
+
+function buildWorkshopJobGroups(
+  designs: DesignProject[],
+  jobs: JobProject[],
+  customers: Customer[],
+): WorkshopJobGroup[] {
+  const jobById = new Map(jobs.map((job) => [job.id, job]));
+  const customerById = new Map(customers.map((customer) => [customer.id, customer]));
+  const groups = new Map<string, WorkshopJobGroup>();
+
+  designs.forEach((design) => {
+    const job = design.jobId ? jobById.get(design.jobId) ?? null : null;
+    const customer = job?.customerId ? customerById.get(job.customerId) ?? null : null;
+    const groupId = job?.id ?? `single:${design.id}`;
+    const existing = groups.get(groupId);
+
+    if (existing) {
+      existing.designs.push(design);
+      return;
+    }
+
+    groups.set(groupId, {
+      id: groupId,
+      title: job?.name ?? design.jobName ?? design.name,
+      job,
+      customer,
+      designs: [design],
+    });
+  });
+
+  return Array.from(groups.values()).sort(
+    (first, second) => second.designs.length - first.designs.length,
   );
 }
 
@@ -324,6 +495,20 @@ const styles = StyleSheet.create({
   card: {
     gap: spacing.sm,
   },
+  jobGroupCard: {
+    gap: spacing.md,
+  },
+  designList: {
+    gap: spacing.sm,
+  },
+  designSubCard: {
+    backgroundColor: colors.background,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    gap: spacing.sm,
+    padding: spacing.sm,
+  },
   cardHeader: {
     alignItems: 'center',
     flexDirection: 'row',
@@ -338,6 +523,12 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.textPrimary,
     fontWeight: '700',
+  },
+  groupTitle: {
+    ...typography.heading,
+    color: colors.textPrimary,
+    fontSize: 18,
+    lineHeight: 24,
   },
   caption: {
     ...typography.caption,
