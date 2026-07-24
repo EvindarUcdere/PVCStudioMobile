@@ -347,6 +347,13 @@ function buildDesignSvg(design: DesignProject): string {
 
   return `
     <svg class="design-svg" width="${canvasWidth}" height="${canvasHeight}" viewBox="0 0 ${canvasWidth} ${canvasHeight}" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="pdfGlassGradient" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#9fdcf2" stop-opacity="0.92" />
+          <stop offset="0.48" stop-color="#eef9fc" stop-opacity="0.96" />
+          <stop offset="1" stop-color="#b8e3f5" stop-opacity="0.92" />
+        </linearGradient>
+      </defs>
       <rect x="0" y="0" width="${canvasWidth}" height="${canvasHeight}" rx="10" fill="#eef3f0" />
       ${
         isArch
@@ -406,9 +413,8 @@ function buildDesignPreviewSvg(design: DesignProject): string {
       const glassHeight = round(Math.max(0, panel.height - glassInset * 2));
 
       return `
-        <rect x="${round(panel.x)}" y="${round(panel.y)}" width="${round(panel.width)}" height="${round(panel.height)}" fill="${profileColor}" stroke="#96a5a0" stroke-width="2" />
-        <rect x="${round(panel.x + profileInset)}" y="${round(panel.y + profileInset)}" width="${round(Math.max(0, panel.width - profileInset * 2))}" height="${round(Math.max(0, panel.height - profileInset * 2))}" fill="${mixHexForPdf(profileColor, '#ffffff', 0.22)}" stroke="${mixHexForPdf(profileColor, '#17211e', 0.35)}" stroke-width="1.5" />
-        <rect x="${glassX}" y="${glassY}" width="${glassWidth}" height="${glassHeight}" fill="#d8e6f5" stroke="#aebbb7" stroke-width="1.2" />
+        ${buildProfiledPanelSvg(panel.x, panel.y, panel.width, panel.height, profileInset, profileColor)}
+        <rect x="${glassX}" y="${glassY}" width="${glassWidth}" height="${glassHeight}" fill="url(#pdfGlassGradient)" stroke="#aebbb7" stroke-width="1.2" />
         ${panelNode?.insectScreen ? buildInsectScreenSymbol(panel, glassInset) : ''}
         ${buildOpeningSymbol(panel.openingType, glassX, glassY, glassWidth, glassHeight)}
       `;
@@ -480,6 +486,34 @@ function buildInsectScreenSymbol(panel: PanelBounds, inset: number): string {
     <rect x="${x}" y="${y}" width="${width}" height="${height}" fill="none" stroke="#166e61" stroke-width="1.6" stroke-dasharray="5 4" />
     <line x1="${meshOne}" y1="${round(y + 3)}" x2="${meshOne}" y2="${round(y + height - 3)}" stroke="#166e61" stroke-width="1" opacity="0.35" />
     <line x1="${meshTwo}" y1="${round(y + 3)}" x2="${meshTwo}" y2="${round(y + height - 3)}" stroke="#166e61" stroke-width="1" opacity="0.35" />
+  `;
+}
+
+function buildProfiledPanelSvg(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  inset: number,
+  profileColor: string,
+): string {
+  const left = round(x);
+  const top = round(y);
+  const right = round(x + width);
+  const bottom = round(y + height);
+  const innerLeft = round(x + inset);
+  const innerTop = round(y + inset);
+  const innerRight = round(x + width - inset);
+  const innerBottom = round(y + height - inset);
+  const light = mixHexForPdf(profileColor, '#ffffff', 0.6);
+  const mid = mixHexForPdf(profileColor, '#ffffff', 0.28);
+  const shadow = mixHexForPdf(profileColor, '#17211e', 0.16);
+
+  return `
+    <polygon points="${left},${top} ${right},${top} ${innerRight},${innerTop} ${innerLeft},${innerTop}" fill="${light}" stroke="#4c5753" stroke-width="1.1" />
+    <polygon points="${right},${top} ${right},${bottom} ${innerRight},${innerBottom} ${innerRight},${innerTop}" fill="${shadow}" stroke="#4c5753" stroke-width="1.1" />
+    <polygon points="${left},${bottom} ${right},${bottom} ${innerRight},${innerBottom} ${innerLeft},${innerBottom}" fill="${shadow}" stroke="#4c5753" stroke-width="1.1" />
+    <polygon points="${left},${top} ${innerLeft},${innerTop} ${innerLeft},${innerBottom} ${left},${bottom}" fill="${mid}" stroke="#4c5753" stroke-width="1.1" />
   `;
 }
 

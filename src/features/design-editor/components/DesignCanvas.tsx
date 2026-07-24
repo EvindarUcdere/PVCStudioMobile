@@ -1,6 +1,18 @@
 import { memo, useMemo, useState } from 'react';
 import { LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, ClipPath, Defs, G, Line, Path, Rect, Text as SvgText } from 'react-native-svg';
+import Svg, {
+  Circle,
+  ClipPath,
+  Defs,
+  G,
+  Line,
+  LinearGradient,
+  Path,
+  Polygon,
+  Rect,
+  Stop,
+  Text as SvgText,
+} from 'react-native-svg';
 
 import { DesignProject } from '../../../domain/designs/entities/DesignProject';
 import { getDesignProfileColor } from '../../../domain/designs/colors/profileColorOptions';
@@ -141,6 +153,13 @@ export const DesignCanvas = memo(function DesignCanvas({
           style={StyleSheet.absoluteFill}
         />
         <Svg pointerEvents="none" width={canvasSize.width} height={canvasSize.height}>
+          <Defs>
+            <LinearGradient id="glassGradient" x1="0" y1="0" x2="1" y2="1">
+              <Stop offset="0" stopColor="#9FDCF2" stopOpacity="0.92" />
+              <Stop offset="0.48" stopColor="#EAF7FB" stopOpacity="0.96" />
+              <Stop offset="1" stopColor="#B8E3F5" stopOpacity="0.92" />
+            </LinearGradient>
+          </Defs>
           <Rect
             x={0}
             y={0}
@@ -343,35 +362,49 @@ function DesignPanel({
   selected: boolean;
   profilePalette: ProfilePalette;
 }) {
-  const profileInset = Math.max(4, Math.min(10, Math.min(panel.width, panel.height) * 0.08));
-  const glassInset = profileInset + Math.max(3, Math.min(7, Math.min(panel.width, panel.height) * 0.04));
+  const profileInset = Math.max(5, Math.min(13, Math.min(panel.width, panel.height) * 0.09));
+  const glassInset = profileInset + Math.max(4, Math.min(8, Math.min(panel.width, panel.height) * 0.04));
+  const outerX = panel.x;
+  const outerY = panel.y;
+  const outerRight = panel.x + panel.width;
+  const outerBottom = panel.y + panel.height;
+  const innerX = panel.x + profileInset;
+  const innerY = panel.y + profileInset;
+  const innerRight = panel.x + panel.width - profileInset;
+  const innerBottom = panel.y + panel.height - profileInset;
 
   return (
     <>
-      <Rect
-        x={panel.x}
-        y={panel.y}
-        width={panel.width}
-        height={panel.height}
-        fill={profilePalette.outer}
-        stroke={selected ? colors.primary : '#96A5A0'}
-        strokeWidth={selected ? 2.8 : 2}
+      <Polygon
+        points={`${outerX},${outerY} ${outerRight},${outerY} ${innerRight},${innerY} ${innerX},${innerY}`}
+        fill={mixHex(profilePalette.outer, '#FFFFFF', 0.6)}
+        stroke={selected ? colors.primary : '#4C5753'}
+        strokeWidth={selected ? 2.6 : 1.2}
       />
-      <Rect
-        x={panel.x + profileInset}
-        y={panel.y + profileInset}
-        width={Math.max(0, panel.width - profileInset * 2)}
-        height={Math.max(0, panel.height - profileInset * 2)}
-        fill={profilePalette.inner}
-        stroke={profilePalette.stroke}
-        strokeWidth={1.5}
+      <Polygon
+        points={`${outerRight},${outerY} ${outerRight},${outerBottom} ${innerRight},${innerBottom} ${innerRight},${innerY}`}
+        fill={mixHex(profilePalette.outer, '#17211E', 0.18)}
+        stroke="#4C5753"
+        strokeWidth={1.1}
+      />
+      <Polygon
+        points={`${outerX},${outerBottom} ${outerRight},${outerBottom} ${innerRight},${innerBottom} ${innerX},${innerBottom}`}
+        fill={mixHex(profilePalette.outer, '#17211E', 0.12)}
+        stroke="#4C5753"
+        strokeWidth={1.1}
+      />
+      <Polygon
+        points={`${outerX},${outerY} ${innerX},${innerY} ${innerX},${innerBottom} ${outerX},${outerBottom}`}
+        fill={mixHex(profilePalette.outer, '#FFFFFF', 0.38)}
+        stroke="#4C5753"
+        strokeWidth={1.1}
       />
       <Rect
         x={panel.x + glassInset}
         y={panel.y + glassInset}
         width={Math.max(0, panel.width - glassInset * 2)}
         height={Math.max(0, panel.height - glassInset * 2)}
-        fill={selected ? '#BFE2F0' : '#D8E6F5'}
+        fill="url(#glassGradient)"
         stroke="#AEBBB7"
         strokeWidth={1.2}
       />
