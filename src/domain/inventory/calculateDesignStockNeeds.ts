@@ -4,6 +4,7 @@ import {
   defaultPriceEstimateRates,
   PriceEstimateRates,
 } from '../designs/pricing/calculateDesignPriceEstimate';
+import { collectPanels } from '../designs/utils/findNodeById';
 import { StockItem, StockItemType, StockUnit } from './entities/StockItem';
 
 export type DesignStockNeedStatus = 'ok' | 'low' | 'missing';
@@ -30,6 +31,10 @@ export function calculateDesignStockNeeds(
   const profileNeed = estimate.profileLengthMeters * quantity;
   const glassNeed = estimate.glassAreaSquareMeters * quantity;
   const hardwareNeed = estimate.summary.openingPanelCount * quantity;
+  const rollerShutterNeed =
+    design.rootNode.type === 'frame' && design.rootNode.rollerShutter?.enabled ? quantity : 0;
+  const insectScreenNeed =
+    collectPanels(design.rootNode).filter((panel) => panel.insectScreen !== null).length * quantity;
 
   return [
     createNeed({
@@ -57,6 +62,24 @@ export function calculateDesignStockNeeds(
       requiredQuantity: hardwareNeed,
       unit: 'piece',
       detail: `${estimate.summary.openingPanelCount * quantity} acilir kanat`,
+      stockItems,
+    }),
+    createNeed({
+      id: 'roller-shutter',
+      type: 'roller_shutter',
+      label: 'Panjur kutusu',
+      requiredQuantity: rollerShutterNeed,
+      unit: 'piece',
+      detail: `${quantity} tasarim icin ust panjur alani`,
+      stockItems,
+    }),
+    createNeed({
+      id: 'insect-screen',
+      type: 'insect_screen',
+      label: 'Sineklik',
+      requiredQuantity: insectScreenNeed,
+      unit: 'piece',
+      detail: `${insectScreenNeed} acilir panelde sineklik`,
       stockItems,
     }),
   ].filter((need) => need.requiredQuantity > 0);

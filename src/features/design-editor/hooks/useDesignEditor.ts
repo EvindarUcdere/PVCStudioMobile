@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { createDesignRepository } from '../../../database/repositories/createRepositories';
 import { DesignProject } from '../../../domain/designs/entities/DesignProject';
+import { InsectScreenType } from '../../../domain/designs/entities/PanelNode';
 import { JobStatus } from '../../../domain/designs/enums/JobStatus';
 import { OpeningType } from '../../../domain/designs/enums/OpeningType';
 import { SplitDirection } from '../../../domain/designs/enums/SplitDirection';
@@ -17,6 +18,8 @@ import {
   mergePanelWithAdjacent,
   removePanel,
   splitPanel,
+  toggleRollerShutter,
+  updatePanelInsectScreen,
   updatePanelOpening,
   updateDefaultGlassSelection,
   updateProfileColor,
@@ -237,8 +240,51 @@ export function useDesignEditor(designId: string | undefined) {
         ...current,
         design: {
           ...current.design,
-          rootNode: updatePanelOpening(current.design.rootNode, current.selection.nodeId, openingType),
+          rootNode: updatePanelOpening(
+            current.design.rootNode,
+            current.selection.nodeId,
+            openingType,
+          ),
         },
+        history: [...current.history, current.design],
+        future: [],
+        isDirty: true,
+        error: null,
+        saveMessage: null,
+      };
+    });
+  }, []);
+
+  const updateSelectedInsectScreen = useCallback((insectScreen: InsectScreenType | null) => {
+    setState((current) => {
+      if (!current.design || !current.selection) {
+        return current;
+      }
+
+      return {
+        ...current,
+        design: {
+          ...current.design,
+          rootNode: updatePanelInsectScreen(current.design.rootNode, current.selection.nodeId, insectScreen),
+        },
+        history: [...current.history, current.design],
+        future: [],
+        isDirty: true,
+        error: null,
+        saveMessage: null,
+      };
+    });
+  }, []);
+
+  const toggleDesignRollerShutter = useCallback(() => {
+    setState((current) => {
+      if (!current.design) {
+        return current;
+      }
+
+      return {
+        ...current,
+        design: toggleRollerShutter(current.design),
         history: [...current.history, current.design],
         future: [],
         isDirty: true,
@@ -547,6 +593,8 @@ export function useDesignEditor(designId: string | undefined) {
     splitSelectedPanel,
     removeSelectedPanel,
     updateSelectedOpening,
+    updateSelectedInsectScreen,
+    toggleDesignRollerShutter,
     addPanelAtEdge,
     mergeSelectedPanel,
     adjustSelectedArchHeight,

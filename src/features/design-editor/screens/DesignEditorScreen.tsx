@@ -24,6 +24,7 @@ import {
 } from '../../../database/repositories/createRepositories';
 import { getPricingSettings } from '../../../database/repositories/PricingSettingsRepository';
 import { Customer } from '../../../domain/customers/entities/Customer';
+import { InsectScreenType } from '../../../domain/designs/entities/PanelNode';
 import {
   createCustomColorId,
   getDesignProfileColor,
@@ -70,6 +71,8 @@ export function DesignEditorScreen() {
     splitSelectedPanel,
     removeSelectedPanel,
     updateSelectedOpening,
+    updateSelectedInsectScreen,
+    toggleDesignRollerShutter,
     addPanelAtEdge,
     mergeSelectedPanel,
     adjustSelectedArchHeight,
@@ -204,6 +207,9 @@ export function DesignEditorScreen() {
 
   const selectedNode = selectedNodeId ? findNodeById(design.rootNode, selectedNodeId) : null;
   const selectedOpeningType = selectedNode?.type === 'panel' ? selectedNode.openingType : null;
+  const selectedInsectScreen = selectedNode?.type === 'panel' ? (selectedNode.insectScreen ?? null) : null;
+  const selectedPanelCanUseScreen = selectedOpeningType ? canUseInsectScreen(selectedOpeningType) : false;
+  const hasRollerShutter = design.rootNode.type === 'frame' && Boolean(design.rootNode.rollerShutter?.enabled);
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboard}>
@@ -263,6 +269,11 @@ export function DesignEditorScreen() {
                 value={String(design.quantity)}
               />
               <JobStatusSelector value={design.jobStatus} onChange={handleJobStatusChange} />
+              <AppButton
+                label={hasRollerShutter ? 'Panjur alanini kaldir' : 'Panjur alani ekle'}
+                variant="secondary"
+                onPress={toggleDesignRollerShutter}
+              />
               <View style={styles.row}>
                 <AppButton
                   label="Geri al"
@@ -428,6 +439,23 @@ export function DesignEditorScreen() {
                 ))}
               </View>
             </ToolSection>
+            <ToolSection title="Sineklik">
+              <Text style={styles.caption}>
+                Sineklik sadece acilabilen paneller icin secilebilir.
+              </Text>
+              <View style={styles.optionGrid}>
+                {insectScreenOptions.map((option) => (
+                  <AppButton
+                    key={option.value ?? 'none'}
+                    label={option.label}
+                    variant={selectedInsectScreen === option.value ? 'primary' : 'secondary'}
+                    disabled={!selectedNodeId || !selectedPanelCanUseScreen}
+                    onPress={() => updateSelectedInsectScreen(option.value)}
+                    style={styles.optionButton}
+                  />
+                ))}
+              </View>
+            </ToolSection>
             {saveMessage ? <Text style={styles.success}>{saveMessage}</Text> : null}
             {error ? <Text style={styles.error}>{error}</Text> : null}
           </View>
@@ -588,6 +616,17 @@ const openingOptions: { label: string; value: OpeningType }[] = [
   { label: 'Surme sol', value: 'sliding-left' },
   { label: 'Surme sag', value: 'sliding-right' },
 ];
+
+const insectScreenOptions: { label: string; value: InsectScreenType | null }[] = [
+  { label: 'Yok', value: null },
+  { label: 'Sabit', value: 'fixed' },
+  { label: 'Surme sag/sol', value: 'sliding-horizontal' },
+  { label: 'Surme yukari', value: 'sliding-vertical' },
+];
+
+function canUseInsectScreen(openingType: OpeningType): boolean {
+  return openingType !== 'fixed';
+}
 
 function parseOptionalPositiveNumber(value: string): number | undefined {
   const normalized = value.replace(',', '.').trim();

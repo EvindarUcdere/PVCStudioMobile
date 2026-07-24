@@ -50,7 +50,16 @@ const defaultForm: StockForm = {
   notes: '',
 };
 
-const typeOptions: StockItemType[] = ['pvc_profile', 'glass', 'accessory', 'hardware', 'consumable', 'other'];
+const typeOptions: StockItemType[] = [
+  'pvc_profile',
+  'glass',
+  'accessory',
+  'hardware',
+  'roller_shutter',
+  'insect_screen',
+  'consumable',
+  'other',
+];
 const unitOptions: StockUnit[] = ['meter', 'square_meter', 'piece', 'set', 'kg', 'box'];
 
 export function StockScreen() {

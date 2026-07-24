@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { DesignProject } from '../../../domain/designs/entities/DesignProject';
+import { InsectScreenType } from '../../../domain/designs/entities/PanelNode';
 import { OpeningType } from '../../../domain/designs/enums/OpeningType';
 import { calculatePanelMeasurements } from '../../../domain/designs/measurement/calculatePanelMeasurements';
 import { findNodeById } from '../../../domain/designs/utils/findNodeById';
@@ -26,6 +27,12 @@ const openingLabels: Record<OpeningType, string> = {
   'sliding-right': 'Surme sag',
   'door-left': 'Sol kapi',
   'door-right': 'Sag kapi',
+};
+
+const insectScreenLabels: Record<InsectScreenType, string> = {
+  fixed: 'Sabit sineklik',
+  'sliding-horizontal': 'Surgulu sag/sol sineklik',
+  'sliding-vertical': 'Surgulu yukari sineklik',
 };
 
 export function SelectedPanelSheet({ design, selectedNodeId }: SelectedPanelSheetProps) {
@@ -77,6 +84,7 @@ export function SelectedPanelSheet({ design, selectedNodeId }: SelectedPanelShee
       ) : null}
       <Info label="Tur" value="Panel" />
       <Info label="Acilim" value={openingLabels[node.openingType] ?? 'Bilinmeyen acilim'} />
+      <Info label="Sineklik" value={node.insectScreen ? insectScreenLabels[node.insectScreen] : 'Yok'} />
       <Info label="Dis kasa" value={`${design.width} x ${design.height} mm`} />
       {archHeight ? <Info label="Kemer yuksekligi" value={`${archHeight} mm`} /> : null}
       <Info label="Profil" value={measurements ? measurements.profile.profileName : '-'} />

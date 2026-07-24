@@ -1,7 +1,7 @@
 import { DesignNode } from '../entities/DesignNode';
 import { DesignProject } from '../entities/DesignProject';
 import { GlassSelection } from '../entities/GlassSelection';
-import { PanelNode } from '../entities/PanelNode';
+import { InsectScreenType, PanelNode } from '../entities/PanelNode';
 import { ProfileSystemSelection } from '../entities/ProfileSystemSelection';
 import { OpeningType } from '../enums/OpeningType';
 import { SplitDirection } from '../enums/SplitDirection';
@@ -21,7 +21,35 @@ export function updatePanelOpening(
   panelId: string,
   openingType: OpeningType,
 ): DesignNode {
-  return updatePanel(rootNode, panelId, (panel) => ({ ...panel, openingType }));
+  return updatePanel(rootNode, panelId, (panel) => ({
+    ...panel,
+    openingType,
+    insectScreen: openingType === 'fixed' ? null : panel.insectScreen,
+  }));
+}
+
+export function updatePanelInsectScreen(
+  rootNode: DesignNode,
+  panelId: string,
+  insectScreen: InsectScreenType | null,
+): DesignNode {
+  return updatePanel(rootNode, panelId, (panel) => ({ ...panel, insectScreen }));
+}
+
+export function toggleRollerShutter(project: DesignProject): DesignProject {
+  if (project.rootNode.type !== 'frame') {
+    return project;
+  }
+
+  const enabled = Boolean(project.rootNode.rollerShutter?.enabled);
+
+  return {
+    ...project,
+    rootNode: {
+      ...project.rootNode,
+      rollerShutter: enabled ? null : { enabled: true, height: 250 },
+    },
+  };
 }
 
 export function splitPanel(

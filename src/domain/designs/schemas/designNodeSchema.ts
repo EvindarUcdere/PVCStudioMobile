@@ -23,6 +23,7 @@ export const panelNodeSchema: z.ZodType<PanelNode> = z.object({
     'door-left',
     'door-right',
   ]),
+  insectScreen: z.enum(['fixed', 'sliding-horizontal', 'sliding-vertical']).nullable().optional().default(null),
   glass: glassSelectionSchema.nullable(),
   accessories: z.array(accessorySelectionSchema),
   notes: z.string().nullable(),
@@ -41,6 +42,13 @@ export const designNodeSchema: z.ZodType<DesignNode> = z.lazy(() => {
     id: z.string().min(1),
     type: z.literal('frame'),
     shape: frameShapeSchema.optional(),
+    rollerShutter: z
+      .object({
+        enabled: z.boolean(),
+        height: z.number().min(100).max(800),
+      })
+      .nullable()
+      .optional(),
     child: designNodeSchema,
   });
 
@@ -60,6 +68,13 @@ export const frameNodeSchema = z.object({
   id: z.string().min(1),
   type: z.literal('frame'),
   shape: frameShapeSchema.optional(),
+  rollerShutter: z
+    .object({
+      enabled: z.boolean(),
+      height: z.number().min(100).max(800),
+    })
+    .nullable()
+    .optional(),
   child: designNodeSchema,
 });
 

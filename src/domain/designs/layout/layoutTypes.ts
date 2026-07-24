@@ -1,4 +1,5 @@
 import { OpeningType } from '../enums/OpeningType';
+import { InsectScreenType } from '../entities/PanelNode';
 
 export type NodeBounds = {
   nodeId: string;
@@ -13,6 +14,7 @@ export type NodeBounds = {
 export type PanelBounds = NodeBounds & {
   nodeType: 'panel';
   openingType: OpeningType;
+  insectScreen: InsectScreenType | null;
   realWidth: number;
   realHeight: number;
 };

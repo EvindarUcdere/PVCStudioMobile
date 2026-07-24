@@ -251,6 +251,17 @@ export const TemplatePreview = memo(function TemplatePreview({
   );
   const profilePalette = getProfilePalette(profileColorHex);
   const frameInset = compact ? 6 : 8;
+  const shutterHeight =
+    rootNode.type === 'frame' && rootNode.rollerShutter?.enabled
+      ? Math.min(
+          (viewBoxHeight - padding * 2) * 0.34,
+          Math.max(
+            12,
+            rootNode.rollerShutter.height *
+              (viewBoxHeight / Math.max(designHeight ?? viewBoxHeight, 1)),
+          ),
+        )
+      : 0;
   const innerFramePath = getInsetFramePath(
     padding,
     padding,
@@ -313,6 +324,14 @@ export const TemplatePreview = memo(function TemplatePreview({
           <Fragment key={`${panel.id}-symbol`}>{renderOpeningSymbol(panel, compact)}</Fragment>
         ))}
       </G>
+      {shutterHeight > 0 ? (
+        <PreviewRollerShutter
+          x={padding}
+          y={padding}
+          width={viewBoxWidth - padding * 2}
+          height={shutterHeight}
+        />
+      ) : null}
       {frameIsArch ? (
         <>
           <Path d={framePath} fill="none" stroke={colors.textPrimary} strokeWidth={2.4} />
@@ -362,7 +381,91 @@ function PreviewPanel({
         stroke="#AEBBB7"
         strokeWidth={1}
       />
+      {panel.insectScreen ? <PreviewInsectScreen panel={panel} inset={glassInset} /> : null}
     </>
+  );
+}
+
+function PreviewRollerShutter({
+  x,
+  y,
+  width,
+  height,
+}: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}) {
+  const lineCount = Math.max(3, Math.floor(height / 8));
+  const lines = Array.from(
+    { length: lineCount },
+    (_, index) => y + ((index + 1) * height) / (lineCount + 1),
+  );
+
+  return (
+    <G>
+      <Rect
+        x={x + 4}
+        y={y + 4}
+        width={Math.max(0, width - 8)}
+        height={Math.max(0, height - 8)}
+        fill="#C9D0CF"
+        stroke="#6F7B78"
+        strokeWidth={1.2}
+      />
+      {lines.map((lineY) => (
+        <Line
+          key={`preview-shutter-${lineY}`}
+          x1={x + 10}
+          y1={lineY}
+          x2={x + width - 10}
+          y2={lineY}
+          stroke="#8A9693"
+          strokeWidth={0.8}
+        />
+      ))}
+    </G>
+  );
+}
+
+function PreviewInsectScreen({ panel, inset }: { panel: PanelLayout; inset: number }) {
+  const x = panel.x + inset + 1;
+  const y = panel.y + inset + 1;
+  const width = Math.max(0, panel.width - (inset + 1) * 2);
+  const height = Math.max(0, panel.height - (inset + 1) * 2);
+
+  return (
+    <G>
+      <Rect
+        x={x}
+        y={y}
+        width={width}
+        height={height}
+        fill="none"
+        stroke="#166E61"
+        strokeDasharray="3 3"
+        strokeWidth={1}
+      />
+      <Line
+        x1={x + width / 3}
+        y1={y + 2}
+        x2={x + width / 3}
+        y2={y + height - 2}
+        stroke="#166E61"
+        strokeOpacity={0.3}
+        strokeWidth={0.8}
+      />
+      <Line
+        x1={x + (width * 2) / 3}
+        y1={y + 2}
+        x2={x + (width * 2) / 3}
+        y2={y + height - 2}
+        stroke="#166E61"
+        strokeOpacity={0.3}
+        strokeWidth={0.8}
+      />
+    </G>
   );
 }
 

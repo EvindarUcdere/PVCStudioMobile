@@ -119,6 +119,13 @@ export const DesignCanvas = memo(function DesignCanvas({
   const selectedPanel = layoutState.layout?.panelBounds.find((panel) => panel.nodeId === selectedNodeId) ?? null;
   const profileColor = getDesignProfileColor(design.profileSystem);
   const profilePalette = getProfilePalette(profileColor.hexValue);
+  const shutterHeight =
+    layoutState.layout && frameNode?.rollerShutter?.enabled
+      ? Math.min(
+          layoutState.layout.frameBounds.height * 0.34,
+          Math.max(16, frameNode.rollerShutter.height * layoutState.layout.scale),
+        )
+      : 0;
 
   return (
     <View onLayout={handleLayout} style={styles.container}>
@@ -257,6 +264,14 @@ export const DesignCanvas = memo(function DesignCanvas({
               />
             </>
           )}
+          {shutterHeight > 0 ? (
+            <RollerShutterBox
+              x={layoutState.layout.frameBounds.x}
+              y={layoutState.layout.frameBounds.y}
+              width={layoutState.layout.frameBounds.width}
+              height={shutterHeight}
+            />
+          ) : null}
           {layoutState.layout.panelBounds.map((panel, index) => (
             <G key={panel.nodeId} clipPath={frameIsArch ? 'url(#editorFrameClip)' : undefined}>
               <DesignPanel
@@ -350,6 +365,7 @@ function DesignPanel({
         stroke="#AEBBB7"
         strokeWidth={1.2}
       />
+      {panel.insectScreen ? <InsectScreenOverlay panel={panel} inset={glassInset} /> : null}
       {selected ? (
         <>
           <Circle cx={panel.x + 6} cy={panel.y + 6} r={3} fill={colors.primary} />
@@ -364,6 +380,100 @@ function DesignPanel({
         </>
       ) : null}
     </>
+  );
+}
+
+function RollerShutterBox({
+  x,
+  y,
+  width,
+  height,
+}: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}) {
+  const lineCount = Math.max(3, Math.floor(height / 9));
+  const lines = Array.from({ length: lineCount }, (_, index) => y + ((index + 1) * height) / (lineCount + 1));
+
+  return (
+    <G>
+      <Rect
+        x={x + 5}
+        y={y + 5}
+        width={Math.max(0, width - 10)}
+        height={Math.max(0, height - 10)}
+        fill="#C9D0CF"
+        stroke="#6F7B78"
+        strokeWidth={1.5}
+      />
+      {lines.map((lineY) => (
+        <Line
+          key={`shutter-${lineY}`}
+          x1={x + 12}
+          y1={lineY}
+          x2={x + width - 12}
+          y2={lineY}
+          stroke="#8A9693"
+          strokeWidth={1}
+        />
+      ))}
+    </G>
+  );
+}
+
+function InsectScreenOverlay({ panel, inset }: { panel: PanelBounds; inset: number }) {
+  const x = panel.x + inset + 2;
+  const y = panel.y + inset + 2;
+  const width = Math.max(0, panel.width - (inset + 2) * 2);
+  const height = Math.max(0, panel.height - (inset + 2) * 2);
+  const meshCount = Math.max(2, Math.min(7, Math.floor(width / 14)));
+  const meshLines = Array.from({ length: meshCount }, (_, index) => x + ((index + 1) * width) / (meshCount + 1));
+  const arrowY = y + height / 2;
+  const arrowX = x + width / 2;
+
+  return (
+    <G>
+      <Rect
+        x={x}
+        y={y}
+        width={width}
+        height={height}
+        fill="none"
+        stroke="#166E61"
+        strokeDasharray="4 3"
+        strokeWidth={1.4}
+      />
+      {meshLines.map((lineX) => (
+        <Line
+          key={`screen-${panel.nodeId}-${lineX}`}
+          x1={lineX}
+          y1={y + 3}
+          x2={lineX}
+          y2={y + height - 3}
+          stroke="#166E61"
+          strokeOpacity={0.28}
+          strokeWidth={0.8}
+        />
+      ))}
+      {panel.insectScreen === 'sliding-horizontal' ? (
+        <Path
+          d={`M ${x + width * 0.25} ${arrowY} L ${x + width * 0.75} ${arrowY} M ${x + width * 0.25 + 6} ${arrowY - 5} L ${x + width * 0.25} ${arrowY} L ${x + width * 0.25 + 6} ${arrowY + 5} M ${x + width * 0.75 - 6} ${arrowY - 5} L ${x + width * 0.75} ${arrowY} L ${x + width * 0.75 - 6} ${arrowY + 5}`}
+          stroke="#166E61"
+          strokeWidth={1.5}
+          fill="none"
+        />
+      ) : null}
+      {panel.insectScreen === 'sliding-vertical' ? (
+        <Path
+          d={`M ${arrowX} ${y + height * 0.25} L ${arrowX} ${y + height * 0.75} M ${arrowX - 5} ${y + height * 0.25 + 6} L ${arrowX} ${y + height * 0.25} L ${arrowX + 5} ${y + height * 0.25 + 6} M ${arrowX - 5} ${y + height * 0.75 - 6} L ${arrowX} ${y + height * 0.75} L ${arrowX + 5} ${y + height * 0.75 - 6}`}
+          stroke="#166E61"
+          strokeWidth={1.5}
+          fill="none"
+        />
+      ) : null}
+    </G>
   );
 }
 

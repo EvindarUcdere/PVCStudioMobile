@@ -101,11 +101,25 @@ function visitNode({ node, bounds, realBounds, depth, result, visited }: VisitIn
 
   if (node.type === 'frame') {
     const frameBounds: NodeBounds = { ...bounds, nodeId: node.id, nodeType: 'frame', depth };
+    const shutterHeight = node.rollerShutter?.enabled
+      ? Math.min(bounds.height * 0.35, Math.max(10, node.rollerShutter.height * result.scale))
+      : 0;
+    const shutterRealHeight = node.rollerShutter?.enabled
+      ? Math.min(realBounds.height * 0.35, node.rollerShutter.height)
+      : 0;
     result.nodeBounds[node.id] = frameBounds;
     visitNode({
       node: node.child,
-      bounds,
-      realBounds,
+      bounds: {
+        ...bounds,
+        y: bounds.y + shutterHeight,
+        height: Math.max(DESIGN_LAYOUT_MIN_RENDER_SIZE, bounds.height - shutterHeight),
+      },
+      realBounds: {
+        ...realBounds,
+        y: realBounds.y + shutterRealHeight,
+        height: Math.max(1, realBounds.height - shutterRealHeight),
+      },
       depth: depth + 1,
       result,
       visited,
@@ -120,6 +134,7 @@ function visitNode({ node, bounds, realBounds, depth, result, visited }: VisitIn
       nodeType: 'panel',
       depth,
       openingType: node.openingType,
+      insectScreen: node.insectScreen ?? null,
       realWidth: realBounds.width,
       realHeight: realBounds.height,
     };

@@ -7,7 +7,7 @@ import { TemplateCategory } from '../../domain/templates/enums/TemplateCategory'
 const seedDate = '2026-01-01T00:00:00.000Z';
 
 function panel(id: string, openingType: OpeningType): DesignNode {
-  return { id, type: 'panel', openingType, glass: null, accessories: [], notes: null };
+  return { id, type: 'panel', openingType, insectScreen: null, glass: null, accessories: [], notes: null };
 }
 
 function split(

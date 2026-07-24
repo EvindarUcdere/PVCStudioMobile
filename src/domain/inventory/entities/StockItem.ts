@@ -3,6 +3,8 @@ export type StockItemType =
   | 'glass'
   | 'accessory'
   | 'hardware'
+  | 'roller_shutter'
+  | 'insect_screen'
   | 'consumable'
   | 'other';
 
@@ -29,6 +31,8 @@ export const stockItemTypeLabels: Record<StockItemType, string> = {
   glass: 'Cam',
   accessory: 'Aksesuar',
   hardware: 'Mekanizma',
+  roller_shutter: 'Panjur',
+  insect_screen: 'Sineklik',
   consumable: 'Sarf',
   other: 'Diger',
 };

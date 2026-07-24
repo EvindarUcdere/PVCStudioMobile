@@ -6,6 +6,7 @@ export function createPanelNode(): PanelNode {
     id: createId(),
     type: 'panel',
     openingType: 'fixed',
+    insectScreen: null,
     glass: null,
     accessories: [],
     notes: null,
