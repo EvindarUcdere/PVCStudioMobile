@@ -1,6 +1,6 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { AppButton } from '../../../components/ui/AppButton';
 import { AppHeader } from '../../../components/ui/AppHeader';
@@ -28,6 +28,7 @@ type DesignListItem = {
 export function DesignsScreen() {
   const [items, setItems] = useState<DesignListItem[]>([]);
   const [statusFilter, setStatusFilter] = useState<JobStatus | 'all'>('all');
+  const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,7 +39,8 @@ export function DesignsScreen() {
       const designRepository = await createDesignRepository();
       const templateRepository = await createTemplateRepository();
       const projects = await designRepository.list({
-        jobStatus: statusFilter === 'all' ? undefined : statusFilter,
+        ...(statusFilter !== 'all' ? { jobStatus: statusFilter } : null),
+        ...(search.trim() ? { search: search.trim() } : null),
       });
       const nextItems = await Promise.all(
         projects.map(async (project) => ({
@@ -55,7 +57,7 @@ export function DesignsScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [statusFilter]);
+  }, [search, statusFilter]);
 
   useFocusEffect(
     useCallback(() => {
@@ -66,6 +68,14 @@ export function DesignsScreen() {
   return (
     <AppScreen scroll={false}>
       <AppHeader title="Tasarimlar" subtitle="Kaydettiginiz PVC isleri" />
+      <TextInput
+        accessibilityLabel="Tasarim ara"
+        onChangeText={setSearch}
+        placeholder="Tasarim veya is adi ara"
+        placeholderTextColor={colors.textSecondary}
+        style={styles.searchInput}
+        value={search}
+      />
       <View style={styles.filters}>
         <StatusFilterChip
           label="Tumu"
@@ -187,6 +197,17 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.sm,
     marginBottom: spacing.sm,
+  },
+  searchInput: {
+    ...typography.body,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    color: colors.textPrimary,
+    marginBottom: spacing.sm,
+    minHeight: 46,
+    paddingHorizontal: spacing.md,
   },
   filterChip: {
     backgroundColor: colors.surface,

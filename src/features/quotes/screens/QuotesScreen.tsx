@@ -1,6 +1,6 @@
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { ActivityIndicator, FlatList, Share, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { ActivityIndicator, FlatList, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 
 import { AppButton } from '../../../components/ui/AppButton';
 import { AppCard } from '../../../components/ui/AppCard';
@@ -30,8 +30,13 @@ const statusLabels: Record<QuoteStatus, string> = {
 
 export function QuotesScreen() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [statusFilter, setStatusFilter] = useState<QuoteStatus | 'all'>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const filteredQuotes = useMemo(
+    () => (statusFilter === 'all' ? quotes : quotes.filter((quote) => quote.status === statusFilter)),
+    [quotes, statusFilter],
+  );
 
   const loadQuotes = useCallback(async () => {
     setIsLoading(true);
@@ -112,6 +117,17 @@ export function QuotesScreen() {
         subtitle="Kaydedilen ve gonderilen teklifler"
         rightAction={<AppButton label="Geri" variant="ghost" onPress={() => router.back()} />}
       />
+      <View style={styles.filters}>
+        <FilterChip label="Tumu" selected={statusFilter === 'all'} onPress={() => setStatusFilter('all')} />
+        {(Object.keys(statusLabels) as QuoteStatus[]).map((status) => (
+          <FilterChip
+            key={status}
+            label={statusLabels[status]}
+            selected={statusFilter === status}
+            onPress={() => setStatusFilter(status)}
+          />
+        ))}
+      </View>
       {isLoading ? (
         <View style={styles.center}>
           <ActivityIndicator color={colors.primary} />
@@ -124,9 +140,9 @@ export function QuotesScreen() {
         />
       ) : (
         <FlatList
-          data={quotes}
+          data={filteredQuotes}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={quotes.length === 0 ? styles.emptyList : styles.list}
+          contentContainerStyle={filteredQuotes.length === 0 ? styles.emptyList : styles.list}
           renderItem={({ item }) => (
             <QuoteCard
               quote={item}
@@ -147,6 +163,30 @@ export function QuotesScreen() {
         />
       )}
     </AppScreen>
+  );
+}
+
+function FilterChip({
+  label,
+  selected,
+  onPress,
+}: {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.filterChip,
+        selected ? styles.filterChipSelected : null,
+        pressed ? styles.pressed : null,
+      ]}
+    >
+      <Text style={[styles.filterChipText, selected ? styles.filterChipTextSelected : null]}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -251,6 +291,35 @@ const styles = StyleSheet.create({
   list: {
     gap: spacing.md,
     paddingBottom: spacing.xxl,
+  },
+  filters: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  filterChip: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  filterChipSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  filterChipText: {
+    ...typography.caption,
+    color: colors.textPrimary,
+    fontWeight: '700',
+  },
+  filterChipTextSelected: {
+    color: colors.surface,
+  },
+  pressed: {
+    opacity: 0.86,
   },
   card: {
     gap: spacing.sm,

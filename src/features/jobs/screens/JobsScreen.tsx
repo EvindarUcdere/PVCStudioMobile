@@ -24,6 +24,7 @@ export function JobsScreen() {
   const [jobs, setJobs] = useState<JobProject[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [name, setName] = useState('');
+  const [search, setSearch] = useState('');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -32,6 +33,18 @@ export function JobsScreen() {
     () => new Map(customers.map((customer) => [customer.id, customer])),
     [customers],
   );
+  const filteredJobs = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase('tr-TR');
+
+    if (!query) {
+      return jobs;
+    }
+
+    return jobs.filter((job) => {
+      const customerName = customerById.get(job.customerId ?? '')?.fullName ?? '';
+      return `${job.name} ${customerName} ${job.notes ?? ''}`.toLocaleLowerCase('tr-TR').includes(query);
+    });
+  }, [customerById, jobs, search]);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -96,40 +109,50 @@ export function JobsScreen() {
         </View>
       ) : (
         <FlatList
-          data={jobs}
+          data={filteredJobs}
           keyExtractor={(job) => job.id}
           contentContainerStyle={jobs.length === 0 ? styles.emptyList : styles.list}
           ListHeaderComponent={
-            <AppCard style={styles.formCard}>
-              <Text style={styles.sectionTitle}>Yeni is</Text>
+            <View style={styles.headerContent}>
               <TextInput
-                accessibilityLabel="Is adi"
-                onChangeText={setName}
-                placeholder="Orn: Ahmet Bey daire pencereleri"
+                accessibilityLabel="Is ara"
+                onChangeText={setSearch}
+                placeholder="Is veya musteri ara"
                 placeholderTextColor={colors.textSecondary}
                 style={styles.input}
-                value={name}
+                value={search}
               />
-              {customers.length > 0 ? (
-                <View style={styles.chips}>
-                  <Chip
-                    label="Musterisiz"
-                    selected={selectedCustomerId === null}
-                    onPress={() => setSelectedCustomerId(null)}
-                  />
-                  {customers.slice(0, 8).map((customer) => (
+              <AppCard style={styles.formCard}>
+                <Text style={styles.sectionTitle}>Yeni is</Text>
+                <TextInput
+                  accessibilityLabel="Is adi"
+                  onChangeText={setName}
+                  placeholder="Orn: Ahmet Bey daire pencereleri"
+                  placeholderTextColor={colors.textSecondary}
+                  style={styles.input}
+                  value={name}
+                />
+                {customers.length > 0 ? (
+                  <View style={styles.chips}>
                     <Chip
-                      key={customer.id}
-                      label={customer.fullName}
-                      selected={selectedCustomerId === customer.id}
-                      onPress={() => setSelectedCustomerId(customer.id)}
+                      label="Musterisiz"
+                      selected={selectedCustomerId === null}
+                      onPress={() => setSelectedCustomerId(null)}
                     />
-                  ))}
-                </View>
-              ) : null}
-              {error ? <Text style={styles.error}>{error}</Text> : null}
-              <AppButton label="Is Olustur" loading={isSaving} disabled={isSaving} onPress={() => void saveJob()} />
-            </AppCard>
+                    {customers.slice(0, 8).map((customer) => (
+                      <Chip
+                        key={customer.id}
+                        label={customer.fullName}
+                        selected={selectedCustomerId === customer.id}
+                        onPress={() => setSelectedCustomerId(customer.id)}
+                      />
+                    ))}
+                  </View>
+                ) : null}
+                {error ? <Text style={styles.error}>{error}</Text> : null}
+                <AppButton label="Is Olustur" loading={isSaving} disabled={isSaving} onPress={() => void saveJob()} />
+              </AppCard>
+            </View>
           }
           renderItem={({ item }) => (
             <AppCard onPress={() => router.push(routes.jobDetails(item.id))} style={styles.jobCard}>
@@ -171,6 +194,10 @@ const styles = StyleSheet.create({
   list: {
     gap: spacing.md,
     paddingBottom: spacing.xxl,
+  },
+  headerContent: {
+    gap: spacing.md,
+    marginBottom: spacing.md,
   },
   emptyList: {
     flexGrow: 1,
