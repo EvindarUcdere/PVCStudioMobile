@@ -34,15 +34,15 @@ const quickActions: QuickAction[] = [
   },
   {
     title: 'Teklifler',
-    description: 'Yakında',
+    description: 'Kayitli teklifleri takip edin',
     icon: 'document-text-outline',
-    soon: true,
+    onPress: () => router.push(routes.quotes),
   },
   {
     title: 'Atölye',
-    description: 'Yakında',
+    description: 'Uretim ve montaj islerini gorun',
     icon: 'construct-outline',
-    soon: true,
+    onPress: () => router.push(routes.workshop),
   },
 ];
 

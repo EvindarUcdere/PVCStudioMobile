@@ -5,6 +5,7 @@ export const routes = {
   customers: '/customers',
   more: '/more',
   quotes: '/quotes',
+  workshop: '/workshop',
   finance: '/finance',
   stock: '/stock',
   jobs: '/jobs',

@@ -30,6 +30,12 @@ const options: MoreOption[] = [
     onPress: () => router.push(routes.quotes),
   },
   {
+    title: 'Atolye',
+    icon: 'construct-outline',
+    state: 'Ac',
+    onPress: () => router.push(routes.workshop),
+  },
+  {
     title: 'Gelir / Gider',
     icon: 'cash-outline',
     state: 'Ac',

@@ -8,9 +8,15 @@ import { AppHeader } from '../../../components/ui/AppHeader';
 import { AppScreen } from '../../../components/ui/AppScreen';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { routes } from '../../../constants/routes';
-import { createQuoteRepository } from '../../../database/repositories/createRepositories';
+import {
+  createDesignRepository,
+  createQuoteRepository,
+} from '../../../database/repositories/createRepositories';
 import { Quote, QuoteStatus } from '../../../domain/quotes/entities/Quote';
-import { backupQuoteToCloud } from '../../../services/firebase/fullSyncService';
+import {
+  backupDesignToCloud,
+  backupQuoteToCloud,
+} from '../../../services/firebase/fullSyncService';
 import { logger } from '../../../services/logger';
 import { colors, radius, spacing, typography } from '../../../theme';
 import { shareCustomerQuotePdf } from '../services/pdfService';
@@ -52,11 +58,31 @@ export function QuotesScreen() {
       const repository = await createQuoteRepository();
       const updated = await repository.updateStatus(quote.id, status);
       void backupQuoteToCloud(updated);
+      if (status === 'accepted') {
+        await markDesignApproved(quote.designId);
+      }
       setQuotes((current) => current.map((item) => (item.id === updated.id ? updated : item)));
     } catch (statusError) {
       logger.error('Quote status update failed', statusError);
       setError('Teklif durumu guncellenemedi.');
     }
+  }
+
+  async function markDesignApproved(designId: string) {
+    const designRepository = await createDesignRepository();
+    const design = await designRepository.getById(designId);
+
+    if (
+      !design ||
+      design.jobStatus === 'production' ||
+      design.jobStatus === 'installation' ||
+      design.jobStatus === 'done'
+    ) {
+      return;
+    }
+
+    const updatedDesign = await designRepository.update({ ...design, jobStatus: 'approved' });
+    void backupDesignToCloud(updatedDesign);
   }
 
   async function shareQuote(quote: Quote) {
