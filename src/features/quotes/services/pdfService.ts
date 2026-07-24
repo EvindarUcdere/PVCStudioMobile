@@ -349,9 +349,9 @@ function buildDesignSvg(design: DesignProject): string {
     <svg class="design-svg" width="${canvasWidth}" height="${canvasHeight}" viewBox="0 0 ${canvasWidth} ${canvasHeight}" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <linearGradient id="pdfGlassGradient" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stop-color="#9fdcf2" stop-opacity="0.92" />
-          <stop offset="0.48" stop-color="#eef9fc" stop-opacity="0.96" />
-          <stop offset="1" stop-color="#b8e3f5" stop-opacity="0.92" />
+          <stop offset="0" stop-color="#a7ddf2" stop-opacity="0.88" />
+          <stop offset="0.5" stop-color="#f4fcfe" stop-opacity="0.98" />
+          <stop offset="1" stop-color="#c2eaf8" stop-opacity="0.9" />
         </linearGradient>
       </defs>
       <rect x="0" y="0" width="${canvasWidth}" height="${canvasHeight}" rx="10" fill="#eef3f0" />
@@ -505,15 +505,21 @@ function buildProfiledPanelSvg(
   const innerTop = round(y + inset);
   const innerRight = round(x + width - inset);
   const innerBottom = round(y + height - inset);
-  const light = mixHexForPdf(profileColor, '#ffffff', 0.6);
-  const mid = mixHexForPdf(profileColor, '#ffffff', 0.28);
-  const shadow = mixHexForPdf(profileColor, '#17211e', 0.16);
+  const base = mixHexForPdf(profileColor, '#ffffff', 0.84);
+  const light = mixHexForPdf(base, '#ffffff', 0.5);
+  const mid = mixHexForPdf(base, '#d9dedc', 0.35);
+  const shadow = mixHexForPdf(base, '#7f8985', 0.18);
 
   return `
     <polygon points="${left},${top} ${right},${top} ${innerRight},${innerTop} ${innerLeft},${innerTop}" fill="${light}" stroke="#4c5753" stroke-width="1.1" />
     <polygon points="${right},${top} ${right},${bottom} ${innerRight},${innerBottom} ${innerRight},${innerTop}" fill="${shadow}" stroke="#4c5753" stroke-width="1.1" />
     <polygon points="${left},${bottom} ${right},${bottom} ${innerRight},${innerBottom} ${innerLeft},${innerBottom}" fill="${shadow}" stroke="#4c5753" stroke-width="1.1" />
     <polygon points="${left},${top} ${innerLeft},${innerTop} ${innerLeft},${innerBottom} ${left},${bottom}" fill="${mid}" stroke="#4c5753" stroke-width="1.1" />
+    <rect x="${innerLeft}" y="${innerTop}" width="${round(Math.max(0, innerRight - innerLeft))}" height="${round(Math.max(0, innerBottom - innerTop))}" fill="none" stroke="#a0aaa6" stroke-width="1" />
+    <line x1="${round(x + 4)}" y1="${round(y + 4)}" x2="${innerLeft}" y2="${innerTop}" stroke="#4c5753" stroke-width="0.8" />
+    <line x1="${round(x + width - 4)}" y1="${round(y + 4)}" x2="${innerRight}" y2="${innerTop}" stroke="#4c5753" stroke-width="0.8" />
+    <line x1="${round(x + 4)}" y1="${round(y + height - 4)}" x2="${innerLeft}" y2="${innerBottom}" stroke="#4c5753" stroke-width="0.8" />
+    <line x1="${round(x + width - 4)}" y1="${round(y + height - 4)}" x2="${innerRight}" y2="${innerBottom}" stroke="#4c5753" stroke-width="0.8" />
   `;
 }
 
@@ -555,7 +561,7 @@ function buildPanelHeightDimensions(panels: PanelBounds[], x: number): string {
 }
 
 function buildOpeningSymbol(openingType: string, x: number, y: number, width: number, height: number): string {
-  const stroke = '#1f7a69';
+  const stroke = '#1747ff';
   const cx = round(x + width / 2);
   const cy = round(y + height / 2);
 

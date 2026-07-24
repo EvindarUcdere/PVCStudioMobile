@@ -155,9 +155,9 @@ export const DesignCanvas = memo(function DesignCanvas({
         <Svg pointerEvents="none" width={canvasSize.width} height={canvasSize.height}>
           <Defs>
             <LinearGradient id="glassGradient" x1="0" y1="0" x2="1" y2="1">
-              <Stop offset="0" stopColor="#9FDCF2" stopOpacity="0.92" />
-              <Stop offset="0.48" stopColor="#EAF7FB" stopOpacity="0.96" />
-              <Stop offset="1" stopColor="#B8E3F5" stopOpacity="0.92" />
+              <Stop offset="0" stopColor="#A7DDF2" stopOpacity="0.88" />
+              <Stop offset="0.5" stopColor="#F4FCFE" stopOpacity="0.98" />
+              <Stop offset="1" stopColor="#C2EAF8" stopOpacity="0.9" />
             </LinearGradient>
           </Defs>
           <Rect
@@ -362,8 +362,12 @@ function DesignPanel({
   selected: boolean;
   profilePalette: ProfilePalette;
 }) {
-  const profileInset = Math.max(5, Math.min(13, Math.min(panel.width, panel.height) * 0.09));
+  const profileInset = Math.max(6, Math.min(16, Math.min(panel.width, panel.height) * 0.1));
   const glassInset = profileInset + Math.max(4, Math.min(8, Math.min(panel.width, panel.height) * 0.04));
+  const baseProfile = mixHex(profilePalette.outer, '#FFFFFF', 0.84);
+  const profileLight = mixHex(baseProfile, '#FFFFFF', 0.5);
+  const profileMid = mixHex(baseProfile, '#D9DEDC', 0.35);
+  const profileShadow = mixHex(baseProfile, '#7F8985', 0.18);
   const outerX = panel.x;
   const outerY = panel.y;
   const outerRight = panel.x + panel.width;
@@ -377,28 +381,41 @@ function DesignPanel({
     <>
       <Polygon
         points={`${outerX},${outerY} ${outerRight},${outerY} ${innerRight},${innerY} ${innerX},${innerY}`}
-        fill={mixHex(profilePalette.outer, '#FFFFFF', 0.6)}
-        stroke={selected ? colors.primary : '#4C5753'}
-        strokeWidth={selected ? 2.6 : 1.2}
+        fill={profileLight}
+        stroke={selected ? colors.primary : '#4B5551'}
+        strokeWidth={selected ? 2.4 : 1}
       />
       <Polygon
         points={`${outerRight},${outerY} ${outerRight},${outerBottom} ${innerRight},${innerBottom} ${innerRight},${innerY}`}
-        fill={mixHex(profilePalette.outer, '#17211E', 0.18)}
-        stroke="#4C5753"
-        strokeWidth={1.1}
+        fill={profileMid}
+        stroke="#4B5551"
+        strokeWidth={1}
       />
       <Polygon
         points={`${outerX},${outerBottom} ${outerRight},${outerBottom} ${innerRight},${innerBottom} ${innerX},${innerBottom}`}
-        fill={mixHex(profilePalette.outer, '#17211E', 0.12)}
-        stroke="#4C5753"
-        strokeWidth={1.1}
+        fill={profileShadow}
+        stroke="#4B5551"
+        strokeWidth={1}
       />
       <Polygon
         points={`${outerX},${outerY} ${innerX},${innerY} ${innerX},${innerBottom} ${outerX},${outerBottom}`}
-        fill={mixHex(profilePalette.outer, '#FFFFFF', 0.38)}
-        stroke="#4C5753"
-        strokeWidth={1.1}
+        fill={profileMid}
+        stroke="#4B5551"
+        strokeWidth={1}
       />
+      <Rect
+        x={innerX}
+        y={innerY}
+        width={Math.max(0, innerRight - innerX)}
+        height={Math.max(0, innerBottom - innerY)}
+        fill="none"
+        stroke="#A0AAA6"
+        strokeWidth={1}
+      />
+      <Line x1={outerX + 4} y1={outerY + 4} x2={innerX} y2={innerY} stroke="#4B5551" strokeWidth={0.8} />
+      <Line x1={outerRight - 4} y1={outerY + 4} x2={innerRight} y2={innerY} stroke="#4B5551" strokeWidth={0.8} />
+      <Line x1={outerX + 4} y1={outerBottom - 4} x2={innerX} y2={innerBottom} stroke="#4B5551" strokeWidth={0.8} />
+      <Line x1={outerRight - 4} y1={outerBottom - 4} x2={innerRight} y2={innerBottom} stroke="#4B5551" strokeWidth={0.8} />
       <Rect
         x={panel.x + glassInset}
         y={panel.y + glassInset}

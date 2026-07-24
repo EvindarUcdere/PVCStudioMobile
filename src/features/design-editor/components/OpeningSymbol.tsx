@@ -21,7 +21,7 @@ function renderOpeningSymbol(bounds: LayoutBounds, openingType: OpeningType): Re
   const y2 = bounds.y + bounds.height;
   const midX = bounds.x + bounds.width / 2;
   const midY = bounds.y + bounds.height / 2;
-  const stroke = colors.textPrimary;
+  const stroke = '#1747FF';
 
   if (openingType === 'open-left' || openingType === 'door-left') {
     return (
@@ -97,7 +97,7 @@ function renderTiltSymbol(bounds: LayoutBounds, side: 'top' | 'bottom'): ReactNo
   const x2 = bounds.x + bounds.width;
   const y2 = bounds.y + bounds.height;
   const midX = bounds.x + bounds.width / 2;
-  const stroke = colors.textPrimary;
+  const stroke = '#1747FF';
 
   if (side === 'top') {
     return <Path d={`M ${x1} ${y2} L ${midX} ${y1} L ${x2} ${y2}`} stroke={stroke} strokeWidth={1.6} fill="none" />;
@@ -110,7 +110,7 @@ function renderHandle(bounds: LayoutBounds, side: 'left' | 'right' | 'top' | 'bo
   const handleLength = Math.max(14, Math.min(30, Math.min(bounds.width, bounds.height) * 0.24));
   const handleWidth = Math.max(4, Math.min(6, Math.min(bounds.width, bounds.height) * 0.05));
   const handleRadius = handleWidth / 2;
-  const handleFill = colors.primary;
+  const handleFill = '#B6BBB8';
 
   if (side === 'left') {
     return (
