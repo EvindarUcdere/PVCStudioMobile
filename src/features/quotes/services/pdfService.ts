@@ -130,26 +130,43 @@ function buildProductionHtml(
       `,
     )
     .join('');
+  const screenCount = summary.panels.filter((panel) => panel.insectScreen).length;
 
   return pageTemplate({
     title: 'PVC Imalat Formu',
     subtitle: design.name,
     companyProfile,
     body: `
-      ${customerBlock(customerName, customerPhone, note)}
-      <div class="drawing">
-        ${buildDesignSvg(design)}
+      <div class="production-grid">
+        <div class="production-drawing">
+          ${buildDesignSvg(design)}
+        </div>
+        <div class="production-summary">
+          <div class="kv"><span>Item</span><strong>${escapeHtml(design.name)}</strong></div>
+          <div class="kv"><span>Qty</span><strong>${design.quantity}</strong></div>
+          <div class="kv"><span>Musteri</span><strong>${escapeHtml(customerName.trim() || '-')}</strong></div>
+          <div class="kv"><span>Telefon</span><strong>${escapeHtml(customerPhone.trim() || '-')}</strong></div>
+          <div class="kv"><span>Dis olcu</span><strong>${design.width} x ${design.height} mm</strong></div>
+          <div class="kv"><span>Profil</span><strong>${escapeHtml(estimate.selectedProfileSystem.name)}</strong></div>
+          <div class="kv"><span>Renk</span><strong>${escapeHtml(estimate.selectedColor.name)}</strong></div>
+          <div class="kv"><span>Cam</span><strong>${escapeHtml(estimate.selectedGlassType.name)}</strong></div>
+          <div class="kv"><span>Acilim</span><strong>${summary.openingPanelCount} acilir / ${summary.fixedPanelCount} sabit</strong></div>
+          <div class="kv"><span>Sineklik</span><strong>${screenCount > 0 ? `${screenCount} panel` : 'Yok'}</strong></div>
+          <div class="kv"><span>Panjur</span><strong>${summary.rollerShutterHeight ? `${summary.rollerShutterHeight} mm` : 'Yok'}</strong></div>
+          <div class="kv"><span>Kemer</span><strong>${summary.archHeight ? `${summary.archHeight} mm` : 'Yok'}</strong></div>
+        </div>
       </div>
-      ${section('Genel Olcu ve Malzeme', [
+      ${note.trim() ? `<div class="note-box"><strong>Not:</strong> ${escapeHtml(note.trim())}</div>` : ''}
+      ${section('Genel Tasarim Ozeti', [
         ['Dis olcu', `${design.width} x ${design.height} mm`],
         ['Adet', String(design.quantity)],
         ['Profil kalitesi', estimate.selectedProfileSystem.name],
-        ['Profil rengi', estimate.selectedColor.name],
-        ['Cam tipi', estimate.selectedGlassType.name],
+        ['Profil rengi', `${estimate.selectedColor.name} (${summary.profileColorHex})`],
+        ['Cam tipi', `${estimate.selectedGlassType.name} - ${estimate.selectedGlassType.formula}`],
         ['Kasa/kanat payi', `Kasa ${summary.frameWidth} mm, kanat ${summary.sashWidth} mm`],
         ['Kayit/cam payi', `Kayit ${summary.mullionWidth} mm, cam ${summary.glassRebate} mm`],
-        ['Kemer yuksekligi', summary.archHeight ? `${summary.archHeight} mm` : 'Yok'],
         ['Panjur alani', summary.rollerShutterHeight ? `${summary.rollerShutterHeight} mm` : 'Yok'],
+        ['Kemer yuksekligi', summary.archHeight ? `${summary.archHeight} mm` : 'Yok'],
       ])}
       <h2>Panel ve Cam Kesim Listesi</h2>
       <table>
@@ -172,9 +189,11 @@ function buildProductionHtml(
         ['Panel sayisi', String(summary.panelCount)],
         ['Acilir panel', String(summary.openingPanelCount)],
         ['Sabit panel', String(summary.fixedPanelCount)],
+        ['Sineklikli panel', String(screenCount)],
       ])}
       <p class="muted">Bu form imalat hazirligi icindir. Kesin kesim ve montaj kararlari saha olcusuyle dogrulanmalidir.</p>
     `,
+    productionMode: true,
   });
 }
 
@@ -183,11 +202,13 @@ function pageTemplate({
   subtitle,
   companyProfile,
   body,
+  productionMode = false,
 }: {
   title: string;
   subtitle: string;
   companyProfile: CompanyProfile;
   body: string;
+  productionMode?: boolean;
 }): string {
   return `
     <!doctype html>
@@ -195,12 +216,12 @@ function pageTemplate({
       <head>
         <meta charset="utf-8" />
         <style>
-          body { color: #16211d; font-family: Arial, sans-serif; margin: 28px; }
-          h1 { font-size: 26px; margin: 0; }
-          h2 { border-bottom: 1px solid #d9e2dc; font-size: 17px; margin: 24px 0 10px; padding-bottom: 6px; }
+          body { color: #16211d; font-family: Arial, sans-serif; margin: ${productionMode ? '18px' : '28px'}; }
+          h1 { font-size: ${productionMode ? '22px' : '26px'}; margin: 0; }
+          h2 { border-bottom: 1px solid #d9e2dc; font-size: 16px; margin: 18px 0 8px; padding-bottom: 5px; }
           .subtitle { color: #60716a; margin-top: 4px; }
           .meta { color: #60716a; font-size: 12px; margin-top: 8px; }
-          .company { background: #f6faf7; border: 1px solid #d9e2dc; border-radius: 8px; margin-bottom: 18px; padding: 12px; }
+          .company { background: #f6faf7; border: 1px solid #d9e2dc; border-radius: 8px; margin-bottom: 14px; padding: 10px 12px; }
           .company-name { font-size: 18px; font-weight: 700; }
           .company-detail { color: #60716a; font-size: 12px; margin-top: 3px; }
           .total { background: #157A69; border-radius: 8px; color: white; margin: 18px 0; padding: 16px; }
@@ -215,8 +236,17 @@ function pageTemplate({
           table { border-collapse: collapse; margin-top: 8px; width: 100%; }
           th, td { border: 1px solid #d9e2dc; font-size: 12px; padding: 8px; text-align: left; }
           th { background: #f6faf7; color: #60716a; }
+          .production-grid { align-items: flex-start; display: flex; gap: 14px; margin-top: 16px; }
+          .production-drawing { background: #ffffff; border: 1px solid #d9e2dc; border-radius: 8px; flex: 1.8; padding: 10px; text-align: center; }
+          .production-summary { border: 1px solid #d9e2dc; border-radius: 8px; flex: 1; overflow: hidden; }
+          .kv { display: flex; border-bottom: 1px solid #edf2ef; font-size: 11px; }
+          .kv:last-child { border-bottom: 0; }
+          .kv span { background: #f6faf7; color: #60716a; flex: 0.8; padding: 7px; }
+          .kv strong { flex: 1.2; padding: 7px; text-align: right; }
+          .note-box { border: 1px solid #d9e2dc; border-radius: 8px; font-size: 12px; margin-top: 10px; padding: 10px; }
           .drawing { background: #f4f7f5; border: 1px solid #d9e2dc; border-radius: 8px; margin-top: 18px; padding: 18px; text-align: center; }
           .design-svg { max-width: 100%; }
+          @page { margin: 16px; }
         </style>
       </head>
       <body>
@@ -247,15 +277,16 @@ function companyBlock(companyProfile: CompanyProfile): string {
 }
 
 function buildDesignSvg(design: DesignProject): string {
-  const canvasWidth = 520;
-  const canvasHeight = 390;
+  const canvasWidth = 620;
+  const canvasHeight = 455;
+  const summary = calculateDesignMaterialSummary(design);
   const layout = calculateDesignLayout({
     rootNode: design.rootNode,
     designWidth: design.width,
     designHeight: design.height,
     canvasWidth,
     canvasHeight,
-    padding: 58,
+    padding: 78,
   });
   const profileColor = getDesignProfileColor(design.profileSystem).hexValue;
   const frame = layout.frameBounds;
@@ -267,6 +298,7 @@ function buildDesignSvg(design: DesignProject): string {
   const glassInset = 12;
   const splitStroke = 8;
   const panelNodes = new Map(collectPanels(design.rootNode).map((panel) => [panel.id, panel]));
+  const panelMeasurements = new Map(summary.panels.map((panel) => [panel.panelId, panel]));
   const shutterHeight =
     rootFrame?.rollerShutter?.enabled
       ? Math.min(frame.height * 0.34, Math.max(16, rootFrame.rollerShutter.height * layout.scale))
@@ -275,18 +307,24 @@ function buildDesignSvg(design: DesignProject): string {
   const panels = layout.panelBounds
     .map((panel, index) => {
       const panelNode = panelNodes.get(panel.nodeId);
+      const measurement = panelMeasurements.get(panel.nodeId);
       const x = round(panel.x + glassInset);
       const y = round(panel.y + glassInset);
       const width = round(Math.max(8, panel.width - glassInset * 2));
       const height = round(Math.max(8, panel.height - glassInset * 2));
       const opening = buildOpeningSymbol(panel.openingType, x, y, width, height);
       const insectScreen = panelNode?.insectScreen ? buildInsectScreenSymbol(panel, glassInset) : '';
+      const glassLabel = measurement ? `${measurement.glassWidth} * ${measurement.glassHeight}` : '';
+      const panelLabel = `${index + 1}`;
 
       return `
         <rect x="${x}" y="${y}" width="${width}" height="${height}" fill="#d7e8f8" stroke="#879a93" stroke-width="2" />
         ${insectScreen}
         ${opening}
-        <text x="${round(x + width / 2)}" y="${round(y + height / 2 + 4)}" text-anchor="middle" font-size="13" font-weight="700" fill="#16211d">${index + 1}</text>
+        <circle cx="${round(x + width / 2)}" cy="${round(y + height / 2)}" r="2.5" fill="#16211d" />
+        <text x="${round(x + width / 2)}" y="${round(y + height / 2 - 8)}" text-anchor="middle" font-size="10" font-weight="700" fill="#16211d">${escapeHtml(glassLabel)}</text>
+        <text x="${round(x + 8)}" y="${round(y + 14)}" font-size="10" font-weight="700" fill="#16211d">P${panelLabel}</text>
+        ${buildHorizontalDimension(panel.x, panel.x + panel.width, frame.y + frame.height + 42 + index * 4, `${Math.round(panel.realWidth)}`)}
       `;
     })
     .join('');
@@ -324,6 +362,7 @@ function buildDesignSvg(design: DesignProject): string {
       <text x="${round(frame.x - 34)}" y="${round(frame.y + frame.height / 2)}" transform="rotate(-90 ${round(frame.x - 34)} ${round(frame.y + frame.height / 2)})" text-anchor="middle" font-size="12" fill="#16211d">${design.height} mm</text>
       ${shutterHeight > 0 && rootFrame?.rollerShutter ? buildVerticalDimension(frame.x + frame.width + 28, frame.y, frame.y + shutterHeight, `Panjur ${rootFrame.rollerShutter.height} mm`) : ''}
       ${isArch ? buildVerticalDimension(frame.x + frame.width + 48, frame.y, frame.y + Math.min(archHeight, frame.height * 0.46), `Kemer ${Math.round(archHeight / Math.max(layout.scale, 0.001))} mm`) : ''}
+      ${buildPanelHeightDimensions(layout.panelBounds, frame.x - 52)}
     </svg>
   `;
 }
@@ -381,6 +420,31 @@ function buildVerticalDimension(x: number, y1: number, y2: number, label: string
   `;
 }
 
+function buildHorizontalDimension(x1: number, x2: number, y: number, label: string): string {
+  const midX = (x1 + x2) / 2;
+
+  return `
+    <line x1="${round(x1)}" y1="${round(y)}" x2="${round(x2)}" y2="${round(y)}" stroke="#16211d" stroke-width="1" />
+    <line x1="${round(x1)}" y1="${round(y - 5)}" x2="${round(x1)}" y2="${round(y + 5)}" stroke="#16211d" stroke-width="1" />
+    <line x1="${round(x2)}" y1="${round(y - 5)}" x2="${round(x2)}" y2="${round(y + 5)}" stroke="#16211d" stroke-width="1" />
+    <rect x="${round(midX - 22)}" y="${round(y - 9)}" width="44" height="17" rx="4" fill="#ffffff" stroke="#d9e2dc" />
+    <text x="${round(midX)}" y="${round(y + 4)}" text-anchor="middle" font-size="10" fill="#16211d">${escapeHtml(label)}</text>
+  `;
+}
+
+function buildPanelHeightDimensions(panels: PanelBounds[], x: number): string {
+  return panels
+    .map((panel, index) =>
+      buildVerticalDimension(
+        x - (index % 3) * 12,
+        panel.y,
+        panel.y + panel.height,
+        String(Math.round(panel.realHeight)),
+      ),
+    )
+    .join('');
+}
+
 function buildOpeningSymbol(openingType: string, x: number, y: number, width: number, height: number): string {
   const stroke = '#1f7a69';
   const cx = round(x + width / 2);
@@ -391,11 +455,17 @@ function buildOpeningSymbol(openingType: string, x: number, y: number, width: nu
   }
 
   if (openingType === 'open-left' || openingType === 'tilt-turn-left') {
-    return `<polyline points="${x},${y} ${round(x + width)},${cy} ${x},${round(y + height)}" fill="none" stroke="${stroke}" stroke-width="2" />`;
+    const swing = `<polyline points="${x},${y} ${round(x + width)},${cy} ${x},${round(y + height)}" fill="none" stroke="${stroke}" stroke-width="2" />`;
+    const handle = `<rect x="${round(x + width - 8)}" y="${round(cy - 12)}" width="3" height="24" rx="1.5" fill="${stroke}" />`;
+    const tilt = openingType === 'tilt-turn-left' ? `<polyline points="${x},${round(y + height)} ${cx},${y} ${round(x + width)},${round(y + height)}" fill="none" stroke="${stroke}" stroke-width="1.5" opacity="0.7" />` : '';
+    return `${swing}${tilt}${handle}`;
   }
 
   if (openingType === 'open-right' || openingType === 'tilt-turn-right') {
-    return `<polyline points="${round(x + width)},${y} ${x},${cy} ${round(x + width)},${round(y + height)}" fill="none" stroke="${stroke}" stroke-width="2" />`;
+    const swing = `<polyline points="${round(x + width)},${y} ${x},${cy} ${round(x + width)},${round(y + height)}" fill="none" stroke="${stroke}" stroke-width="2" />`;
+    const handle = `<rect x="${round(x + 5)}" y="${round(cy - 12)}" width="3" height="24" rx="1.5" fill="${stroke}" />`;
+    const tilt = openingType === 'tilt-turn-right' ? `<polyline points="${x},${round(y + height)} ${cx},${y} ${round(x + width)},${round(y + height)}" fill="none" stroke="${stroke}" stroke-width="1.5" opacity="0.7" />` : '';
+    return `${swing}${tilt}${handle}`;
   }
 
   if (openingType === 'tilt-top') {
@@ -404,6 +474,17 @@ function buildOpeningSymbol(openingType: string, x: number, y: number, width: nu
 
   if (openingType === 'tilt-bottom') {
     return `<polyline points="${x},${round(y + height)} ${cx},${y} ${round(x + width)},${round(y + height)}" fill="none" stroke="${stroke}" stroke-width="2" />`;
+  }
+
+  if (openingType === 'sliding-left' || openingType === 'sliding-right') {
+    const startX = openingType === 'sliding-left' ? x + width * 0.72 : x + width * 0.28;
+    const endX = openingType === 'sliding-left' ? x + width * 0.28 : x + width * 0.72;
+    const head = openingType === 'sliding-left' ? 7 : -7;
+
+    return `
+      <line x1="${round(startX)}" y1="${cy}" x2="${round(endX)}" y2="${cy}" stroke="${stroke}" stroke-width="3" />
+      <polyline points="${round(endX + head)},${round(cy - 7)} ${round(endX)},${cy} ${round(endX + head)},${round(cy + 7)}" fill="none" stroke="${stroke}" stroke-width="3" />
+    `;
   }
 
   return `<line x1="${x}" y1="${y}" x2="${round(x + width)}" y2="${round(y + height)}" stroke="${stroke}" stroke-width="2" />`;
