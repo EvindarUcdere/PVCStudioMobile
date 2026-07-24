@@ -1,5 +1,5 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { ReactNode, useCallback, useState } from 'react';
+import { ReactNode, useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -90,6 +90,7 @@ export function DesignEditorScreen() {
   const [jobs, setJobs] = useState<JobProject[]>([]);
   const [pricingRates, setPricingRates] = useState<PriceEstimateRates>(defaultPriceEstimateRates);
   const [addPanelSize, setAddPanelSize] = useState('');
+  const sidePanelRef = useRef<ScrollView>(null);
   const canAdjustArch = design?.rootNode.type === 'frame' && isArchTopFrame(design.rootNode);
   const parsedAddPanelSize = parseOptionalPositiveNumber(addPanelSize);
 
@@ -222,8 +223,10 @@ export function DesignEditorScreen() {
           />
         </View>
         <ScrollView
+          ref={sidePanelRef}
           style={styles.sidePanel}
           contentContainerStyle={styles.sidePanelContent}
+          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           <Text style={styles.meta}>
@@ -438,6 +441,9 @@ export function DesignEditorScreen() {
             customColor={customColor}
             selectedColorId={getDesignProfileColor(design.profileSystem).id}
             onChangeCustomColor={setCustomColor}
+            onCustomColorFocus={() => {
+              setTimeout(() => sidePanelRef.current?.scrollToEnd({ animated: true }), 120);
+            }}
             onSelectColor={updateSelectedProfileColor}
           />
           <DesignMaterialSummaryCard design={design} />
@@ -506,11 +512,13 @@ function ProfileColorPicker({
   selectedColorId,
   customColor,
   onChangeCustomColor,
+  onCustomColorFocus,
   onSelectColor,
 }: {
   selectedColorId: string;
   customColor: string;
   onChangeCustomColor: (value: string) => void;
+  onCustomColorFocus: () => void;
   onSelectColor: (colorId: string) => void;
 }) {
   const customColorIsValid = isValidHexColor(customColor);
@@ -550,6 +558,7 @@ function ProfileColorPicker({
           accessibilityLabel="Ozel cerceve rengi"
           autoCapitalize="characters"
           maxLength={7}
+          onFocus={onCustomColorFocus}
           onChangeText={onChangeCustomColor}
           placeholder="#87552F"
           placeholderTextColor={colors.textSecondary}
@@ -620,7 +629,7 @@ const styles = StyleSheet.create({
   },
   sidePanelContent: {
     gap: spacing.sm,
-    paddingBottom: spacing.md,
+    paddingBottom: 180,
   },
   tools: {
     gap: spacing.md,

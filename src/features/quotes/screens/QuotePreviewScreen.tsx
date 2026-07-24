@@ -12,6 +12,7 @@ import { getPricingSettings } from '../../../database/repositories/PricingSettin
 import {
   createCustomerRepository,
   createDesignRepository,
+  createPaymentRepository,
   createJobRepository,
   createQuoteRepository,
 } from '../../../database/repositories/createRepositories';
@@ -22,6 +23,7 @@ import {
   DesignPriceEstimate,
 } from '../../../domain/designs/pricing/calculateDesignPriceEstimate';
 import { Quote } from '../../../domain/quotes/entities/Quote';
+import { PaymentInstallment, PaymentPlan } from '../../../domain/payments/entities/PaymentPlan';
 import { backupDesignToCloud, backupQuoteToCloud } from '../../../services/firebase/fullSyncService';
 import { logger } from '../../../services/logger';
 import { colors, radius, spacing, typography } from '../../../theme';
@@ -35,6 +37,11 @@ export function QuotePreviewScreen() {
   const [customerPhone, setCustomerPhone] = useState('');
   const [note, setNote] = useState('');
   const [quoteId, setQuoteId] = useState<string | null>(null);
+  const [paymentPlan, setPaymentPlan] = useState<PaymentPlan | null>(null);
+  const [paymentInstallments, setPaymentInstallments] = useState<PaymentInstallment[]>([]);
+  const [paidNowAmount, setPaidNowAmount] = useState('');
+  const [installmentCount, setInstallmentCount] = useState('3');
+  const [firstDueDate, setFirstDueDate] = useState(new Date().toISOString().slice(0, 10));
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
@@ -72,6 +79,22 @@ export function QuotePreviewScreen() {
             const customer = await customerRepository.getById(quoteCustomerId);
             setCustomerName(customer?.fullName ?? '');
             setCustomerPhone(customer?.phone ?? '');
+          }
+
+          const quoteRepository = await createQuoteRepository();
+          const paymentRepository = await createPaymentRepository();
+          const existingQuotes = await quoteRepository.list({ designId, limit: 1 });
+          const existingQuote = existingQuotes[0];
+          if (existingQuote) {
+            setQuoteId(existingQuote.id);
+            const plan = await paymentRepository.getPlanByQuoteId(existingQuote.id);
+            setPaymentPlan(plan);
+            if (plan) {
+              setPaidNowAmount(String(plan.paidNowAmount));
+              setInstallmentCount(String(plan.installmentCount));
+              setFirstDueDate(plan.firstDueDate);
+              setPaymentInstallments(await paymentRepository.listInstallmentsByPlan(plan.id));
+            }
           }
         } catch (loadError) {
           logger.error('Quote preview load failed', loadError);
@@ -188,6 +211,49 @@ export function QuotePreviewScreen() {
     } catch (saveError) {
       logger.error('Quote draft save failed', saveError);
       setError('Teklif kaydedilemedi.');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function savePaymentPlan() {
+    if (!design || !estimate) {
+      return;
+    }
+
+    const paidNow = parsePositiveAmount(paidNowAmount) ?? 0;
+    const count = Number(installmentCount.trim());
+
+    if (paidNow < 0 || paidNow > estimate.total || !Number.isInteger(count) || count < 1 || !isValidDate(firstDueDate)) {
+      setError('Odeme plani icin pesinat, taksit sayisi ve tarih dogru girilmeli.');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const quote = await saveCurrentQuote('draft');
+      if (!quote) {
+        return;
+      }
+
+      const paymentRepository = await createPaymentRepository();
+      const savedPlan = await paymentRepository.savePlan({
+        quoteId: quote.id,
+        designId: design.id,
+        customerName: nullableTrim(customerName),
+        totalAmount: estimate.total,
+        paidNowAmount: paidNow,
+        installmentCount: count,
+        firstDueDate,
+        notes: nullableTrim(note),
+      });
+      setPaymentPlan(savedPlan);
+      setPaymentInstallments(await paymentRepository.listInstallmentsByPlan(savedPlan.id));
+      setSaveMessage('Odeme plani kaydedildi.');
+      setError(null);
+    } catch (planError) {
+      logger.error('Payment plan save failed', planError);
+      setError('Odeme plani kaydedilemedi.');
     } finally {
       setIsSaving(false);
     }
@@ -357,6 +423,51 @@ export function QuotePreviewScreen() {
         <Info label="Renk katsayisi" value={`x${estimate.colorMultiplier}`} />
       </AppCard>
 
+      <AppCard style={styles.breakdownCard}>
+        <Text style={styles.sectionTitle}>Odeme plani</Text>
+        <Info label="Toplam ucret" value={formatCurrency(estimate.total)} />
+        <View style={styles.actionRow}>
+          <TextInput
+            accessibilityLabel="Pesinat"
+            keyboardType="numeric"
+            onChangeText={setPaidNowAmount}
+            placeholder="Simdi alinacak"
+            placeholderTextColor={colors.textSecondary}
+            style={[styles.input, styles.actionButton]}
+            value={paidNowAmount}
+          />
+          <TextInput
+            accessibilityLabel="Taksit sayisi"
+            keyboardType="numeric"
+            onChangeText={setInstallmentCount}
+            placeholder="Taksit"
+            placeholderTextColor={colors.textSecondary}
+            style={[styles.input, styles.actionButton]}
+            value={installmentCount}
+          />
+        </View>
+        <TextInput
+          accessibilityLabel="Ilk odeme tarihi"
+          onChangeText={setFirstDueDate}
+          placeholder="YYYY-AA-GG"
+          placeholderTextColor={colors.textSecondary}
+          style={styles.input}
+          value={firstDueDate}
+        />
+        <AppButton label="Odeme Planini Kaydet" loading={isSaving} disabled={isSaving} onPress={() => void savePaymentPlan()} />
+        {paymentPlan ? (
+          <View style={styles.installments}>
+            {paymentInstallments.map((installment) => (
+              <Info
+                key={installment.id}
+                label={`${installment.sequence}. taksit - ${formatDate(installment.dueDate)}`}
+                value={formatCurrency(installment.amount)}
+              />
+            ))}
+          </View>
+        ) : null}
+      </AppCard>
+
       {saveMessage ? <Text style={styles.success}>{saveMessage}</Text> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <View style={styles.actionRow}>
@@ -454,6 +565,10 @@ function formatCurrency(value: number): string {
   return `${Math.round(value).toLocaleString('tr-TR')} TL`;
 }
 
+function formatDate(value: string): string {
+  return new Date(value).toLocaleDateString('tr-TR');
+}
+
 function normalizePhone(value: string): string {
   return value.replace(/[^\d+]/g, '');
 }
@@ -485,6 +600,19 @@ function nullableTrim(value: string): string | null {
   return trimmed ? trimmed : null;
 }
 
+function parsePositiveAmount(value: string): number | null {
+  if (!value.trim()) {
+    return null;
+  }
+
+  const parsed = Number(value.replace(',', '.').trim());
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function isValidDate(value: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(new Date(value).getTime());
+}
+
 const styles = StyleSheet.create({
   formCard: {
     gap: spacing.sm,
@@ -494,6 +622,9 @@ const styles = StyleSheet.create({
   },
   breakdownCard: {
     gap: spacing.sm,
+  },
+  installments: {
+    gap: spacing.xs,
   },
   actionRow: {
     flexDirection: 'row',

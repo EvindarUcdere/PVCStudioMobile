@@ -21,6 +21,7 @@ import {
   createCashTransactionRepository,
   createCustomerRepository,
   createDesignRepository,
+  createPaymentRepository,
 } from '../../../database/repositories/createRepositories';
 import { Customer } from '../../../domain/customers/entities/Customer';
 import { DesignProject } from '../../../domain/designs/entities/DesignProject';
@@ -30,6 +31,7 @@ import {
   CashTransactionType,
   cashTransactionCategoryLabels,
 } from '../../../domain/finance/entities/CashTransaction';
+import { PaymentInstallment } from '../../../domain/payments/entities/PaymentPlan';
 import { backupCashTransactionToCloud } from '../../../services/firebase/fullSyncService';
 import { logger } from '../../../services/logger';
 import { colors, radius, spacing, typography } from '../../../theme';
@@ -70,6 +72,7 @@ const expenseCategoryOptions: CashTransactionCategory[] = [
 
 export function FinanceScreen() {
   const [transactions, setTransactions] = useState<CashTransaction[]>([]);
+  const [dueInstallments, setDueInstallments] = useState<PaymentInstallment[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [designs, setDesigns] = useState<DesignProject[]>([]);
   const [form, setForm] = useState<FinanceForm>(defaultForm);
@@ -90,14 +93,21 @@ export function FinanceScreen() {
       const transactionRepository = await createCashTransactionRepository();
       const customerRepository = await createCustomerRepository();
       const designRepository = await createDesignRepository();
-      const [loadedTransactions, loadedCustomers, loadedDesigns] = await Promise.all([
+      const paymentRepository = await createPaymentRepository();
+      const [loadedTransactions, loadedCustomers, loadedDesigns, loadedDueInstallments] = await Promise.all([
         transactionRepository.list({ limit: 200 }),
         customerRepository.list({ limit: 100 }),
         designRepository.list({ limit: 100 }),
+        paymentRepository.listInstallments({
+          status: 'pending',
+          dueTo: new Date().toISOString().slice(0, 10),
+          limit: 50,
+        }),
       ]);
       setTransactions(loadedTransactions);
       setCustomers(loadedCustomers);
       setDesigns(loadedDesigns);
+      setDueInstallments(loadedDueInstallments);
     } catch (loadError) {
       logger.error('Finance screen load failed', loadError);
       setError('Gelir gider bilgileri yuklenemedi.');
@@ -161,6 +171,35 @@ export function FinanceScreen() {
     }
   }
 
+  async function markInstallmentPaid(installment: PaymentInstallment) {
+    setIsSaving(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const paymentRepository = await createPaymentRepository();
+      const transactionRepository = await createCashTransactionRepository();
+      await paymentRepository.markInstallmentPaid(installment.id);
+      const savedTransaction = await transactionRepository.save({
+        type: 'income',
+        category: 'job_payment',
+        title: `${installment.customerName ?? 'Musteri'} taksit odemesi`,
+        amount: installment.amount,
+        transactionDate: new Date().toISOString().slice(0, 10),
+        customerId: null,
+        designId: installment.designId,
+        notes: `${installment.sequence}. taksit odendi.`,
+      });
+      void backupCashTransactionToCloud(savedTransaction);
+      setMessage('Taksit odendi olarak kaydedildi.');
+      await loadFinance();
+    } catch (payError) {
+      logger.error('Installment paid failed', payError);
+      setError('Taksit odendi olarak isaretlenemedi.');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.keyboard}>
       <AppScreen scroll={false}>
@@ -182,6 +221,32 @@ export function FinanceScreen() {
             ListHeaderComponent={
               <View style={styles.headerContent}>
                 <SummaryCard summary={monthSummary} />
+                {dueInstallments.length > 0 ? (
+                  <AppCard style={styles.formCard}>
+                    <Text style={styles.sectionTitle}>Odeme hatirlatmasi</Text>
+                    <Text style={styles.caption}>Gunu gelen veya geciken taksitler var.</Text>
+                    {dueInstallments.map((installment) => (
+                      <View key={installment.id} style={styles.dueRow}>
+                        <View style={styles.dueInfo}>
+                          <Text style={styles.transactionTitle}>{installment.customerName ?? 'Musteri'}</Text>
+                          <Text style={styles.caption}>
+                            {installment.sequence}. taksit - {formatDate(installment.dueDate)}
+                          </Text>
+                        </View>
+                        <View style={styles.dueAction}>
+                          <Text style={styles.transactionAmount}>{formatCurrency(installment.amount)}</Text>
+                          <AppButton
+                            label="Odendi"
+                            variant="secondary"
+                            disabled={isSaving}
+                            onPress={() => void markInstallmentPaid(installment)}
+                            style={styles.paidButton}
+                          />
+                        </View>
+                      </View>
+                    ))}
+                  </AppCard>
+                ) : null}
                 <AppCard style={styles.formCard}>
                   <Text style={styles.sectionTitle}>Kasa kaydi</Text>
                   <View style={styles.row}>
@@ -610,6 +675,26 @@ const styles = StyleSheet.create({
     ...typography.body,
     fontWeight: '800',
     textAlign: 'right',
+  },
+  dueRow: {
+    alignItems: 'center',
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: spacing.sm,
+    padding: spacing.sm,
+  },
+  dueInfo: {
+    flex: 1,
+  },
+  dueAction: {
+    alignItems: 'flex-end',
+    gap: spacing.xs,
+  },
+  paidButton: {
+    minHeight: 34,
+    paddingHorizontal: spacing.sm,
   },
   caption: {
     ...typography.caption,
