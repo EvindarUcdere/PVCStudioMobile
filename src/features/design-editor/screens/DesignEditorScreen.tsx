@@ -36,6 +36,7 @@ import {
   defaultPriceEstimateRates,
   PriceEstimateRates,
 } from '../../../domain/designs/pricing/calculateDesignPriceEstimate';
+import { findNodeById } from '../../../domain/designs/utils/findNodeById';
 import { isArchTopFrame } from '../../../domain/designs/utils/frameShape';
 import { consumeDesignStock } from '../../../domain/inventory/consumeDesignStock';
 import { JobProject } from '../../../domain/jobs/entities/JobProject';
@@ -199,6 +200,9 @@ export function DesignEditorScreen() {
       </AppScreen>
     );
   }
+
+  const selectedNode = selectedNodeId ? findNodeById(design.rootNode, selectedNodeId) : null;
+  const selectedOpeningType = selectedNode?.type === 'panel' ? selectedNode.openingType : null;
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboard}>
@@ -413,7 +417,7 @@ export function DesignEditorScreen() {
                   <AppButton
                     key={option.value}
                     label={option.label}
-                    variant="secondary"
+                    variant={selectedOpeningType === option.value ? 'primary' : 'secondary'}
                     disabled={!selectedNodeId}
                     onPress={() => updateSelectedOpening(option.value)}
                     style={styles.optionButton}
