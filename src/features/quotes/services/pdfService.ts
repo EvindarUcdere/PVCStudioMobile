@@ -8,9 +8,15 @@ import { getDesignProfileColor } from '../../../domain/designs/colors/profileCol
 import { calculateDesignLayout } from '../../../domain/designs/layout/calculateDesignLayout';
 import { PanelBounds } from '../../../domain/designs/layout/layoutTypes';
 import { calculateDesignMaterialSummary } from '../../../domain/designs/measurement/calculateDesignMaterialSummary';
-import { DesignPriceEstimate } from '../../../domain/designs/pricing/calculateDesignPriceEstimate';
+import {
+  calculateDesignPriceEstimate,
+  DesignPriceEstimate,
+  PriceEstimateRates,
+} from '../../../domain/designs/pricing/calculateDesignPriceEstimate';
 import { collectPanels } from '../../../domain/designs/utils/findNodeById';
 import { getArchHeight, isArchTopFrame } from '../../../domain/designs/utils/frameShape';
+import { calculateDesignStockNeeds } from '../../../domain/inventory/calculateDesignStockNeeds';
+import { StockItem, stockUnitLabels } from '../../../domain/inventory/entities/StockItem';
 import { Quote } from '../../../domain/quotes/entities/Quote';
 
 export type QuotePdfInput = {
@@ -23,6 +29,15 @@ export type QuotePdfInput = {
 
 export type SavedQuotePdfInput = {
   quote: Quote;
+};
+
+export type JobProductionPdfInput = {
+  jobName: string;
+  customerName: string;
+  customerPhone: string;
+  designs: DesignProject[];
+  rates: PriceEstimateRates;
+  stockItems: StockItem[];
 };
 
 export async function shareCustomerQuotePdf(input: QuotePdfInput | SavedQuotePdfInput): Promise<void> {
@@ -38,6 +53,12 @@ export async function shareProductionPdf(input: QuotePdfInput): Promise<void> {
   const companyProfile = await getCompanyProfile();
   const html = buildProductionHtml(input, companyProfile);
   await printAndShare(html, 'PVC imalat formu.pdf');
+}
+
+export async function shareJobProductionPdf(input: JobProductionPdfInput): Promise<void> {
+  const companyProfile = await getCompanyProfile();
+  const html = buildJobProductionHtml(input, companyProfile);
+  await printAndShare(html, 'PVC toplu imalat formu.pdf');
 }
 
 async function printAndShare(html: string, dialogTitle: string): Promise<void> {
@@ -201,6 +222,108 @@ function buildProductionHtml(
   });
 }
 
+function buildJobProductionHtml(
+  { jobName, customerName, customerPhone, designs, rates, stockItems }: JobProductionPdfInput,
+  companyProfile: CompanyProfile,
+): string {
+  const designBlocks = designs
+    .map((design, index) => {
+      const estimate = calculateDesignPriceEstimate(design, rates);
+      const summary = calculateDesignMaterialSummary(design);
+      const screenCount = summary.panels.filter((panel) => panel.insectScreen).length;
+      const panelRows = summary.panels
+        .map(
+          (panel, panelIndex) => `
+            <tr>
+              <td>${panelIndex + 1}</td>
+              <td>${openingLabel(panel.openingType)}</td>
+              <td>${panel.panelWidth} x ${panel.panelHeight}</td>
+              <td>${panel.glassWidth} x ${panel.glassHeight}</td>
+              <td>${panel.estimatedCutWidth} x ${panel.estimatedCutHeight}</td>
+              <td>${panel.usesSash ? 'Kanatli' : 'Sabit'}</td>
+              <td>${panel.insectScreen ? insectScreenLabel(panel.insectScreen) : 'Yok'}</td>
+            </tr>
+          `,
+        )
+        .join('');
+
+      return `
+        <div class="job-design-block">
+          <h2>${index + 1}. ${escapeHtml(design.name)}</h2>
+          <div class="production-grid">
+            <div class="production-drawing">
+              ${buildDesignSvg(design)}
+            </div>
+            <div class="production-summary">
+              <div class="kv"><span>Adet</span><strong>${design.quantity}</strong></div>
+              <div class="kv"><span>Dis olcu</span><strong>${design.width} x ${design.height} mm</strong></div>
+              <div class="kv"><span>Profil</span><strong>${escapeHtml(estimate.selectedProfileSystem.name)}</strong></div>
+              <div class="kv"><span>Renk</span><strong>${escapeHtml(estimate.selectedColor.name)}</strong></div>
+              <div class="kv"><span>Cam</span><strong>${escapeHtml(estimate.selectedGlassType.name)} - ${escapeHtml(estimate.selectedGlassType.formula ?? '-')}</strong></div>
+              <div class="kv"><span>Acilim</span><strong>${summary.openingPanelCount} acilir / ${summary.fixedPanelCount} sabit</strong></div>
+              <div class="kv"><span>Sineklik</span><strong>${screenCount > 0 ? `${screenCount} panel` : 'Yok'}</strong></div>
+              <div class="kv"><span>Panjur</span><strong>${summary.rollerShutterHeight ? `${summary.rollerShutterHeight} mm` : 'Yok'}</strong></div>
+              <div class="kv"><span>Kemer</span><strong>${summary.archHeight ? `${summary.archHeight} mm` : 'Yok'}</strong></div>
+            </div>
+          </div>
+          <div class="visual-preview compact-preview">
+            ${buildDesignPreviewSvg(design)}
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Acilim</th>
+                <th>Panel mm</th>
+                <th>Cam mm</th>
+                <th>Tahmini kesim mm</th>
+                <th>Tip</th>
+                <th>Sineklik</th>
+              </tr>
+            </thead>
+            <tbody>${panelRows}</tbody>
+          </table>
+        </div>
+      `;
+    })
+    .join('');
+  const totalEstimate = designs.reduce(
+    (total, design) => total + calculateDesignPriceEstimate(design, rates).total,
+    0,
+  );
+
+  return pageTemplate({
+    title: 'PVC Toplu Imalat Formu',
+    subtitle: jobName,
+    companyProfile,
+    body: `
+      <div class="production-summary job-summary">
+        <div class="kv"><span>Is</span><strong>${escapeHtml(jobName)}</strong></div>
+        <div class="kv"><span>Musteri</span><strong>${escapeHtml(customerName.trim() || '-')}</strong></div>
+        <div class="kv"><span>Telefon</span><strong>${escapeHtml(customerPhone.trim() || '-')}</strong></div>
+        <div class="kv"><span>Tasarim sayisi</span><strong>${designs.length}</strong></div>
+        <div class="kv"><span>Toplam adet</span><strong>${designs.reduce((sum, design) => sum + design.quantity, 0)}</strong></div>
+        <div class="kv"><span>Tahmini toplam</span><strong>${formatCurrency(totalEstimate)}</strong></div>
+      </div>
+      ${designBlocks}
+      <h2>Toplam Malzeme Ihtiyaci</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Malzeme</th>
+            <th>Ihtiyac</th>
+            <th>Stok</th>
+            <th>Durum</th>
+          </tr>
+        </thead>
+        <tbody>${buildJobMaterialRows(designs, stockItems, rates)}</tbody>
+      </table>
+      <p class="muted">Bu toplu form is altindaki tum tasarimlar icindir. Kesin kesim ve montaj kararlari saha olcusuyle dogrulanmalidir.</p>
+    `,
+    productionMode: true,
+  });
+}
+
 function pageTemplate({
   title,
   subtitle,
@@ -244,6 +367,9 @@ function pageTemplate({
           .production-drawing { background: #ffffff; border: 1px solid #d9e2dc; border-radius: 8px; flex: 1.8; padding: 10px; text-align: center; }
           .production-summary { border: 1px solid #d9e2dc; border-radius: 8px; flex: 1; overflow: hidden; }
           .visual-preview { background: #eef3f0; border: 1px solid #d9e2dc; border-radius: 8px; padding: 10px; text-align: center; }
+          .job-summary { margin-top: 14px; }
+          .job-design-block { page-break-inside: avoid; margin-top: 18px; }
+          .compact-preview { margin-top: 10px; }
           .kv { display: flex; border-bottom: 1px solid #edf2ef; font-size: 11px; }
           .kv:last-child { border-bottom: 0; }
           .kv span { background: #f6faf7; color: #60716a; flex: 0.8; padding: 7px; }
@@ -664,6 +790,74 @@ function insectScreenLabel(value: string): string {
   };
 
   return labels[value] ?? value;
+}
+
+function buildJobMaterialRows(
+  designs: DesignProject[],
+  stockItems: StockItem[],
+  rates: PriceEstimateRates,
+): string {
+  const totals = new Map<
+    string,
+    {
+      label: string;
+      requiredQuantity: number;
+      availableQuantity: number;
+      unit: StockItem['unit'];
+      missingQuantity: number;
+    }
+  >();
+
+  designs.forEach((design) => {
+    calculateDesignStockNeeds(design, stockItems, rates).forEach((need) => {
+      const key = `${need.type}:${need.unit}`;
+      const existing = totals.get(key);
+
+      if (existing) {
+        existing.requiredQuantity += need.requiredQuantity;
+        existing.missingQuantity = Math.max(0, existing.requiredQuantity - existing.availableQuantity);
+        return;
+      }
+
+      totals.set(key, {
+        label: need.type === 'pvc_profile' ? 'PVC profil' : need.label,
+        requiredQuantity: need.requiredQuantity,
+        availableQuantity: need.availableQuantity,
+        missingQuantity: need.missingQuantity,
+        unit: need.unit,
+      });
+    });
+  });
+
+  if (totals.size === 0) {
+    return '<tr><td colspan="4">Malzeme ihtiyaci bulunamadi.</td></tr>';
+  }
+
+  return Array.from(totals.values())
+    .map((item) => {
+      const status =
+        item.missingQuantity > 0
+          ? `Eksik ${formatQuantityForPdf(item.missingQuantity, item.unit)}`
+          : 'Yeterli';
+
+      return `
+        <tr>
+          <td>${escapeHtml(item.label)}</td>
+          <td>${formatQuantityForPdf(item.requiredQuantity, item.unit)}</td>
+          <td>${formatQuantityForPdf(item.availableQuantity, item.unit)}</td>
+          <td>${status}</td>
+        </tr>
+      `;
+    })
+    .join('');
+}
+
+function formatQuantityForPdf(value: number, unit: StockItem['unit']): string {
+  return `${roundQuantityForPdf(value).toLocaleString('tr-TR', { maximumFractionDigits: 2 })} ${stockUnitLabels[unit]}`;
+}
+
+function roundQuantityForPdf(value: number): number {
+  return Math.round(value * 100) / 100;
 }
 
 function formatCurrency(value: number): string {

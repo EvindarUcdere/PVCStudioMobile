@@ -24,6 +24,7 @@ import { StockItem, stockUnitLabels } from '../../../domain/inventory/entities/S
 import { JobProject } from '../../../domain/jobs/entities/JobProject';
 import { logger } from '../../../services/logger';
 import { colors, spacing, typography } from '../../../theme';
+import { shareJobProductionPdf } from '../../quotes/services/pdfService';
 
 type MaterialTotal = {
   key: string;
@@ -41,6 +42,7 @@ export function JobDetailsScreen() {
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [rates, setRates] = useState<PriceEstimateRates | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSharingPdf, setIsSharingPdf] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useFocusEffect(
@@ -113,6 +115,31 @@ export function JobDetailsScreen() {
     [designs, rates, stockItems],
   );
 
+  async function shareJobPdf() {
+    if (!job || !rates || designs.length === 0 || isSharingPdf) {
+      setError('Toplu imalat PDF icin bu ise bagli en az bir tasarim olmali.');
+      return;
+    }
+
+    setIsSharingPdf(true);
+    setError(null);
+    try {
+      await shareJobProductionPdf({
+        jobName: job.name,
+        customerName: customer?.fullName ?? '',
+        customerPhone: customer?.phone ?? '',
+        designs,
+        rates,
+        stockItems,
+      });
+    } catch (pdfError) {
+      logger.error('Job production PDF share failed', pdfError);
+      setError('Toplu imalat PDF paylasilamadi.');
+    } finally {
+      setIsSharingPdf(false);
+    }
+  }
+
   if (isLoading) {
     return (
       <AppScreen centered>
@@ -141,6 +168,12 @@ export function JobDetailsScreen() {
         <Info label="Durum" value={jobStatusLabels[job.status]} />
         <Info label="Tasarim sayisi" value={String(designs.length)} />
         <Info label="Toplam tahmini teklif" value={formatCurrency(total)} />
+        <AppButton
+          label="Toplu Imalat PDF"
+          loading={isSharingPdf}
+          disabled={isSharingPdf || designs.length === 0}
+          onPress={() => void shareJobPdf()}
+        />
       </AppCard>
 
       <AppCard style={styles.summaryCard}>
