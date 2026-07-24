@@ -156,6 +156,10 @@ function buildProductionHtml(
           <div class="kv"><span>Kemer</span><strong>${summary.archHeight ? `${summary.archHeight} mm` : 'Yok'}</strong></div>
         </div>
       </div>
+      <h2>Tasarim Gorunumu</h2>
+      <div class="visual-preview">
+        ${buildDesignPreviewSvg(design)}
+      </div>
       ${note.trim() ? `<div class="note-box"><strong>Not:</strong> ${escapeHtml(note.trim())}</div>` : ''}
       ${section('Genel Tasarim Ozeti', [
         ['Dis olcu', `${design.width} x ${design.height} mm`],
@@ -239,6 +243,7 @@ function pageTemplate({
           .production-grid { align-items: flex-start; display: flex; gap: 14px; margin-top: 16px; }
           .production-drawing { background: #ffffff; border: 1px solid #d9e2dc; border-radius: 8px; flex: 1.8; padding: 10px; text-align: center; }
           .production-summary { border: 1px solid #d9e2dc; border-radius: 8px; flex: 1; overflow: hidden; }
+          .visual-preview { background: #eef3f0; border: 1px solid #d9e2dc; border-radius: 8px; padding: 10px; text-align: center; }
           .kv { display: flex; border-bottom: 1px solid #edf2ef; font-size: 11px; }
           .kv:last-child { border-bottom: 0; }
           .kv span { background: #f6faf7; color: #60716a; flex: 0.8; padding: 7px; }
@@ -363,6 +368,76 @@ function buildDesignSvg(design: DesignProject): string {
       ${shutterHeight > 0 && rootFrame?.rollerShutter ? buildVerticalDimension(frame.x + frame.width + 28, frame.y, frame.y + shutterHeight, `Panjur ${rootFrame.rollerShutter.height} mm`) : ''}
       ${isArch ? buildVerticalDimension(frame.x + frame.width + 48, frame.y, frame.y + Math.min(archHeight, frame.height * 0.46), `Kemer ${Math.round(archHeight / Math.max(layout.scale, 0.001))} mm`) : ''}
       ${buildPanelHeightDimensions(layout.panelBounds, frame.x - 52)}
+    </svg>
+  `;
+}
+
+function buildDesignPreviewSvg(design: DesignProject): string {
+  const canvasWidth = 520;
+  const canvasHeight = 300;
+  const layout = calculateDesignLayout({
+    rootNode: design.rootNode,
+    designWidth: design.width,
+    designHeight: design.height,
+    canvasWidth,
+    canvasHeight,
+    padding: 40,
+  });
+  const profileColor = getDesignProfileColor(design.profileSystem).hexValue;
+  const frame = layout.frameBounds;
+  const rootFrame = design.rootNode.type === 'frame' ? design.rootNode : null;
+  const isArch = rootFrame ? isArchTopFrame(rootFrame) : false;
+  const archHeight = isArch && rootFrame ? getArchHeight(rootFrame, design.height) * layout.scale : 0;
+  const framePath = isArch ? buildArchFramePath(frame.x, frame.y, frame.width, frame.height, archHeight) : '';
+  const panelNodes = new Map(collectPanels(design.rootNode).map((panel) => [panel.id, panel]));
+  const shutterHeight =
+    rootFrame?.rollerShutter?.enabled
+      ? Math.min(frame.height * 0.34, Math.max(16, rootFrame.rollerShutter.height * layout.scale))
+      : 0;
+
+  const panels = layout.panelBounds
+    .map((panel) => {
+      const panelNode = panelNodes.get(panel.nodeId);
+      const profileInset = Math.max(4, Math.min(10, Math.min(panel.width, panel.height) * 0.08));
+      const glassInset = profileInset + Math.max(3, Math.min(7, Math.min(panel.width, panel.height) * 0.04));
+      const glassX = round(panel.x + glassInset);
+      const glassY = round(panel.y + glassInset);
+      const glassWidth = round(Math.max(0, panel.width - glassInset * 2));
+      const glassHeight = round(Math.max(0, panel.height - glassInset * 2));
+
+      return `
+        <rect x="${round(panel.x)}" y="${round(panel.y)}" width="${round(panel.width)}" height="${round(panel.height)}" fill="${profileColor}" stroke="#96a5a0" stroke-width="2" />
+        <rect x="${round(panel.x + profileInset)}" y="${round(panel.y + profileInset)}" width="${round(Math.max(0, panel.width - profileInset * 2))}" height="${round(Math.max(0, panel.height - profileInset * 2))}" fill="${mixHexForPdf(profileColor, '#ffffff', 0.22)}" stroke="${mixHexForPdf(profileColor, '#17211e', 0.35)}" stroke-width="1.5" />
+        <rect x="${glassX}" y="${glassY}" width="${glassWidth}" height="${glassHeight}" fill="#d8e6f5" stroke="#aebbb7" stroke-width="1.2" />
+        ${panelNode?.insectScreen ? buildInsectScreenSymbol(panel, glassInset) : ''}
+        ${buildOpeningSymbol(panel.openingType, glassX, glassY, glassWidth, glassHeight)}
+      `;
+    })
+    .join('');
+
+  const splits = layout.splitBounds
+    .map(
+      (split) =>
+        `<line x1="${round(split.dividerX1)}" y1="${round(split.dividerY1)}" x2="${round(split.dividerX2)}" y2="${round(split.dividerY2)}" stroke="${profileColor}" stroke-width="7" stroke-linecap="square" />`,
+    )
+    .join('');
+
+  return `
+    <svg class="design-svg" width="${canvasWidth}" height="${canvasHeight}" viewBox="0 0 ${canvasWidth} ${canvasHeight}" xmlns="http://www.w3.org/2000/svg">
+      <rect x="0" y="0" width="${canvasWidth}" height="${canvasHeight}" rx="10" fill="#eef3f0" />
+      ${
+        isArch
+          ? `<path d="${framePath}" fill="#f8fbf9" stroke="${profileColor}" stroke-width="9" />`
+          : `<rect x="${round(frame.x)}" y="${round(frame.y)}" width="${round(frame.width)}" height="${round(frame.height)}" fill="#f8fbf9" stroke="${profileColor}" stroke-width="9" />`
+      }
+      ${shutterHeight > 0 ? buildRollerShutterSvg(frame.x, frame.y, frame.width, shutterHeight) : ''}
+      ${panels}
+      ${splits}
+      ${
+        isArch
+          ? `<path d="${framePath}" fill="none" stroke="#24302c" stroke-width="2" />`
+          : `<rect x="${round(frame.x)}" y="${round(frame.y)}" width="${round(frame.width)}" height="${round(frame.height)}" fill="none" stroke="#24302c" stroke-width="2" />`
+      }
     </svg>
   `;
 }
@@ -566,4 +641,30 @@ function escapeHtml(value: string): string {
 
 function round(value: number): number {
   return Math.round(value * 10) / 10;
+}
+
+function mixHexForPdf(firstHex: string, secondHex: string, ratio: number): string {
+  const first = parseHexForPdf(firstHex);
+  const second = parseHexForPdf(secondHex);
+  const safeRatio = Math.max(0, Math.min(1, ratio));
+
+  return toHexForPdf({
+    r: Math.round(first.r * (1 - safeRatio) + second.r * safeRatio),
+    g: Math.round(first.g * (1 - safeRatio) + second.g * safeRatio),
+    b: Math.round(first.b * (1 - safeRatio) + second.b * safeRatio),
+  });
+}
+
+function parseHexForPdf(hexValue: string): { r: number; g: number; b: number } {
+  const normalized = /^#[0-9a-fA-F]{6}$/.test(hexValue) ? hexValue.slice(1) : 'FFFFFF';
+
+  return {
+    r: Number.parseInt(normalized.slice(0, 2), 16),
+    g: Number.parseInt(normalized.slice(2, 4), 16),
+    b: Number.parseInt(normalized.slice(4, 6), 16),
+  };
+}
+
+function toHexForPdf({ r, g, b }: { r: number; g: number; b: number }): string {
+  return `#${[r, g, b].map((value) => value.toString(16).padStart(2, '0')).join('')}`;
 }
