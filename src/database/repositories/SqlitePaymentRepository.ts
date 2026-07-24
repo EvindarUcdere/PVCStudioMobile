@@ -159,6 +159,18 @@ export class SqlitePaymentRepository implements PaymentRepository {
     return rows.map(toInstallment);
   }
 
+  async updateInstallmentDueDate(id: string, dueDate: string): Promise<PaymentInstallment> {
+    await this.database.runAsync('UPDATE payment_installments SET due_date = ? WHERE id = ?;', [dueDate, id]);
+    const row = await this.database.getFirstAsync<PaymentInstallmentRow>(
+      'SELECT * FROM payment_installments WHERE id = ? LIMIT 1;',
+      [id],
+    );
+    if (!row) {
+      throw new EntityNotFoundError('PaymentInstallment', id);
+    }
+    return toInstallment(row);
+  }
+
   async markInstallmentPaid(id: string, paidAt = new Date().toISOString()): Promise<PaymentInstallment> {
     await this.database.runAsync(
       'UPDATE payment_installments SET status = ?, paid_at = ? WHERE id = ?;',

@@ -259,6 +259,46 @@ export function QuotePreviewScreen() {
     }
   }
 
+  async function saveInstallmentDates() {
+    if (!paymentPlan) {
+      return;
+    }
+
+    if (paymentInstallments.some((installment) => !isValidDate(installment.dueDate))) {
+      setError('Taksit tarihlerinin formati YYYY-AA-GG olmali.');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const paymentRepository = await createPaymentRepository();
+      const updatedInstallments: PaymentInstallment[] = [];
+      for (const installment of paymentInstallments) {
+        updatedInstallments.push(
+          await paymentRepository.updateInstallmentDueDate(installment.id, installment.dueDate),
+        );
+      }
+      setPaymentInstallments(updatedInstallments);
+      setSaveMessage('Taksit tarihleri kaydedildi.');
+      setError(null);
+    } catch (dateError) {
+      logger.error('Payment installment dates save failed', dateError);
+      setError('Taksit tarihleri kaydedilemedi.');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  function updateInstallmentDate(id: string, dueDate: string) {
+    setPaymentInstallments((current) =>
+      current.map((installment) =>
+        installment.id === id ? { ...installment, dueDate } : installment,
+      ),
+    );
+    setError(null);
+    setSaveMessage(null);
+  }
+
   async function shareCustomerPdf() {
     if (!design || !estimate || isPdfSharing) {
       return;
@@ -458,12 +498,28 @@ export function QuotePreviewScreen() {
         {paymentPlan ? (
           <View style={styles.installments}>
             {paymentInstallments.map((installment) => (
-              <Info
-                key={installment.id}
-                label={`${installment.sequence}. taksit - ${formatDate(installment.dueDate)}`}
-                value={formatCurrency(installment.amount)}
-              />
+              <View key={installment.id} style={styles.installmentRow}>
+                <View style={styles.installmentInfo}>
+                  <Text style={styles.infoLabel}>{installment.sequence}. taksit</Text>
+                  <Text style={styles.infoValue}>{formatCurrency(installment.amount)}</Text>
+                </View>
+                <TextInput
+                  accessibilityLabel={`${installment.sequence}. taksit tarihi`}
+                  onChangeText={(value) => updateInstallmentDate(installment.id, value)}
+                  placeholder="YYYY-AA-GG"
+                  placeholderTextColor={colors.textSecondary}
+                  style={styles.input}
+                  value={installment.dueDate}
+                />
+              </View>
             ))}
+            <AppButton
+              label="Taksit Tarihlerini Kaydet"
+              variant="secondary"
+              loading={isSaving}
+              disabled={isSaving}
+              onPress={() => void saveInstallmentDates()}
+            />
           </View>
         ) : null}
       </AppCard>
@@ -565,10 +621,6 @@ function formatCurrency(value: number): string {
   return `${Math.round(value).toLocaleString('tr-TR')} TL`;
 }
 
-function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString('tr-TR');
-}
-
 function normalizePhone(value: string): string {
   return value.replace(/[^\d+]/g, '');
 }
@@ -625,6 +677,18 @@ const styles = StyleSheet.create({
   },
   installments: {
     gap: spacing.xs,
+  },
+  installmentRow: {
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    gap: spacing.xs,
+    padding: spacing.sm,
+  },
+  installmentInfo: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    justifyContent: 'space-between',
   },
   actionRow: {
     flexDirection: 'row',
