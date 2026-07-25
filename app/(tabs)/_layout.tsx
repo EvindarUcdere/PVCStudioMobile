@@ -68,7 +68,8 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="new-design"
         options={{
-          title: 'Yeni',
+          title: '',
+          tabBarLabel: () => null,
           tabBarIcon: ({ focused }) => <NewTabIcon focused={focused} />,
         }}
       />
