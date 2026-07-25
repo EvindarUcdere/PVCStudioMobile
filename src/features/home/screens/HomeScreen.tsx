@@ -12,6 +12,7 @@ import {
   createJobRepository,
   createQuoteRepository,
   createStockRepository,
+  createDesignRepository,
 } from '../../../database/repositories/createRepositories';
 import { colors, spacing, typography } from '../../../theme';
 import { logger } from '../../../services/logger';
@@ -26,7 +27,7 @@ type QuickAction = {
 type HomeStats = {
   openJobs: number;
   pendingQuotes: number;
-  productionJobs: number;
+  workshopDesigns: number;
   lowStockItems: number;
 };
 
@@ -66,7 +67,7 @@ const quickActions: QuickAction[] = [
 const initialStats: HomeStats = {
   openJobs: 0,
   pendingQuotes: 0,
-  productionJobs: 0,
+  workshopDesigns: 0,
   lowStockItems: 0,
 };
 
@@ -83,16 +84,20 @@ export function HomeScreen() {
       const jobRepository = await createJobRepository();
       const quoteRepository = await createQuoteRepository();
       const stockRepository = await createStockRepository();
-      const [jobs, quotes, lowStockItems] = await Promise.all([
+      const designRepository = await createDesignRepository();
+      const [jobs, quotes, lowStockItems, designs] = await Promise.all([
         jobRepository.list({ limit: 500 }),
         quoteRepository.list({ limit: 500 }),
         stockRepository.list({ includeInactive: false, lowStockOnly: true, limit: 500 }),
+        designRepository.list({ limit: 500 }),
       ]);
 
       setStats({
         openJobs: jobs.filter((job) => job.status !== 'done' && job.status !== 'canceled').length,
         pendingQuotes: quotes.filter((quote) => quote.status === 'draft' || quote.status === 'sent').length,
-        productionJobs: jobs.filter((job) => job.status === 'production').length,
+        workshopDesigns: designs.filter((design) =>
+          ['approved', 'production', 'installation'].includes(design.jobStatus),
+        ).length,
         lowStockItems: lowStockItems.length,
       });
     } catch (error) {
@@ -136,10 +141,31 @@ export function HomeScreen() {
         </View>
         {statsError ? <Text style={styles.errorText}>{statsError}</Text> : null}
         <View style={styles.summaryGrid}>
-          <SummaryItem label="Açık iş" value={stats.openJobs} icon="briefcase-outline" />
-          <SummaryItem label="Bekleyen teklif" value={stats.pendingQuotes} icon="document-text-outline" />
-          <SummaryItem label="Üretimde" value={stats.productionJobs} icon="construct-outline" />
-          <SummaryItem label="Düşük stok" value={stats.lowStockItems} icon="alert-circle-outline" warning />
+          <SummaryItem
+            label="Açık iş"
+            value={stats.openJobs}
+            icon="briefcase-outline"
+            onPress={() => router.push(routes.jobs)}
+          />
+          <SummaryItem
+            label="Bekleyen teklif"
+            value={stats.pendingQuotes}
+            icon="document-text-outline"
+            onPress={() => router.push(routes.quotes)}
+          />
+          <SummaryItem
+            label="Atölyede"
+            value={stats.workshopDesigns}
+            icon="construct-outline"
+            onPress={() => router.push(routes.workshop)}
+          />
+          <SummaryItem
+            label="Düşük stok"
+            value={stats.lowStockItems}
+            icon="alert-circle-outline"
+            warning
+            onPress={() => router.push(routes.stock)}
+          />
         </View>
       </AppCard>
 
@@ -182,21 +208,23 @@ function SummaryItem({
   label,
   value,
   icon,
+  onPress,
   warning = false,
 }: {
   label: string;
   value: number;
   icon: keyof typeof Ionicons.glyphMap;
+  onPress: () => void;
   warning?: boolean;
 }) {
   return (
-    <View style={styles.summaryItem}>
+    <AppCard onPress={onPress} style={styles.summaryItem}>
       <View style={[styles.summaryIcon, warning && value > 0 ? styles.summaryIconWarning : null]}>
         <Ionicons name={icon} size={18} color={warning && value > 0 ? colors.warning : colors.primary} />
       </View>
       <Text style={styles.summaryValue}>{value}</Text>
       <Text style={styles.summaryLabel}>{label}</Text>
-    </View>
+    </AppCard>
   );
 }
 

@@ -25,7 +25,7 @@ import {
 import { calculateDesignStockNeeds } from '../../../domain/inventory/calculateDesignStockNeeds';
 import { StockItem, stockUnitLabels } from '../../../domain/inventory/entities/StockItem';
 import { JobProject } from '../../../domain/jobs/entities/JobProject';
-import { backupDesignToCloud } from '../../../services/firebase/fullSyncService';
+import { backupDesignToCloud, backupJobToCloud } from '../../../services/firebase/fullSyncService';
 import { logger } from '../../../services/logger';
 import { colors, radius, spacing, typography } from '../../../theme';
 import { shareJobProductionPdf, shareProductionPdf } from '../../quotes/services/pdfService';
@@ -105,8 +105,19 @@ export function WorkshopScreen() {
 
     try {
       const repository = await createDesignRepository();
+      const jobRepository = await createJobRepository();
       const updated = await repository.update({ ...design, jobStatus });
       void backupDesignToCloud(updated);
+
+      if (updated.jobId) {
+        const jobDesigns = await repository.list({ jobId: updated.jobId, limit: 500 });
+        const nextJobStatus = getNextJobStatus(
+          jobDesigns.map((item) => (item.id === updated.id ? updated : item)),
+        );
+        const updatedJob = await jobRepository.updateStatus(updated.jobId, nextJobStatus);
+        void backupJobToCloud(updatedJob);
+      }
+
       await load();
     } catch (statusError) {
       logger.error('Workshop status update failed', statusError);
@@ -225,6 +236,33 @@ export function WorkshopScreen() {
   );
 }
 
+function getNextJobStatus(designs: DesignProject[]): JobStatus {
+  if (designs.length === 0) {
+    return 'draft';
+  }
+
+  if (designs.every((design) => design.jobStatus === 'done')) {
+    return 'done';
+  }
+
+  if (designs.some((design) => design.jobStatus === 'installation')) {
+    return 'installation';
+  }
+
+  if (designs.some((design) => design.jobStatus === 'production')) {
+    return 'production';
+  }
+
+  if (designs.some((design) => design.jobStatus === 'approved')) {
+    return 'approved';
+  }
+
+  if (designs.some((design) => design.jobStatus === 'quoted')) {
+    return 'quoted';
+  }
+
+  return 'draft';
+}
 function SummaryBox({ label, value }: { label: string; value: number }) {
   return (
     <AppCard style={styles.summaryBox}>
