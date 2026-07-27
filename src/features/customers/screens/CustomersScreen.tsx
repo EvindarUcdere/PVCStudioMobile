@@ -22,6 +22,7 @@ import { Customer } from '../../../domain/customers/entities/Customer';
 import { backupCustomerToCloud } from '../../../services/firebase/fullSyncService';
 import { logger } from '../../../services/logger';
 import { colors, radius, spacing, typography } from '../../../theme';
+import { normalizeTurkishPhone, sanitizePhoneInput } from '../../../utils/phone';
 
 type CustomerForm = {
   fullName: string;
@@ -78,12 +79,18 @@ export function CustomersScreen() {
       return;
     }
 
+    const phone = form.phone.trim() ? normalizeTurkishPhone(form.phone) : null;
+    if (form.phone.trim() && !phone) {
+      setError('Telefon 05xxxxxxxxx formatinda olmali.');
+      return;
+    }
+
     setIsSaving(true);
     setError(null);
     setMessage(null);
     try {
       const repository = await createCustomerRepository();
-      const saved = await repository.save(form);
+      const saved = await repository.save({ ...form, phone });
       void backupCustomerToCloud(saved);
       setForm(emptyForm);
       setMessage('Musteri kaydedildi.');
@@ -137,7 +144,7 @@ export function CustomersScreen() {
                   placeholderTextColor={colors.textSecondary}
                   style={styles.input}
                   value={form.phone}
-                  onChangeText={(value) => updateForm('phone', value)}
+                  onChangeText={(value) => updateForm('phone', sanitizePhoneInput(value))}
                 />
                 <TextInput
                   accessibilityLabel="Adres"

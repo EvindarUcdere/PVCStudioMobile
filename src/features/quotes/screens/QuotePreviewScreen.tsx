@@ -34,6 +34,12 @@ import {
 import { recordActivity } from '../../../services/activityLogService';
 import { logger } from '../../../services/logger';
 import { colors, radius, spacing, typography } from '../../../theme';
+import {
+  normalizePhone,
+  normalizeTurkishPhone,
+  normalizeTurkishWhatsAppPhone,
+  sanitizePhoneInput,
+} from '../../../utils/phone';
 import { shareCustomerQuotePdf, shareProductionPdf } from '../services/pdfService';
 
 export function QuotePreviewScreen() {
@@ -210,6 +216,11 @@ export function QuotePreviewScreen() {
   }
 
   async function saveDraftQuote() {
+    if (customerPhone.trim() && !normalizeTurkishPhone(customerPhone)) {
+      setError('Telefon 05xxxxxxxxx formatinda olmali.');
+      return;
+    }
+
     setIsSaving(true);
     try {
       await saveCurrentQuote('draft');
@@ -394,13 +405,19 @@ export function QuotePreviewScreen() {
       return null;
     }
 
+    const normalizedCustomerPhone = customerPhone.trim() ? normalizeTurkishPhone(customerPhone) : null;
+    if (customerPhone.trim() && !normalizedCustomerPhone) {
+      setError('Telefon 05xxxxxxxxx formatinda olmali.');
+      return null;
+    }
+
     const repository = await createQuoteRepository();
     const id = quoteId ?? createId();
     const message = buildQuoteMessage({
       design,
       estimate,
       customerName,
-      customerPhone,
+      customerPhone: normalizedCustomerPhone ?? '',
       note,
     });
     const saved = await repository.save({
@@ -408,7 +425,7 @@ export function QuotePreviewScreen() {
       designId: design.id,
       designName: design.name,
       customerName: nullableTrim(customerName),
-      customerPhone: nullableTrim(customerPhone),
+      customerPhone: normalizedCustomerPhone,
       note: nullableTrim(note),
       status,
       width: design.width,
@@ -477,7 +494,7 @@ export function QuotePreviewScreen() {
         <TextInput
           accessibilityLabel="Telefon"
           keyboardType="phone-pad"
-          onChangeText={setCustomerPhone}
+          onChangeText={(value) => setCustomerPhone(sanitizePhoneInput(value))}
           placeholder="Telefon"
           placeholderTextColor={colors.textSecondary}
           style={styles.input}
@@ -715,32 +732,6 @@ function buildQuoteMessage({
 
 function formatCurrency(value: number): string {
   return `${Math.round(value).toLocaleString('tr-TR')} TL`;
-}
-
-function normalizePhone(value: string): string {
-  return value.replace(/[^\d+]/g, '');
-}
-
-function normalizeTurkishWhatsAppPhone(value: string): string {
-  const phone = normalizePhone(value);
-
-  if (phone.startsWith('+')) {
-    return phone.slice(1);
-  }
-
-  if (phone.startsWith('00')) {
-    return phone.slice(2);
-  }
-
-  if (phone.startsWith('0') && phone.length === 11) {
-    return `90${phone.slice(1)}`;
-  }
-
-  if (phone.length === 10) {
-    return `90${phone}`;
-  }
-
-  return phone;
 }
 
 function nullableTrim(value: string): string | null {
