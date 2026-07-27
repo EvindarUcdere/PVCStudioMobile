@@ -10,6 +10,7 @@ import { EmptyState } from '../../../components/ui/EmptyState';
 import { routes } from '../../../constants/routes';
 import { getPricingSettings } from '../../../database/repositories/PricingSettingsRepository';
 import {
+  createCashTransactionRepository,
   createCustomerRepository,
   createDesignRepository,
   createPaymentRepository,
@@ -24,7 +25,11 @@ import {
 } from '../../../domain/designs/pricing/calculateDesignPriceEstimate';
 import { Quote } from '../../../domain/quotes/entities/Quote';
 import { PaymentInstallment, PaymentPlan } from '../../../domain/payments/entities/PaymentPlan';
-import { backupDesignToCloud, backupQuoteToCloud } from '../../../services/firebase/fullSyncService';
+import {
+  backupCashTransactionToCloud,
+  backupDesignToCloud,
+  backupQuoteToCloud,
+} from '../../../services/firebase/fullSyncService';
 import { logger } from '../../../services/logger';
 import { colors, radius, spacing, typography } from '../../../theme';
 import { shareCustomerQuotePdf, shareProductionPdf } from '../services/pdfService';
@@ -41,7 +46,7 @@ export function QuotePreviewScreen() {
   const [paymentInstallments, setPaymentInstallments] = useState<PaymentInstallment[]>([]);
   const [paidNowAmount, setPaidNowAmount] = useState('');
   const [installmentCount, setInstallmentCount] = useState('3');
-  const [firstDueDate, setFirstDueDate] = useState(new Date().toISOString().slice(0, 10));
+  const [firstDueDate, setFirstDueDate] = useState(getLocalDateString());
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
@@ -224,8 +229,19 @@ export function QuotePreviewScreen() {
     const paidNow = parsePositiveAmount(paidNowAmount) ?? 0;
     const count = Number(installmentCount.trim());
 
-    if (paidNow < 0 || paidNow > estimate.total || !Number.isInteger(count) || count < 1 || !isValidDate(firstDueDate)) {
+    if (
+      paidNow < 0 ||
+      paidNow > estimate.total ||
+      !Number.isInteger(count) ||
+      count < 0 ||
+      (count > 0 && !isValidDate(firstDueDate))
+    ) {
       setError('Odeme plani icin pesinat, taksit sayisi ve tarih dogru girilmeli.');
+      return;
+    }
+
+    if (count === 0 && paidNow < estimate.total) {
+      setError('Taksit yoksa alinan odeme toplam tutara esit olmali.');
       return;
     }
 
@@ -233,6 +249,26 @@ export function QuotePreviewScreen() {
     try {
       const quote = await saveCurrentQuote('draft');
       if (!quote) {
+        return;
+      }
+
+      if (count === 0) {
+        const transactionRepository = await createCashTransactionRepository();
+        const savedTransaction = await transactionRepository.save({
+          type: 'income',
+          category: 'job_payment',
+          title: `${customerName || 'Musteri'} pesin odeme`,
+          amount: paidNow,
+          transactionDate: getLocalDateString(),
+          customerId: design.customerId,
+          designId: design.id,
+          notes: nullableTrim(note) ?? 'Teklif pesin odendi.',
+        });
+        void backupCashTransactionToCloud(savedTransaction);
+        setPaymentPlan(null);
+        setPaymentInstallments([]);
+        setSaveMessage('Pesin odeme kasa gelirine kaydedildi.');
+        setError(null);
         return;
       }
 
@@ -480,12 +516,15 @@ export function QuotePreviewScreen() {
             accessibilityLabel="Taksit sayisi"
             keyboardType="numeric"
             onChangeText={setInstallmentCount}
-            placeholder="Taksit"
+            placeholder="Taksit (0 pesin)"
             placeholderTextColor={colors.textSecondary}
             style={[styles.input, styles.actionButton]}
             value={installmentCount}
           />
         </View>
+        <Text style={styles.helperText}>
+          Tamami pesin alindiyse simdi alinacak tutari toplam ucret yapip taksit sayisini 0 girin.
+        </Text>
         <TextInput
           accessibilityLabel="Ilk odeme tarihi"
           onChangeText={setFirstDueDate}
@@ -494,7 +533,7 @@ export function QuotePreviewScreen() {
           style={styles.input}
           value={firstDueDate}
         />
-        <AppButton label="Odeme Planini Kaydet" loading={isSaving} disabled={isSaving} onPress={() => void savePaymentPlan()} />
+        <AppButton label="Odemeyi Kaydet" loading={isSaving} disabled={isSaving} onPress={() => void savePaymentPlan()} />
         {paymentPlan ? (
           <View style={styles.installments}>
             {paymentInstallments.map((installment) => (
@@ -654,6 +693,14 @@ function normalizeTurkishWhatsAppPhone(value: string): string {
 function nullableTrim(value: string): string | null {
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
+}
+
+function getLocalDateString(): string {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function parsePositiveAmount(value: string): number | null {
