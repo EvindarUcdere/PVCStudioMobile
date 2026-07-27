@@ -87,11 +87,13 @@ const options: MoreOption[] = [
     title: 'Uygulama Ayarlari',
     icon: 'settings-outline',
     state: 'Acik',
+    onPress: () => router.push(routes.appSettings),
   },
   {
     title: 'Hakkinda',
     icon: 'information-circle-outline',
     state: 'PVC Studio',
+    onPress: () => router.push(routes.about),
   },
 ];
 

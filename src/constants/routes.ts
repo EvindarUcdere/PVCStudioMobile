@@ -12,6 +12,8 @@ export const routes = {
   jobs: '/jobs',
   pricingSettings: '/pricing-settings',
   companyProfile: '/company-profile',
+  appSettings: '/app-settings',
+  about: '/about',
   templateDetails: (templateId: string) => `/templates/${templateId}`,
   templateDetailsForCustomer: (templateId: string, customerId: string) =>
     `/templates/${templateId}?customerId=${customerId}`,
