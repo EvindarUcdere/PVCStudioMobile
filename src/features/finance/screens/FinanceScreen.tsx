@@ -200,6 +200,24 @@ export function FinanceScreen() {
     }
   }
 
+  async function postponeInstallment(installment: PaymentInstallment, days: number) {
+    setIsSaving(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const paymentRepository = await createPaymentRepository();
+      const nextDate = addDays(new Date().toISOString().slice(0, 10), days);
+      await paymentRepository.updateInstallmentDueDate(installment.id, nextDate);
+      setMessage(`${installment.sequence}. taksit ${formatDate(nextDate)} tarihine ertelendi.`);
+      await loadFinance();
+    } catch (postponeError) {
+      logger.error('Installment postpone failed', postponeError);
+      setError('Taksit tarihi ertelenemedi.');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.keyboard}>
       <AppScreen scroll={false}>
@@ -242,6 +260,22 @@ export function FinanceScreen() {
                             onPress={() => void markInstallmentPaid(installment)}
                             style={styles.paidButton}
                           />
+                          <View style={styles.postponeActions}>
+                            <AppButton
+                              label="+3 gun"
+                              variant="ghost"
+                              disabled={isSaving}
+                              onPress={() => void postponeInstallment(installment, 3)}
+                              style={styles.postponeButton}
+                            />
+                            <AppButton
+                              label="+7 gun"
+                              variant="ghost"
+                              disabled={isSaving}
+                              onPress={() => void postponeInstallment(installment, 7)}
+                              style={styles.postponeButton}
+                            />
+                          </View>
                         </View>
                       </View>
                     ))}
@@ -522,6 +556,13 @@ function formatDate(value: string): string {
   return new Date(value).toLocaleDateString('tr-TR');
 }
 
+function addDays(dateString: string, days: number): string {
+  const [year, month, day] = dateString.split('-').map(Number);
+  const date = new Date(year ?? 0, (month ?? 1) - 1, day ?? 1);
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
 const styles = StyleSheet.create({
   keyboard: {
     flex: 1,
@@ -695,6 +736,15 @@ const styles = StyleSheet.create({
   paidButton: {
     minHeight: 34,
     paddingHorizontal: spacing.sm,
+  },
+  postponeActions: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  postponeButton: {
+    minHeight: 30,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xs,
   },
   caption: {
     ...typography.caption,
