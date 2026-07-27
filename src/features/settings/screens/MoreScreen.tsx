@@ -71,10 +71,28 @@ const options: MoreOption[] = [
     state: 'Ac',
     onPress: () => router.push(routes.companyProfile),
   },
-  { title: 'Profil Kutuphanesi', icon: 'layers-outline' },
-  { title: 'Cam Kutuphanesi', icon: 'grid-outline' },
-  { title: 'Uygulama Ayarlari', icon: 'settings-outline' },
-  { title: 'Hakkinda', icon: 'information-circle-outline' },
+  {
+    title: 'Profil Kutuphanesi',
+    icon: 'layers-outline',
+    state: 'Duzenle',
+    onPress: () => router.push(routes.pricingSettings),
+  },
+  {
+    title: 'Cam Kutuphanesi',
+    icon: 'grid-outline',
+    state: 'Duzenle',
+    onPress: () => router.push(routes.pricingSettings),
+  },
+  {
+    title: 'Uygulama Ayarlari',
+    icon: 'settings-outline',
+    state: 'Acik',
+  },
+  {
+    title: 'Hakkinda',
+    icon: 'information-circle-outline',
+    state: 'PVC Studio',
+  },
 ];
 
 export function MoreScreen() {
@@ -135,7 +153,7 @@ export function MoreScreen() {
 
   return (
     <AppScreen>
-      <AppHeader title="Diger" subtitle="Uygulama ayarlari ve kutuphaneler burada yer alacak." />
+      <AppHeader title="Diger" subtitle="Fiyat, kutuphane, yedekleme ve firma ayarlari." />
       <View style={styles.statusCard}>
         <Ionicons
           name={firebaseReady ? 'cloud-done-outline' : 'cloud-offline-outline'}
@@ -174,7 +192,7 @@ export function MoreScreen() {
             <View style={styles.optionRow}>
               <Ionicons name={option.icon} size={23} color={colors.primary} />
               <Text style={styles.optionTitle}>{option.title}</Text>
-              <Text style={styles.optionState}>{option.state ?? 'Yakinda'}</Text>
+              <Text style={styles.optionState}>{option.state ?? 'Ac'}</Text>
             </View>
           </AppCard>
         ))}
