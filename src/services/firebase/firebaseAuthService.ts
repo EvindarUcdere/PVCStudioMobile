@@ -72,3 +72,17 @@ export async function signOutFirebaseUser(): Promise<void> {
 
   await signOut(services.auth);
 }
+
+export function getCurrentFirebaseActor(): { actorUserId: string | null; actorName: string | null } {
+  const services = getFirebaseServices();
+  const user = services?.auth.currentUser;
+
+  if (!user) {
+    return { actorUserId: null, actorName: null };
+  }
+
+  return {
+    actorUserId: user.uid,
+    actorName: user.email ?? (user.isAnonymous ? `Anonim ${user.uid.slice(0, 6)}` : user.uid),
+  };
+}

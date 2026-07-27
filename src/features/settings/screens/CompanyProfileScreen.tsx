@@ -11,6 +11,10 @@ import {
   saveCompanyProfile,
 } from '../../../database/repositories/CompanyProfileRepository';
 import {
+  getLocalOperatorName,
+  saveLocalOperatorName,
+} from '../../../database/repositories/LocalUserSettingsRepository';
+import {
   CompanyProfile,
   defaultCompanyProfile,
 } from '../../../domain/company/entities/CompanyProfile';
@@ -46,6 +50,7 @@ const fields: { key: keyof CompanyProfile; label: string; keyboardType?: 'defaul
 export function CompanyProfileScreen() {
   const [values, setValues] = useState<CompanyProfileForm>(toFormValues(defaultCompanyProfile));
   const [user, setUser] = useState<User | null>(null);
+  const [operatorName, setOperatorName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -60,8 +65,12 @@ export function CompanyProfileScreen() {
 
     async function loadProfile() {
       try {
-        const loadedProfile = await getCompanyProfile();
-      setValues(toFormValues(loadedProfile));
+        const [loadedProfile, loadedOperatorName] = await Promise.all([
+          getCompanyProfile(),
+          getLocalOperatorName(),
+        ]);
+        setValues(toFormValues(loadedProfile));
+        setOperatorName(loadedOperatorName ?? '');
       } catch (loadError) {
         logger.error('Company profile load failed', loadError);
         setError('Firma bilgileri yuklenemedi.');
@@ -91,6 +100,7 @@ export function CompanyProfileScreen() {
     setMessage(null);
     try {
       const savedProfile = await saveCompanyProfile(parsed);
+      await saveLocalOperatorName(operatorName);
       setValues(toFormValues(savedProfile));
       void backupCompanyProfileToCloud(savedProfile);
       setMessage('Firma bilgileri kaydedildi.');
@@ -109,6 +119,7 @@ export function CompanyProfileScreen() {
         return;
       }
 
+      await saveLocalOperatorName(operatorName);
       await registerWithEmail(email, password);
       await backupAllLocalDataToCloud();
       setMessage('Hesap olusturuldu ve veriler buluta yedeklendi.');
@@ -122,6 +133,7 @@ export function CompanyProfileScreen() {
         return;
       }
 
+      await saveLocalOperatorName(operatorName);
       await signInWithEmail(email, password);
       await restoreAllCloudDataToLocal();
       const restoredProfile = await getCompanyProfile();
@@ -137,6 +149,43 @@ export function CompanyProfileScreen() {
     });
   }
 
+  async function joinCompanyByCode() {
+    if (!firebaseReady) {
+      setError('Firebase config girilmedi.');
+      return;
+    }
+
+    if (!hasCompanyCode()) {
+      setError('Ortak veriye baglanmak icin firma kodu girilmeli.');
+      return;
+    }
+
+    setIsSaving(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const parsed = parseProfile(values);
+      if (!parsed) {
+        setError('Firma koduyla katilmak icin firma alanlarini duzeltin.');
+        return;
+      }
+
+      await saveCompanyProfile(parsed);
+      await saveLocalOperatorName(operatorName);
+      const result = await restoreAllCloudDataToLocal();
+      if (!result) {
+        setError('Firma kodu ile bulut verisine baglanilamadi. Kod ve internet baglantisini kontrol edin.');
+        return;
+      }
+
+      const restoredProfile = await getCompanyProfile();
+      setValues(toFormValues(restoredProfile));
+      setMessage(`Firma verileri alindi. Artik ${result.companyId} kodlu ortak alandasiniz.`);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   async function backupProfile() {
     const parsed = parseProfile(values);
     if (!parsed) {
@@ -149,6 +198,7 @@ export function CompanyProfileScreen() {
     setMessage(null);
     try {
       const savedProfile = await saveCompanyProfile(parsed);
+      await saveLocalOperatorName(operatorName);
       const backedUp = await backupCompanyProfileToCloud(savedProfile);
       setValues(toFormValues(savedProfile));
       setMessage(backedUp ? 'Firma bilgileri buluta yedeklendi.' : 'Bulut yedegi yapilamadi.');
@@ -231,7 +281,7 @@ export function CompanyProfileScreen() {
       <AppScreen scroll={false}>
         <AppHeader
           title="Firma Bilgileri"
-          subtitle="Hesap ve PDF firma bilgileri"
+          subtitle="Firma kodu, ortak kullanim ve PDF bilgileri"
           rightAction={<AppButton label="Geri" variant="ghost" onPress={() => router.back()} />}
         />
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -244,6 +294,9 @@ export function CompanyProfileScreen() {
             </Text>
             <Text style={styles.statusCaption}>
               Firma kodu: {hasCompanyCode() ? normalizeCompanyId(values.companyId) : 'Girilmedi'}
+            </Text>
+            <Text style={styles.statusCaption}>
+              Kullanici: {operatorName.trim() || user?.email || 'Belirtilmedi'}
             </Text>
           </View>
 
@@ -290,6 +343,24 @@ export function CompanyProfileScreen() {
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Firma profili</Text>
+            <Text style={styles.statusCaption}>
+              Ayni firma kodunu giren cihazlar ayni bulut verilerine baglanir. Kullanici adi hareket kayitlarinda
+              islemi yapan kisi olarak gorunur.
+            </Text>
+            <View style={styles.field}>
+              <Text style={styles.label}>Bu cihazdaki kullanici adi</Text>
+              <TextInput
+                accessibilityLabel="Bu cihazdaki kullanici adi"
+                onChangeText={(value) => {
+                  setOperatorName(value);
+                  clearStatus();
+                }}
+                placeholder="Orn: Ali Usta, Mehmet Cirak"
+                placeholderTextColor={colors.textSecondary}
+                style={styles.input}
+                value={operatorName}
+              />
+            </View>
             {fields.map((field) => (
               <View key={field.key} style={styles.field}>
                 <Text style={styles.label}>{field.label}</Text>
@@ -311,6 +382,11 @@ export function CompanyProfileScreen() {
               label="Firma Kodu Olustur"
               variant="secondary"
               onPress={generateCompanyCode}
+            />
+            <AppButton
+              label="Firma Koduyla Katil"
+              disabled={isSaving}
+              onPress={() => void joinCompanyByCode()}
             />
           </View>
 

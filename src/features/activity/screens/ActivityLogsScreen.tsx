@@ -92,6 +92,7 @@ function ActivityLogCard({ log }: { log: ActivityLog }) {
         <Text style={styles.date}>{formatDateTime(log.createdAt)}</Text>
       </View>
       {log.customerName ? <Info label="Musteri" value={log.customerName} /> : null}
+      {log.actorName ? <Info label="Islemi yapan" value={log.actorName} /> : null}
       {log.description ? <Text style={styles.description}>{log.description}</Text> : null}
     </AppCard>
   );

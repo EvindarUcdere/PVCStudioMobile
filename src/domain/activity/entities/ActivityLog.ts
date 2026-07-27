@@ -13,6 +13,8 @@ export type ActivityLog = {
   entityType: string | null;
   entityId: string | null;
   customerName: string | null;
+  actorUserId: string | null;
+  actorName: string | null;
   createdAt: string;
 };
 

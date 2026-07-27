@@ -12,6 +12,8 @@ type ActivityLogRow = {
   entity_type: string | null;
   entity_id: string | null;
   customer_name: string | null;
+  actor_user_id: string | null;
+  actor_name: string | null;
   created_at: string;
 };
 
@@ -24,8 +26,8 @@ export class SqliteActivityLogRepository implements ActivityLogRepository {
     await this.database.runAsync(
       `
         INSERT INTO activity_logs
-        (id, type, title, description, entity_type, entity_id, customer_name, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+        (id, type, title, description, entity_type, entity_id, customer_name, actor_user_id, actor_name, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
       `,
       [
         id,
@@ -35,6 +37,8 @@ export class SqliteActivityLogRepository implements ActivityLogRepository {
         normalizeOptionalText(input.entityType),
         normalizeOptionalText(input.entityId),
         normalizeOptionalText(input.customerName),
+        normalizeOptionalText(input.actorUserId),
+        normalizeOptionalText(input.actorName),
         now,
       ],
     );
@@ -47,7 +51,42 @@ export class SqliteActivityLogRepository implements ActivityLogRepository {
       entityType: normalizeOptionalText(input.entityType),
       entityId: normalizeOptionalText(input.entityId),
       customerName: normalizeOptionalText(input.customerName),
+      actorUserId: normalizeOptionalText(input.actorUserId),
+      actorName: normalizeOptionalText(input.actorName),
       createdAt: now,
+    };
+  }
+
+  async upsert(log: ActivityLog): Promise<ActivityLog> {
+    await this.database.runAsync(
+      `
+        INSERT OR REPLACE INTO activity_logs
+        (id, type, title, description, entity_type, entity_id, customer_name, actor_user_id, actor_name, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+      `,
+      [
+        log.id,
+        log.type,
+        log.title.trim(),
+        normalizeOptionalText(log.description),
+        normalizeOptionalText(log.entityType),
+        normalizeOptionalText(log.entityId),
+        normalizeOptionalText(log.customerName),
+        normalizeOptionalText(log.actorUserId),
+        normalizeOptionalText(log.actorName),
+        log.createdAt,
+      ],
+    );
+
+    return {
+      ...log,
+      title: log.title.trim(),
+      description: normalizeOptionalText(log.description),
+      entityType: normalizeOptionalText(log.entityType),
+      entityId: normalizeOptionalText(log.entityId),
+      customerName: normalizeOptionalText(log.customerName),
+      actorUserId: normalizeOptionalText(log.actorUserId),
+      actorName: normalizeOptionalText(log.actorName),
     };
   }
 
@@ -66,9 +105,9 @@ export class SqliteActivityLogRepository implements ActivityLogRepository {
     }
 
     if (options.search?.trim()) {
-      where.push('(title LIKE ? OR description LIKE ? OR customer_name LIKE ?)');
+      where.push('(title LIKE ? OR description LIKE ? OR customer_name LIKE ? OR actor_name LIKE ?)');
       const query = `%${options.search.trim()}%`;
-      params.push(query, query, query);
+      params.push(query, query, query, query);
     }
 
     params.push(options.limit ?? 200);
@@ -101,6 +140,8 @@ function toDomain(row: ActivityLogRow): ActivityLog {
     entityType: row.entity_type,
     entityId: row.entity_id,
     customerName: row.customer_name,
+    actorUserId: row.actor_user_id,
+    actorName: row.actor_name,
     createdAt: row.created_at,
   };
 }

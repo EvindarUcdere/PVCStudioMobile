@@ -17,6 +17,7 @@ import {
   StockConsumptionLine,
 } from '../../database/repositories/StockConsumptionRepository';
 import { CompanyProfile } from '../../domain/company/entities/CompanyProfile';
+import { ActivityLog } from '../../domain/activity/entities/ActivityLog';
 import { Customer } from '../../domain/customers/entities/Customer';
 import { DesignProject } from '../../domain/designs/entities/DesignProject';
 import { PriceEstimateRates } from '../../domain/designs/pricing/calculateDesignPriceEstimate';
@@ -77,6 +78,11 @@ type CloudStockConsumptionDocument = {
   designId: string;
   consumedAt: string;
   lines: StockConsumptionLine[];
+};
+
+type CloudActivityLogDocument = {
+  data: ActivityLog;
+  updatedAt: string;
 };
 
 type CloudPricingDocument = {
@@ -448,6 +454,7 @@ export async function restoreAllCloudDataToLocal(): Promise<FullSyncResult | nul
     const quoteRepository = await createQuoteRepository();
     const cashTransactionRepository = await createCashTransactionRepository();
     const stockRepository = await createStockRepository();
+    const activityLogRepository = await createActivityLogRepository();
     const customerSnapshots = await getDocs(collection(workspaceDoc, 'customers'));
     const designSnapshots = await getDocs(collection(workspaceDoc, 'designs'));
     const jobSnapshots = await getDocs(collection(workspaceDoc, 'jobProjects'));
@@ -455,6 +462,7 @@ export async function restoreAllCloudDataToLocal(): Promise<FullSyncResult | nul
     const cashTransactionSnapshots = await getDocs(collection(workspaceDoc, 'cashTransactions'));
     const stockItemSnapshots = await getDocs(collection(workspaceDoc, 'stockItems'));
     const stockConsumptionSnapshots = await getDocs(collection(workspaceDoc, 'stockConsumptions'));
+    const activityLogSnapshots = await getDocs(collection(workspaceDoc, 'activityLogs'));
     const pricingSnapshots = await getDocs(collection(workspaceDoc, 'settings'));
     let restoredCustomers = 0;
     let restoredDesigns = 0;
@@ -463,6 +471,7 @@ export async function restoreAllCloudDataToLocal(): Promise<FullSyncResult | nul
     let restoredCashTransactions = 0;
     let restoredStockItems = 0;
     let restoredStockConsumptions = 0;
+    let restoredActivityLogs = 0;
     let restoredPricingSettings = false;
     let restoredCompanyProfile = false;
 
@@ -605,6 +614,18 @@ export async function restoreAllCloudDataToLocal(): Promise<FullSyncResult | nul
       }
     }
 
+    for (const snapshot of activityLogSnapshots.docs) {
+      const document = snapshot.data() as CloudActivityLogDocument;
+      if (document.data?.id && document.data?.createdAt) {
+        await activityLogRepository.upsert({
+          ...document.data,
+          actorUserId: document.data.actorUserId ?? null,
+          actorName: document.data.actorName ?? null,
+        });
+        restoredActivityLogs += 1;
+      }
+    }
+
     const pricingDocument = pricingSnapshots.docs.find((snapshot) => snapshot.id === 'pricing-settings');
     if (pricingDocument) {
       const data = pricingDocument.data() as CloudPricingDocument;
@@ -633,7 +654,7 @@ export async function restoreAllCloudDataToLocal(): Promise<FullSyncResult | nul
       cashTransactions: restoredCashTransactions,
       stockItems: restoredStockItems,
       stockConsumptions: restoredStockConsumptions,
-      activityLogs: 0,
+      activityLogs: restoredActivityLogs,
       pricingSettings: restoredPricingSettings,
       companyProfile: restoredCompanyProfile,
     };
