@@ -14,6 +14,7 @@ const priceEstimateRatesSchema: z.ZodType<PriceEstimateRates> = z.object({
   openingPanelPrice: z.number().nonnegative(),
   fixedPanelPrice: z.number().nonnegative(),
   archSurcharge: z.number().nonnegative(),
+  serviceLaborPrice: z.number().nonnegative(),
   customColorMultiplier: z.number().nonnegative(),
   profileSystems: z.array(
     z.object({

@@ -28,6 +28,7 @@ type FormValues = {
   openingPanelPrice: string;
   fixedPanelPrice: string;
   archSurcharge: string;
+  serviceLaborPrice: string;
   customColorMultiplier: string;
   profileSystems: Record<string, string>;
   glassTypes: Record<string, string>;
@@ -60,7 +61,13 @@ export function PricingSettingsScreen() {
     void loadSettings();
   }, []);
 
-  function updateBaseValue(key: keyof Pick<FormValues, 'openingPanelPrice' | 'fixedPanelPrice' | 'archSurcharge' | 'customColorMultiplier'>, value: string) {
+  function updateBaseValue(
+    key: keyof Pick<
+      FormValues,
+      'openingPanelPrice' | 'fixedPanelPrice' | 'archSurcharge' | 'serviceLaborPrice' | 'customColorMultiplier'
+    >,
+    value: string,
+  ) {
     setValues((current) => ({ ...current, [key]: value }));
     clearStatus();
   }
@@ -249,6 +256,13 @@ export function PricingSettingsScreen() {
               value={values.archSurcharge}
               onChangeText={(value) => updateBaseValue('archSurcharge', value)}
             />
+            <PriceRow
+              label="Iscilik / hizmet"
+              detail="Malzeme ustune eklenen tek hizmet bedeli"
+              suffix="TL / adet"
+              value={values.serviceLaborPrice}
+              onChangeText={(value) => updateBaseValue('serviceLaborPrice', value)}
+            />
           </Section>
 
           {message ? <Text style={styles.success}>{message}</Text> : null}
@@ -326,6 +340,7 @@ function toFormValues(settings: PriceEstimateRates): FormValues {
     openingPanelPrice: String(settings.openingPanelPrice),
     fixedPanelPrice: String(settings.fixedPanelPrice),
     archSurcharge: String(settings.archSurcharge),
+    serviceLaborPrice: String(settings.serviceLaborPrice),
     customColorMultiplier: String(settings.customColorMultiplier),
     profileSystems: Object.fromEntries(
       settings.profileSystems.map((option) => [option.id, String(option.meterPrice)]),
@@ -343,12 +358,14 @@ function parseFormValues(settings: PriceEstimateRates, values: FormValues): Pric
   const openingPanelPrice = parseNumber(values.openingPanelPrice);
   const fixedPanelPrice = parseNumber(values.fixedPanelPrice);
   const archSurcharge = parseNumber(values.archSurcharge);
+  const serviceLaborPrice = parseNumber(values.serviceLaborPrice);
   const customColorMultiplier = parseNumber(values.customColorMultiplier);
 
   if (
     openingPanelPrice === null ||
     fixedPanelPrice === null ||
     archSurcharge === null ||
+    serviceLaborPrice === null ||
     customColorMultiplier === null
   ) {
     return null;
@@ -372,6 +389,7 @@ function parseFormValues(settings: PriceEstimateRates, values: FormValues): Pric
     openingPanelPrice,
     fixedPanelPrice,
     archSurcharge,
+    serviceLaborPrice,
     customColorMultiplier,
     profileSystems,
     glassTypes,

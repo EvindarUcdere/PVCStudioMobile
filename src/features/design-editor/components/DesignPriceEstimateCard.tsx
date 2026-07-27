@@ -61,9 +61,11 @@ export function DesignPriceEstimateCard({ design }: DesignPriceEstimateCardProps
       <Info label="Cam tutari" value={formatCurrency(estimate.glassSubtotal)} />
       <Info label="Aksam/kayit" value={formatCurrency(estimate.hardwareSubtotal)} />
       {estimate.archSubtotal > 0 ? <Info label="Kemer farki" value={formatCurrency(estimate.archSubtotal)} /> : null}
+      <Info label="Malzeme karsiligi" value={formatCurrency(estimate.materialSubtotal)} />
+      <Info label="Iscilik / hizmet" value={formatCurrency(estimate.serviceLaborSubtotal)} />
       <Info label="Renk katsayisi" value={`x${estimate.colorMultiplier}`} />
       <Text style={styles.description}>
-        Bu tutar on tahmindir; iskonto, montaj, fire, marka ve kesin profil fiyatlari sonraki fazda netlesecek.
+        Toplam teklif, malzeme karsiligi uzerine tek iscilik/hizmet bedeli eklenerek hesaplanir.
       </Text>
     </View>
   );
