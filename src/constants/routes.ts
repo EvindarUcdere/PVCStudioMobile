@@ -8,6 +8,7 @@ export const routes = {
   workshop: '/workshop',
   finance: '/finance',
   stock: '/stock',
+  activity: '/activity',
   jobs: '/jobs',
   pricingSettings: '/pricing-settings',
   companyProfile: '/company-profile',

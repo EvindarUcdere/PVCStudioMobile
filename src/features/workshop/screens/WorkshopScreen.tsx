@@ -26,6 +26,7 @@ import { calculateDesignStockNeeds } from '../../../domain/inventory/calculateDe
 import { StockItem, stockUnitLabels } from '../../../domain/inventory/entities/StockItem';
 import { JobProject } from '../../../domain/jobs/entities/JobProject';
 import { backupDesignToCloud, backupJobToCloud } from '../../../services/firebase/fullSyncService';
+import { recordActivity } from '../../../services/activityLogService';
 import { logger } from '../../../services/logger';
 import { colors, radius, spacing, typography } from '../../../theme';
 import { shareJobProductionPdf, shareProductionPdf } from '../../quotes/services/pdfService';
@@ -116,6 +117,14 @@ export function WorkshopScreen() {
       const jobRepository = await createJobRepository();
       const updated = await repository.update({ ...design, jobStatus });
       void backupDesignToCloud(updated);
+      void recordActivity({
+        type: 'workshop_status_changed',
+        title: `${updated.name} durumu ${jobStatusLabels[jobStatus]} yapildi`,
+        description: `${updated.width} x ${updated.height} mm - ${updated.quantity} adet`,
+        entityType: 'design',
+        entityId: updated.id,
+        customerName: updated.jobName,
+      });
 
       if (updated.jobId) {
         const jobDesigns = await repository.list({ jobId: updated.jobId, limit: 500 });

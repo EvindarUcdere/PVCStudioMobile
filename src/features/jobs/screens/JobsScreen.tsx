@@ -17,6 +17,7 @@ import { jobStatusLabels } from '../../../domain/designs/enums/JobStatus';
 import { createJobProject } from '../../../domain/jobs/factories/createJobProject';
 import { JobProject } from '../../../domain/jobs/entities/JobProject';
 import { backupJobToCloud } from '../../../services/firebase/fullSyncService';
+import { recordActivity } from '../../../services/activityLogService';
 import { logger } from '../../../services/logger';
 import { colors, radius, spacing, typography } from '../../../theme';
 
@@ -83,7 +84,16 @@ export function JobsScreen() {
     try {
       const repository = await createJobRepository();
       const saved = await repository.save(createJobProject({ name, customerId: selectedCustomerId }));
+      const customerName = customerById.get(selectedCustomerId ?? '')?.fullName ?? null;
       void backupJobToCloud(saved);
+      void recordActivity({
+        type: 'job_created',
+        title: `${saved.name} isi olusturuldu`,
+        description: customerName ? `${customerName} musterisine baglandi.` : 'Musterisiz is olusturuldu.',
+        entityType: 'job',
+        entityId: saved.id,
+        customerName,
+      });
       setName('');
       setSelectedCustomerId(null);
       await load();

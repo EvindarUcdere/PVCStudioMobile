@@ -19,6 +19,7 @@ import {
   backupJobToCloud,
   backupQuoteToCloud,
 } from '../../../services/firebase/fullSyncService';
+import { recordActivity } from '../../../services/activityLogService';
 import { logger } from '../../../services/logger';
 import { colors, radius, spacing, typography } from '../../../theme';
 import { shareCustomerQuotePdf } from '../services/pdfService';
@@ -67,6 +68,14 @@ export function QuotesScreen() {
       void backupQuoteToCloud(updated);
       if (status === 'accepted') {
         await markDesignApproved(quote.designId);
+        void recordActivity({
+          type: 'quote_accepted',
+          title: `${quote.customerName ?? quote.designName} teklifi onaylandi`,
+          description: 'Musteri onayladi ve is Atolye onay adimina alindi.',
+          entityType: 'quote',
+          entityId: updated.id,
+          customerName: quote.customerName,
+        });
       }
       setQuotes((current) => current.map((item) => (item.id === updated.id ? updated : item)));
     } catch (statusError) {

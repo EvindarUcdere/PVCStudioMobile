@@ -31,6 +31,7 @@ import {
   backupJobToCloud,
   backupQuoteToCloud,
 } from '../../../services/firebase/fullSyncService';
+import { recordActivity } from '../../../services/activityLogService';
 import { logger } from '../../../services/logger';
 import { colors, radius, spacing, typography } from '../../../theme';
 import { shareCustomerQuotePdf, shareProductionPdf } from '../services/pdfService';
@@ -267,6 +268,14 @@ export function QuotePreviewScreen() {
           notes: nullableTrim(note) ?? 'Teklif pesin odendi.',
         });
         void backupCashTransactionToCloud(savedTransaction);
+        void recordActivity({
+          type: 'payment_saved',
+          title: `${customerName || 'Musteri'} pesin odeme kaydedildi`,
+          description: `${Math.round(paidNow).toLocaleString('tr-TR')} TL kasa gelirine eklendi.`,
+          entityType: 'design',
+          entityId: design.id,
+          customerName: nullableTrim(customerName),
+        });
         await approvePaidQuote(quote);
         setPaymentPlan(null);
         setPaymentInstallments([]);
@@ -285,6 +294,14 @@ export function QuotePreviewScreen() {
         installmentCount: count,
         firstDueDate,
         notes: nullableTrim(note),
+      });
+      void recordActivity({
+        type: 'payment_saved',
+        title: `${customerName || 'Musteri'} odeme plani kaydedildi`,
+        description: `${Math.round(paidNow).toLocaleString('tr-TR')} TL pesinat, ${count} taksit.`,
+        entityType: 'design',
+        entityId: design.id,
+        customerName: nullableTrim(customerName),
       });
       await approvePaidQuote(quote);
       setPaymentPlan(savedPlan);
@@ -631,6 +648,14 @@ async function approvePaidQuote(quote: Quote): Promise<void> {
 
   const acceptedQuote = await quoteRepository.updateStatus(quote.id, 'accepted');
   void backupQuoteToCloud(acceptedQuote);
+  void recordActivity({
+    type: 'quote_accepted',
+    title: `${quote.customerName ?? quote.designName} teklifi onaylandi`,
+    description: 'Teklif kabul edildi ve is Atolye onay adimina alindi.',
+    entityType: 'quote',
+    entityId: acceptedQuote.id,
+    customerName: quote.customerName,
+  });
 
   const currentDesign = await designRepository.getById(quote.designId);
   if (!currentDesign) {

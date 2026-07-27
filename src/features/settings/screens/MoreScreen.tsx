@@ -54,6 +54,12 @@ const options: MoreOption[] = [
     onPress: () => router.push(routes.stock),
   },
   {
+    title: 'Hareketler',
+    icon: 'time-outline',
+    state: 'Ac',
+    onPress: () => router.push(routes.activity),
+  },
+  {
     title: 'Fiyat Ayarlari',
     icon: 'calculator-outline',
     state: 'Ac',

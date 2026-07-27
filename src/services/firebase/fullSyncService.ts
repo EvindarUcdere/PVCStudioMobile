@@ -1,6 +1,7 @@
 import { Firestore, collection, doc, getDoc, getDocs, serverTimestamp, writeBatch } from 'firebase/firestore';
 
 import {
+  createActivityLogRepository,
   createCashTransactionRepository,
   createCustomerRepository,
   createDesignRepository,
@@ -37,6 +38,7 @@ export type FullSyncResult = {
   cashTransactions: number;
   stockItems: number;
   stockConsumptions: number;
+  activityLogs: number;
   pricingSettings: boolean;
   companyProfile: boolean;
 };
@@ -101,6 +103,7 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
   const quoteRepository = await createQuoteRepository();
   const cashTransactionRepository = await createCashTransactionRepository();
   const stockRepository = await createStockRepository();
+  const activityLogRepository = await createActivityLogRepository();
   const customers = await customerRepository.list({ includeDeleted: true, limit: 1000 });
   const designs = await designRepository.list({ includeDeleted: true, limit: 1000 });
   const jobs = await jobRepository.list({ includeDeleted: true, limit: 1000 });
@@ -108,6 +111,7 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
   const cashTransactions = await cashTransactionRepository.list({ limit: 1000 });
   const stockItems = await stockRepository.list({ includeInactive: true, limit: 1000 });
   const stockConsumptions = await listStockConsumptions();
+  const activityLogs = await activityLogRepository.list({ limit: 1000 });
   const pricingSettings = await getPricingSettings();
   const companyProfile = await getCompanyProfile();
   const batch = writeBatch(services.firestore);
@@ -170,6 +174,14 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
     });
   });
 
+  activityLogs.forEach((activityLog) => {
+    batch.set(doc(workspaceDoc, 'activityLogs', activityLog.id), {
+      data: activityLog,
+      updatedAt: activityLog.createdAt,
+      syncedAt: serverTimestamp(),
+    });
+  });
+
   batch.set(
     workspaceDoc,
     {
@@ -184,6 +196,7 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
         cashTransactionCount: cashTransactions.length,
         stockItemCount: stockItems.length,
         stockConsumptionCount: stockConsumptions.length,
+        activityLogCount: activityLogs.length,
         pricingSettings: true,
         companyProfile: true,
       },
@@ -217,6 +230,7 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
       cashTransactionCount: cashTransactions.length,
       stockItemCount: stockItems.length,
       stockConsumptionCount: stockConsumptions.length,
+      activityLogCount: activityLogs.length,
       pricingSettings: true,
       companyProfile: true,
       updatedAt: serverTimestamp(),
@@ -236,6 +250,7 @@ export async function backupAllLocalDataToCloud(): Promise<FullSyncResult | null
       cashTransactions: cashTransactions.length,
       stockItems: stockItems.length,
       stockConsumptions: stockConsumptions.length,
+      activityLogs: activityLogs.length,
       pricingSettings: true,
       companyProfile: true,
     };
@@ -618,6 +633,7 @@ export async function restoreAllCloudDataToLocal(): Promise<FullSyncResult | nul
       cashTransactions: restoredCashTransactions,
       stockItems: restoredStockItems,
       stockConsumptions: restoredStockConsumptions,
+      activityLogs: 0,
       pricingSettings: restoredPricingSettings,
       companyProfile: restoredCompanyProfile,
     };
