@@ -9,10 +9,11 @@ import { AppScreen } from '../../../components/ui/AppScreen';
 import { APP_NAME } from '../../../constants/app';
 import { routes } from '../../../constants/routes';
 import {
+  createDesignRepository,
   createJobRepository,
+  createPaymentRepository,
   createQuoteRepository,
   createStockRepository,
-  createDesignRepository,
 } from '../../../database/repositories/createRepositories';
 import { colors, spacing, typography } from '../../../theme';
 import { logger } from '../../../services/logger';
@@ -27,6 +28,7 @@ type QuickAction = {
 type HomeStats = {
   openJobs: number;
   pendingQuotes: number;
+  duePayments: number;
   workshopDesigns: number;
   lowStockItems: number;
 };
@@ -67,6 +69,7 @@ const quickActions: QuickAction[] = [
 const initialStats: HomeStats = {
   openJobs: 0,
   pendingQuotes: 0,
+  duePayments: 0,
   workshopDesigns: 0,
   lowStockItems: 0,
 };
@@ -84,11 +87,13 @@ export function HomeScreen() {
       const jobRepository = await createJobRepository();
       const quoteRepository = await createQuoteRepository();
       const stockRepository = await createStockRepository();
+      const paymentRepository = await createPaymentRepository();
       const designRepository = await createDesignRepository();
-      const [jobs, quotes, lowStockItems, designs] = await Promise.all([
+      const [jobs, quotes, lowStockItems, dueInstallments, designs] = await Promise.all([
         jobRepository.list({ limit: 500 }),
         quoteRepository.list({ limit: 500 }),
         stockRepository.list({ includeInactive: false, lowStockOnly: true, limit: 500 }),
+        paymentRepository.listInstallments({ status: 'pending', dueTo: getLocalDateString(), limit: 500 }),
         designRepository.list({ limit: 500 }),
       ]);
 
@@ -102,6 +107,7 @@ export function HomeScreen() {
           const isStillBeforeWorkshop = !design || design.jobStatus === 'draft' || design.jobStatus === 'quoted';
           return (quote.status === 'draft' || quote.status === 'sent') && isStillBeforeWorkshop;
         }).length,
+        duePayments: dueInstallments.length,
         workshopDesigns: designs.filter((design) => workshopStatuses.includes(design.jobStatus)).length,
         lowStockItems: lowStockItems.length,
       });
@@ -153,10 +159,17 @@ export function HomeScreen() {
             onPress={() => router.push(routes.jobs)}
           />
           <SummaryItem
-            label="Bekleyen teklif"
+            label="Teklif bekliyor"
             value={stats.pendingQuotes}
             icon="document-text-outline"
             onPress={() => router.push(routes.quotes)}
+          />
+          <SummaryItem
+            label="Ödeme bekliyor"
+            value={stats.duePayments}
+            icon="cash-outline"
+            warning
+            onPress={() => router.push(routes.finance)}
           />
           <SummaryItem
             label="Atölyede"
@@ -207,6 +220,14 @@ export function HomeScreen() {
       </AppCard>
     </AppScreen>
   );
+}
+
+function getLocalDateString(): string {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function SummaryItem({
