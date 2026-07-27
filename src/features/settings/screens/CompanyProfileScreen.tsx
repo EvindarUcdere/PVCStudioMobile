@@ -31,6 +31,7 @@ import {
   restoreCompanyProfileFromCloud,
 } from '../../../services/firebase/companyProfileCloudService';
 import { backupAllLocalDataToCloud, restoreAllCloudDataToLocal } from '../../../services/firebase/fullSyncService';
+import { validateAndJoinLicense } from '../../../services/firebase/licenseService';
 import { logger } from '../../../services/logger';
 import { colors, radius, spacing, typography } from '../../../theme';
 
@@ -119,6 +120,13 @@ export function CompanyProfileScreen() {
         return;
       }
 
+      const companyId = normalizeCompanyId(values.companyId);
+      const license = await validateAndJoinLicense(companyId);
+      if (!license.ok) {
+        setError(license.message);
+        return;
+      }
+
       await saveLocalOperatorName(operatorName);
       await registerWithEmail(email, password);
       await backupAllLocalDataToCloud();
@@ -130,6 +138,13 @@ export function CompanyProfileScreen() {
     await runAuthAction(async () => {
       if (!hasCompanyCode()) {
         setError('Buluttaki firma verilerini almak icin firma kodu girilmeli.');
+        return;
+      }
+
+      const companyId = normalizeCompanyId(values.companyId);
+      const license = await validateAndJoinLicense(companyId);
+      if (!license.ok) {
+        setError(license.message);
         return;
       }
 
@@ -172,6 +187,12 @@ export function CompanyProfileScreen() {
 
       await saveCompanyProfile(parsed);
       await saveLocalOperatorName(operatorName);
+      const license = await validateAndJoinLicense(parsed.companyId);
+      if (!license.ok) {
+        setError(license.message);
+        return;
+      }
+
       const result = await restoreAllCloudDataToLocal();
       if (!result) {
         setError('Firma kodu ile bulut verisine baglanilamadi. Kod ve internet baglantisini kontrol edin.');
@@ -180,7 +201,11 @@ export function CompanyProfileScreen() {
 
       const restoredProfile = await getCompanyProfile();
       setValues(toFormValues(restoredProfile));
-      setMessage(`Firma verileri alindi. Artik ${result.companyId} kodlu ortak alandasiniz.`);
+      setMessage(
+        `Lisans dogrulandi. Artik ${result.companyId} kodlu ortak alandasiniz.${
+          license.maxUsers ? ` Kullanici: ${license.activeUserCount}/${license.maxUsers}` : ''
+        }`,
+      );
     } finally {
       setIsSaving(false);
     }
@@ -345,7 +370,7 @@ export function CompanyProfileScreen() {
             <Text style={styles.sectionTitle}>Firma profili</Text>
             <Text style={styles.statusCaption}>
               Ayni firma kodunu giren cihazlar ayni bulut verilerine baglanir. Kullanici adi hareket kayitlarinda
-              islemi yapan kisi olarak gorunur.
+              islemi yapan kisi olarak gorunur. Firma kodunun Firebase lisans kaydinda aktif olmasi gerekir.
             </Text>
             <View style={styles.field}>
               <Text style={styles.label}>Bu cihazdaki kullanici adi</Text>

@@ -5,6 +5,7 @@ import { createId } from '../../domain/designs/utils/id';
 import { logger } from '../logger';
 import { ensureFirebaseUser } from './firebaseAuthService';
 import { getFirebaseServices } from './firebaseConfig';
+import { validateAndJoinLicense } from './licenseService';
 
 export async function getActiveCompanyId(): Promise<string | null> {
   const profile = await getCompanyProfile();
@@ -40,6 +41,12 @@ export async function ensureCompanyWorkspace(): Promise<string | null> {
   }
 
   try {
+    const license = await validateAndJoinLicense(companyId);
+    if (!license.ok) {
+      logger.error('Company workspace license rejected', license.message);
+      return null;
+    }
+
     await setDoc(
       doc(services.firestore, 'companies', companyId),
       {
