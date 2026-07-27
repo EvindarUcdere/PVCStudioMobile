@@ -228,10 +228,11 @@ export function QuotePreviewScreen() {
 
     const paidNow = parsePositiveAmount(paidNowAmount) ?? 0;
     const count = Number(installmentCount.trim());
+    const displayedTotal = Math.round(estimate.total);
 
     if (
       paidNow < 0 ||
-      paidNow > estimate.total ||
+      paidNow > displayedTotal ||
       !Number.isInteger(count) ||
       count < 0 ||
       (count > 0 && !isValidDate(firstDueDate))
@@ -240,7 +241,7 @@ export function QuotePreviewScreen() {
       return;
     }
 
-    if (count === 0 && paidNow < estimate.total) {
+    if (count === 0 && paidNow < displayedTotal) {
       setError('Taksit yoksa alinan odeme toplam tutara esit olmali.');
       return;
     }
