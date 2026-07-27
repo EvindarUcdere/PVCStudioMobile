@@ -12,6 +12,7 @@ import {
   createCustomerRepository,
   createDesignRepository,
   createJobRepository,
+  createQuoteRepository,
   createStockRepository,
 } from '../../../database/repositories/createRepositories';
 import { getPricingSettings } from '../../../database/repositories/PricingSettingsRepository';
@@ -59,17 +60,43 @@ export function WorkshopScreen() {
     try {
       const designRepository = await createDesignRepository();
       const jobRepository = await createJobRepository();
+      const quoteRepository = await createQuoteRepository();
       const customerRepository = await createCustomerRepository();
       const stockRepository = await createStockRepository();
-      const [loadedDesigns, loadedJobs, loadedCustomers, loadedStockItems, loadedRates] = await Promise.all([
+      const [loadedDesigns, loadedJobs, loadedQuotes, loadedCustomers, loadedStockItems, loadedRates] = await Promise.all([
         designRepository.list({ limit: 500 }),
         jobRepository.list({ limit: 500 }),
+        quoteRepository.list({ limit: 500 }),
         customerRepository.list({ limit: 500 }),
         stockRepository.list({ includeInactive: false, limit: 500 }),
         getPricingSettings(),
       ]);
+      const acceptedQuoteDesignIds = new Set(
+        loadedQuotes.filter((quote) => quote.status === 'accepted').map((quote) => quote.designId),
+      );
+      const syncedDesigns = await Promise.all(
+        loadedDesigns.map(async (design) => {
+          const shouldMoveToApproval =
+            acceptedQuoteDesignIds.has(design.id) &&
+            !['approved', 'production', 'installation', 'done'].includes(design.jobStatus);
 
-      setDesigns(loadedDesigns.filter((design) => workshopStatuses.includes(design.jobStatus)));
+          if (!shouldMoveToApproval) {
+            return design;
+          }
+
+          const updated = await designRepository.update({ ...design, jobStatus: 'approved' });
+          void backupDesignToCloud(updated);
+
+          if (updated.jobId) {
+            const updatedJob = await jobRepository.updateStatus(updated.jobId, 'approved');
+            void backupJobToCloud(updatedJob);
+          }
+
+          return updated;
+        }),
+      );
+
+      setDesigns(syncedDesigns.filter((design) => workshopStatuses.includes(design.jobStatus)));
       setJobs(loadedJobs);
       setCustomers(loadedCustomers);
       setStockItems(loadedStockItems);
