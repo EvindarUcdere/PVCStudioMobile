@@ -28,6 +28,7 @@ import { PaymentInstallment, PaymentPlan } from '../../../domain/payments/entiti
 import {
   backupCashTransactionToCloud,
   backupDesignToCloud,
+  backupJobToCloud,
   backupQuoteToCloud,
 } from '../../../services/firebase/fullSyncService';
 import { logger } from '../../../services/logger';
@@ -266,9 +267,10 @@ export function QuotePreviewScreen() {
           notes: nullableTrim(note) ?? 'Teklif pesin odendi.',
         });
         void backupCashTransactionToCloud(savedTransaction);
+        await approvePaidQuote(quote);
         setPaymentPlan(null);
         setPaymentInstallments([]);
-        setSaveMessage('Pesin odeme kasa gelirine kaydedildi.');
+        setSaveMessage('Pesin odeme kaydedildi ve is Atolye onay adimina alindi.');
         setError(null);
         return;
       }
@@ -284,9 +286,10 @@ export function QuotePreviewScreen() {
         firstDueDate,
         notes: nullableTrim(note),
       });
+      await approvePaidQuote(quote);
       setPaymentPlan(savedPlan);
       setPaymentInstallments(await paymentRepository.listInstallmentsByPlan(savedPlan.id));
-      setSaveMessage('Odeme plani kaydedildi.');
+      setSaveMessage('Odeme plani kaydedildi ve is Atolye onay adimina alindi.');
       setError(null);
     } catch (planError) {
       logger.error('Payment plan save failed', planError);
@@ -619,6 +622,30 @@ async function getDesignJobCustomerId(design: DesignProject | null): Promise<str
   const jobRepository = await createJobRepository();
   const job = await jobRepository.getById(design.jobId);
   return job?.customerId ?? null;
+}
+
+async function approvePaidQuote(quote: Quote): Promise<void> {
+  const quoteRepository = await createQuoteRepository();
+  const designRepository = await createDesignRepository();
+  const jobRepository = await createJobRepository();
+
+  const acceptedQuote = await quoteRepository.updateStatus(quote.id, 'accepted');
+  void backupQuoteToCloud(acceptedQuote);
+
+  const currentDesign = await designRepository.getById(quote.designId);
+  if (!currentDesign) {
+    return;
+  }
+
+  if (!['production', 'installation', 'done'].includes(currentDesign.jobStatus)) {
+    const updatedDesign = await designRepository.update({ ...currentDesign, jobStatus: 'approved' });
+    void backupDesignToCloud(updatedDesign);
+  }
+
+  if (currentDesign.jobId) {
+    const updatedJob = await jobRepository.updateStatus(currentDesign.jobId, 'approved');
+    void backupJobToCloud(updatedJob);
+  }
 }
 
 function Info({ label, value }: { label: string; value: string }) {

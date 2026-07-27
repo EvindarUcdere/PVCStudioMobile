@@ -10,11 +10,13 @@ import { EmptyState } from '../../../components/ui/EmptyState';
 import { routes } from '../../../constants/routes';
 import {
   createDesignRepository,
+  createJobRepository,
   createQuoteRepository,
 } from '../../../database/repositories/createRepositories';
 import { Quote, QuoteStatus } from '../../../domain/quotes/entities/Quote';
 import {
   backupDesignToCloud,
+  backupJobToCloud,
   backupQuoteToCloud,
 } from '../../../services/firebase/fullSyncService';
 import { logger } from '../../../services/logger';
@@ -88,6 +90,12 @@ export function QuotesScreen() {
 
     const updatedDesign = await designRepository.update({ ...design, jobStatus: 'approved' });
     void backupDesignToCloud(updatedDesign);
+
+    if (updatedDesign.jobId) {
+      const jobRepository = await createJobRepository();
+      const updatedJob = await jobRepository.updateStatus(updatedDesign.jobId, 'approved');
+      void backupJobToCloud(updatedJob);
+    }
   }
 
   async function shareQuote(quote: Quote) {
