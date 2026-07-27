@@ -1,6 +1,6 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 
 import { AppButton } from '../../../components/ui/AppButton';
 import { AppCard } from '../../../components/ui/AppCard';
@@ -147,9 +147,19 @@ export function QuotesScreen() {
             <QuoteCard
               quote={item}
               onOpenDesign={() => router.push(routes.designDetails(item.designId))}
+              onOpenPayment={() => router.push(routes.designQuote(item.designId))}
               onShare={() => void shareQuote(item)}
               onSharePdf={() => void shareQuotePdf(item)}
-              onAccept={() => void updateStatus(item, 'accepted')}
+              onAccept={() => {
+                Alert.alert(
+                  'Musteri onayladi mi?',
+                  'Bu islem teklifi kabul edildi yapar ve tasarimi Atolye > Onay adimina tasir. Odeme alindi anlamina gelmez; odeme icin Odeme Al butonunu kullanin.',
+                  [
+                    { text: 'Vazgec', style: 'cancel' },
+                    { text: 'Evet, onayladi', onPress: () => void updateStatus(item, 'accepted') },
+                  ],
+                );
+              }}
               onReject={() => void updateStatus(item, 'rejected')}
             />
           )}
@@ -193,6 +203,7 @@ function FilterChip({
 function QuoteCard({
   quote,
   onOpenDesign,
+  onOpenPayment,
   onShare,
   onSharePdf,
   onAccept,
@@ -200,6 +211,7 @@ function QuoteCard({
 }: {
   quote: Quote;
   onOpenDesign: () => void;
+  onOpenPayment: () => void;
   onShare: () => void;
   onSharePdf: () => void;
   onAccept: () => void;
@@ -221,6 +233,9 @@ function QuoteCard({
       <Info label="Profil" value={quote.profileSystemName} />
       <Info label="Cam" value={quote.glassTypeName} />
       <Info label="Toplam" value={formatCurrency(quote.total)} />
+      <Text style={styles.helperText}>
+        Musteri onayladi: is Atolye adimina gecer. Odeme alindiysa ayrica Odeme Al ile kaydedin.
+      </Text>
       <Text style={styles.date}>Guncellendi: {new Date(quote.updatedAt).toLocaleDateString('tr-TR')}</Text>
       <View style={styles.actions}>
         <AppButton label="Paylas" onPress={onShare} style={styles.actionButton} />
@@ -229,7 +244,7 @@ function QuoteCard({
       <View style={styles.actions}>
         <AppButton label="Tasarim" variant="secondary" onPress={onOpenDesign} style={styles.actionButton} />
         <AppButton
-          label="Kabul"
+          label="Musteri Onayladi"
           variant="secondary"
           disabled={quote.status === 'accepted'}
           onPress={onAccept}
@@ -237,6 +252,7 @@ function QuoteCard({
         />
       </View>
       <View style={styles.actions}>
+        <AppButton label="Odeme Al" onPress={onOpenPayment} style={styles.actionButton} />
         <AppButton
           label="Red"
           variant="secondary"
@@ -383,6 +399,10 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   date: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  helperText: {
     ...typography.caption,
     color: colors.textSecondary,
   },
