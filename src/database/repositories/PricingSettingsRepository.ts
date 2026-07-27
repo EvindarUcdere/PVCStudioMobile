@@ -63,15 +63,14 @@ export async function getPricingSettings(): Promise<PriceEstimateRates> {
   }
 
   try {
-    const parsed = priceEstimateRatesSchema.safeParse(mergeWithDefaults(JSON.parse(row.value)));
-    return parsed.success ? parsed.data : defaultPriceEstimateRates;
+    return normalizePricingSettings(JSON.parse(row.value));
   } catch {
     return defaultPriceEstimateRates;
   }
 }
 
-export async function savePricingSettings(settings: PriceEstimateRates): Promise<PriceEstimateRates> {
-  const parsed = priceEstimateRatesSchema.parse(settings);
+export async function savePricingSettings(settings: Partial<PriceEstimateRates>): Promise<PriceEstimateRates> {
+  const parsed = normalizePricingSettings(settings);
   const database = await getDatabase();
 
   await database.runAsync(
@@ -83,6 +82,11 @@ export async function savePricingSettings(settings: PriceEstimateRates): Promise
   );
 
   return parsed;
+}
+
+export function normalizePricingSettings(value: unknown): PriceEstimateRates {
+  const parsed = priceEstimateRatesSchema.safeParse(mergeWithDefaults(value));
+  return parsed.success ? parsed.data : defaultPriceEstimateRates;
 }
 
 function mergeWithDefaults(value: unknown): PriceEstimateRates {

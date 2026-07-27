@@ -1,5 +1,6 @@
 import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 
+import { normalizePricingSettings } from '../../database/repositories/PricingSettingsRepository';
 import { PriceEstimateRates } from '../../domain/designs/pricing/calculateDesignPriceEstimate';
 import { logger } from '../logger';
 import { ensureCompanyWorkspace, getCloudWorkspacePath } from './companyWorkspaceService';
@@ -46,7 +47,7 @@ export async function restorePricingSettingsFromCloud(): Promise<PriceEstimateRa
       doc(services.firestore, 'companies', workspace.rootId, 'settings', pricingSettingsDocumentId),
     );
     const data = snapshot.data();
-    return snapshot.exists() && data?.settings ? (data.settings as PriceEstimateRates) : null;
+    return snapshot.exists() && data?.settings ? normalizePricingSettings(data.settings) : null;
   } catch (error) {
     logger.error('Pricing settings cloud restore failed', error);
     return null;
