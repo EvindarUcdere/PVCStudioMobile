@@ -1,6 +1,6 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { AppButton } from '../../../components/ui/AppButton';
 import { AppCard } from '../../../components/ui/AppCard';
@@ -30,7 +30,7 @@ import { logger } from '../../../services/logger';
 import { colors, radius, spacing, typography } from '../../../theme';
 import { shareJobProductionPdf, shareProductionPdf } from '../../quotes/services/pdfService';
 
-const workshopStatuses: JobStatus[] = ['approved', 'production', 'installation'];
+const workshopStatuses: JobStatus[] = ['approved', 'production', 'installation', 'done'];
 
 type WorkshopJobGroup = {
   id: string;
@@ -49,6 +49,7 @@ export function WorkshopScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -91,12 +92,19 @@ export function WorkshopScreen() {
       approved: designs.filter((design) => design.jobStatus === 'approved'),
       production: designs.filter((design) => design.jobStatus === 'production'),
       installation: designs.filter((design) => design.jobStatus === 'installation'),
+      done: designs.filter((design) => design.jobStatus === 'done'),
     }),
     [designs],
   );
+  const filteredDesigns = useMemo(() => filterWorkshopDesigns(designs, jobs, customers, search), [
+    customers,
+    designs,
+    jobs,
+    search,
+  ]);
   const jobGroups = useMemo(
-    () => buildWorkshopJobGroups(designs, jobs, customers),
-    [customers, designs, jobs],
+    () => buildWorkshopJobGroups(filteredDesigns, jobs, customers),
+    [customers, filteredDesigns, jobs],
   );
 
   async function updateDesignStatus(design: DesignProject, jobStatus: JobStatus) {
@@ -191,6 +199,14 @@ export function WorkshopScreen() {
         subtitle="Onaylanan, uretimdeki ve montajdaki isler"
         rightAction={<AppButton label="Geri" variant="ghost" onPress={() => router.back()} />}
       />
+      <TextInput
+        accessibilityLabel="Atolye ara"
+        onChangeText={setSearch}
+        placeholder="Musteri, is veya tasarim ara"
+        placeholderTextColor={colors.textSecondary}
+        style={styles.searchInput}
+        value={search}
+      />
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <FlatList
         data={jobGroups}
@@ -202,7 +218,14 @@ export function WorkshopScreen() {
               <SummaryBox label="Onay" value={grouped.approved.length} />
               <SummaryBox label="Uretim" value={grouped.production.length} />
               <SummaryBox label="Montaj" value={grouped.installation.length} />
+              <SummaryBox label="Bitti" value={grouped.done.length} />
             </View>
+            <AppButton
+              label="Yeni Tasarim"
+              variant="secondary"
+              onPress={() => router.push(routes.newDesign)}
+              style={styles.newDesignButton}
+            />
           </View>
         }
         renderItem={({ item }) => (
@@ -227,8 +250,8 @@ export function WorkshopScreen() {
         ListEmptyComponent={
           <EmptyState
             title="Atolyede is yok"
-            description="Teklif kabul edilince veya tasarim durumu Onay/Uretim/Montaj yapilinca burada gorunur."
-            action={<AppButton label="Tekliflere Git" onPress={() => router.push(routes.quotes)} />}
+            description="Teklif kabul edilince veya tasarim durumu Onay/Uretim/Montaj/Bitti olunca burada gorunur."
+            action={<AppButton label="Yeni Tasarim" onPress={() => router.push(routes.newDesign)} />}
           />
         }
       />
@@ -478,6 +501,39 @@ function buildWorkshopJobGroups(
   );
 }
 
+function filterWorkshopDesigns(
+  designs: DesignProject[],
+  jobs: JobProject[],
+  customers: Customer[],
+  search: string,
+): DesignProject[] {
+  const query = search.trim().toLocaleLowerCase('tr-TR');
+  if (!query) {
+    return designs;
+  }
+
+  const jobById = new Map(jobs.map((job) => [job.id, job]));
+  const customerById = new Map(customers.map((customer) => [customer.id, customer]));
+
+  return designs.filter((design) => {
+    const job = design.jobId ? jobById.get(design.jobId) : null;
+    const customer = job?.customerId ? customerById.get(job.customerId) : null;
+    const haystack = [
+      design.name,
+      design.jobName,
+      job?.name,
+      customer?.fullName,
+      customer?.phone,
+      jobStatusLabels[design.jobStatus],
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLocaleLowerCase('tr-TR');
+
+    return haystack.includes(query);
+  });
+}
+
 function Info({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.infoRow}>
@@ -496,6 +552,10 @@ function getStatusStyle(status: JobStatus) {
     return styles.badgeInstallation;
   }
 
+  if (status === 'done') {
+    return styles.badgeDone;
+  }
+
   return styles.badgeApproved;
 }
 
@@ -509,16 +569,32 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xxl,
   },
   headerContent: {
+    gap: spacing.sm,
     marginBottom: spacing.md,
+  },
+  searchInput: {
+    ...typography.body,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    color: colors.textPrimary,
+    marginBottom: spacing.sm,
+    minHeight: 46,
+    paddingHorizontal: spacing.md,
   },
   summaryGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
   },
   summaryBox: {
-    flex: 1,
     gap: spacing.xs,
     padding: spacing.sm,
+    width: '48%',
+  },
+  newDesignButton: {
+    minHeight: 42,
   },
   summaryLabel: {
     ...typography.caption,
@@ -585,6 +661,9 @@ const styles = StyleSheet.create({
   },
   badgeInstallation: {
     backgroundColor: colors.success,
+  },
+  badgeDone: {
+    backgroundColor: colors.textSecondary,
   },
   badgeText: {
     ...typography.caption,
