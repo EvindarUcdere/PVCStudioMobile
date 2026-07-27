@@ -92,12 +92,17 @@ export function HomeScreen() {
         designRepository.list({ limit: 500 }),
       ]);
 
+      const designById = new Map(designs.map((design) => [design.id, design]));
+      const workshopStatuses = ['approved', 'production', 'installation'];
+
       setStats({
         openJobs: jobs.filter((job) => job.status !== 'done' && job.status !== 'canceled').length,
-        pendingQuotes: quotes.filter((quote) => quote.status === 'draft' || quote.status === 'sent').length,
-        workshopDesigns: designs.filter((design) =>
-          ['approved', 'production', 'installation'].includes(design.jobStatus),
-        ).length,
+        pendingQuotes: quotes.filter((quote) => {
+          const design = designById.get(quote.designId);
+          const isStillBeforeWorkshop = !design || design.jobStatus === 'draft' || design.jobStatus === 'quoted';
+          return (quote.status === 'draft' || quote.status === 'sent') && isStillBeforeWorkshop;
+        }).length,
+        workshopDesigns: designs.filter((design) => workshopStatuses.includes(design.jobStatus)).length,
         lowStockItems: lowStockItems.length,
       });
     } catch (error) {

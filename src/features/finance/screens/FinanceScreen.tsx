@@ -52,7 +52,7 @@ const defaultForm: FinanceForm = {
   category: 'job_payment',
   title: '',
   amount: '',
-  transactionDate: new Date().toISOString().slice(0, 10),
+  transactionDate: getLocalDateString(),
   customerId: null,
   designId: null,
   notes: '',
@@ -100,7 +100,7 @@ export function FinanceScreen() {
         designRepository.list({ limit: 100 }),
         paymentRepository.listInstallments({
           status: 'pending',
-          dueTo: new Date().toISOString().slice(0, 10),
+          dueTo: getLocalDateString(),
           limit: 50,
         }),
       ]);
@@ -159,7 +159,7 @@ export function FinanceScreen() {
       void backupCashTransactionToCloud(saved);
       setForm({
         ...defaultForm,
-        transactionDate: new Date().toISOString().slice(0, 10),
+        transactionDate: getLocalDateString(),
       });
       setMessage('Kayit eklendi.');
       await loadFinance();
@@ -184,7 +184,7 @@ export function FinanceScreen() {
         category: 'job_payment',
         title: `${installment.customerName ?? 'Musteri'} taksit odemesi`,
         amount: installment.amount,
-        transactionDate: new Date().toISOString().slice(0, 10),
+        transactionDate: getLocalDateString(),
         customerId: null,
         designId: installment.designId,
         notes: `${installment.sequence}. taksit odendi.`,
@@ -206,7 +206,7 @@ export function FinanceScreen() {
     setMessage(null);
     try {
       const paymentRepository = await createPaymentRepository();
-      const nextDate = addDays(new Date().toISOString().slice(0, 10), days);
+      const nextDate = addDays(getLocalDateString(), days);
       await paymentRepository.updateInstallmentDueDate(installment.id, nextDate);
       setMessage(`${installment.sequence}. taksit ${formatDate(nextDate)} tarihine ertelendi.`);
       await loadFinance();
@@ -523,10 +523,20 @@ function formatDesignOption(design: DesignProject): string {
   return `${baseName} (${design.width}x${design.height})`;
 }
 
+function getLocalDateString(): string {
+  return toDateInputValue(new Date());
+}
+
+function toDateInputValue(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 function getCurrentMonthRange(): { from: string; to: string } {
   const now = new Date();
-  const from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-  const to = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+  const from = toDateInputValue(new Date(now.getFullYear(), now.getMonth(), 1));
+  const to = toDateInputValue(new Date(now.getFullYear(), now.getMonth() + 1, 0));
   return { from, to };
 }
 
@@ -560,7 +570,7 @@ function addDays(dateString: string, days: number): string {
   const [year, month, day] = dateString.split('-').map(Number);
   const date = new Date(year ?? 0, (month ?? 1) - 1, day ?? 1);
   date.setDate(date.getDate() + days);
-  return date.toISOString().slice(0, 10);
+  return toDateInputValue(date);
 }
 
 const styles = StyleSheet.create({
