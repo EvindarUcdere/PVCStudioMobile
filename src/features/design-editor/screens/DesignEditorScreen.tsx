@@ -239,7 +239,7 @@ export function DesignEditorScreen() {
             Toplam olcu: {design.width} x {design.height} mm
           </Text>
           <View style={styles.tools}>
-            <ToolSection title="Kayit">
+            <ToolSection title="Is, musteri ve adet">
               <CustomerSelector
                 customers={customers}
                 selectedCustomerId={design.customerId}
@@ -268,6 +268,9 @@ export function DesignEditorScreen() {
                 style={styles.jobNameInput}
                 value={String(design.quantity)}
               />
+              <Text style={styles.caption}>
+                Ayni tasarimdan kac adet uretilecekse buraya yazin. Ornek: bu pencereden 5 tane varsa adet 5.
+              </Text>
               <JobStatusSelector value={design.jobStatus} onChange={handleJobStatusChange} />
               <AppButton
                 label={hasRollerShutter ? 'Panjur alanini kaldir' : 'Panjur alani ekle'}
@@ -291,13 +294,13 @@ export function DesignEditorScreen() {
                 />
               </View>
               <AppButton
-                label="Kaydet"
+                label="Tasarimi Kaydet"
                 disabled={!isDirty}
                 loading={isSaving}
                 onPress={() => void saveDesign()}
               />
               <AppButton
-                label="Teklif Olustur"
+                label="Teklif / Odeme Olustur"
                 variant="secondary"
                 disabled={isSaving}
                 onPress={() => void openQuote()}
