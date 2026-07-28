@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "scheme": "pvc-studio-mobile",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "ios": {
       "bundleIdentifier": "com.pvcstudio.mobile",
       "supportsTablet": false
