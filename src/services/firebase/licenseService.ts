@@ -1,4 +1,4 @@
-import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, where } from 'firebase/firestore';
 
 import { logger } from '../logger';
 import { ensureFirebaseUser } from './firebaseAuthService';
@@ -40,10 +40,9 @@ export async function validateAndJoinLicense(companyId: string): Promise<License
   }
 
   try {
-    const licenseRef = doc(services.firestore, 'licenses', companyId);
-    const snapshot = await getDoc(licenseRef);
+    const licenseSnapshot = await getLicenseSnapshot(companyId);
 
-    if (!snapshot.exists()) {
+    if (!licenseSnapshot) {
       return {
         ok: false,
         reason: 'not-found',
@@ -51,7 +50,7 @@ export async function validateAndJoinLicense(companyId: string): Promise<License
       };
     }
 
-    const license = snapshot.data() as LicenseDocument;
+    const license = licenseSnapshot.data as LicenseDocument;
     if (license.isActive !== true) {
       return {
         ok: false,
@@ -82,7 +81,7 @@ export async function validateAndJoinLicense(companyId: string): Promise<License
     }
 
     await setDoc(
-      licenseRef,
+      licenseSnapshot.ref,
       {
         activeUserIds: {
           [user.uid]: true,
@@ -117,4 +116,28 @@ function isExpired(expiresAt: string | null | undefined): boolean {
 
   const time = new Date(expiresAt).getTime();
   return Number.isFinite(time) && time < Date.now();
+}
+
+async function getLicenseSnapshot(companyId: string): Promise<{
+  ref: ReturnType<typeof doc>;
+  data: LicenseDocument;
+} | null> {
+  const services = getFirebaseServices();
+
+  if (!services) {
+    return null;
+  }
+
+  const licenseRef = doc(services.firestore, 'licenses', companyId);
+  const snapshot = await getDoc(licenseRef);
+  if (snapshot.exists()) {
+    return { ref: licenseRef, data: snapshot.data() as LicenseDocument };
+  }
+
+  const byCompanyId = await getDocs(
+    query(collection(services.firestore, 'licenses'), where('companyId', '==', companyId)),
+  );
+  const firstMatch = byCompanyId.docs[0];
+
+  return firstMatch ? { ref: firstMatch.ref, data: firstMatch.data() as LicenseDocument } : null;
 }

@@ -43,7 +43,6 @@ export async function ensureCompanyWorkspace(): Promise<string | null> {
   try {
     const license = await validateAndJoinLicense(companyId);
     if (!license.ok) {
-      logger.error('Company workspace license rejected', license.message);
       return null;
     }
 
@@ -79,5 +78,5 @@ export function createCompanyCode(): string {
 }
 
 export function normalizeCompanyId(value: string): string {
-  return value.trim().replace(/\s+/g, '-').toUpperCase();
+  return value.trim().replace(/[‐‑‒–—―−]/g, '-').replace(/\s+/g, '-').toUpperCase();
 }
