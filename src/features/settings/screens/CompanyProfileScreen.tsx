@@ -52,6 +52,7 @@ export function CompanyProfileScreen() {
   const [values, setValues] = useState<CompanyProfileForm>(toFormValues(defaultCompanyProfile));
   const [user, setUser] = useState<User | null>(null);
   const [operatorName, setOperatorName] = useState('');
+  const [savedCompanyId, setSavedCompanyId] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -71,6 +72,7 @@ export function CompanyProfileScreen() {
           getLocalOperatorName(),
         ]);
         setValues(toFormValues(loadedProfile));
+        setSavedCompanyId(normalizeCompanyId(loadedProfile.companyId));
         setOperatorName(loadedOperatorName ?? '');
       } catch (loadError) {
         logger.error('Company profile load failed', loadError);
@@ -96,6 +98,10 @@ export function CompanyProfileScreen() {
       return;
     }
 
+    if (!canUseCompanyCode(parsed.companyId)) {
+      return;
+    }
+
     setIsSaving(true);
     setError(null);
     setMessage(null);
@@ -103,6 +109,7 @@ export function CompanyProfileScreen() {
       const savedProfile = await saveCompanyProfile(parsed);
       await saveLocalOperatorName(operatorName);
       setValues(toFormValues(savedProfile));
+      setSavedCompanyId(normalizeCompanyId(savedProfile.companyId));
       void backupCompanyProfileToCloud(savedProfile);
       setMessage('Firma bilgileri kaydedildi.');
     } catch (saveError) {
@@ -121,6 +128,10 @@ export function CompanyProfileScreen() {
       }
 
       const companyId = normalizeCompanyId(values.companyId);
+      if (!canUseCompanyCode(companyId)) {
+        return;
+      }
+
       const license = await validateAndJoinLicense(companyId);
       if (!license.ok) {
         setError(license.message);
@@ -142,6 +153,10 @@ export function CompanyProfileScreen() {
       }
 
       const companyId = normalizeCompanyId(values.companyId);
+      if (!canUseCompanyCode(companyId)) {
+        return;
+      }
+
       const license = await validateAndJoinLicense(companyId);
       if (!license.ok) {
         setError(license.message);
@@ -185,6 +200,10 @@ export function CompanyProfileScreen() {
         return;
       }
 
+      if (!canUseCompanyCode(parsed.companyId)) {
+        return;
+      }
+
       await saveCompanyProfile(parsed);
       await saveLocalOperatorName(operatorName);
       const license = await validateAndJoinLicense(parsed.companyId);
@@ -201,6 +220,7 @@ export function CompanyProfileScreen() {
 
       const restoredProfile = await getCompanyProfile();
       setValues(toFormValues(restoredProfile));
+      setSavedCompanyId(normalizeCompanyId(restoredProfile.companyId));
       setMessage(
         `Lisans dogrulandi. Artik ${result.companyId} kodlu ortak alandasiniz.${
           license.maxUsers ? ` Kullanici: ${license.activeUserCount}/${license.maxUsers}` : ''
@@ -218,6 +238,10 @@ export function CompanyProfileScreen() {
       return;
     }
 
+    if (!canUseCompanyCode(parsed.companyId)) {
+      return;
+    }
+
     setIsSaving(true);
     setError(null);
     setMessage(null);
@@ -226,6 +250,7 @@ export function CompanyProfileScreen() {
       await saveLocalOperatorName(operatorName);
       const backedUp = await backupCompanyProfileToCloud(savedProfile);
       setValues(toFormValues(savedProfile));
+      setSavedCompanyId(normalizeCompanyId(savedProfile.companyId));
       setMessage(backedUp ? 'Firma bilgileri buluta yedeklendi.' : 'Bulut yedegi yapilamadi.');
     } finally {
       setIsSaving(false);
@@ -235,6 +260,10 @@ export function CompanyProfileScreen() {
   async function restoreProfile() {
     if (!hasCompanyCode()) {
       setError('Buluttan almak icin firma kodu girilmeli.');
+      return;
+    }
+
+    if (!canUseCompanyCode(values.companyId)) {
       return;
     }
 
@@ -250,6 +279,7 @@ export function CompanyProfileScreen() {
 
       const savedProfile = await saveCompanyProfile(cloudProfile);
       setValues(toFormValues(savedProfile));
+      setSavedCompanyId(normalizeCompanyId(savedProfile.companyId));
       setMessage('Buluttaki firma bilgileri cihaza alindi.');
     } finally {
       setIsSaving(false);
@@ -291,6 +321,19 @@ export function CompanyProfileScreen() {
 
   function hasCompanyCode(): boolean {
     return normalizeCompanyId(values.companyId).length > 0;
+  }
+
+  function canUseCompanyCode(nextCompanyId: string): boolean {
+    const normalizedNext = normalizeCompanyId(nextCompanyId);
+
+    if (!savedCompanyId || savedCompanyId === normalizedNext) {
+      return true;
+    }
+
+    setError(
+      `Bu cihaz ${savedCompanyId} firmasina bagli. Farkli firmaya gecis normal kullanimda kapali. Test icin uygulamayi kaldirip temiz kurulum yapin.`,
+    );
+    return false;
   }
 
   if (isLoading) {
