@@ -1,7 +1,6 @@
 import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 
 import { getCompanyProfile } from '../../database/repositories/CompanyProfileRepository';
-import { createId } from '../../domain/designs/utils/id';
 import { logger } from '../logger';
 import { ensureFirebaseUser } from './firebaseAuthService';
 import { getFirebaseServices } from './firebaseConfig';
@@ -71,10 +70,6 @@ export async function ensureCompanyWorkspace(): Promise<string | null> {
     logger.error('Company workspace ensure failed', error);
     return null;
   }
-}
-
-export function createCompanyCode(): string {
-  return createId().slice(0, 8).toUpperCase();
 }
 
 export function normalizeCompanyId(value: string): string {

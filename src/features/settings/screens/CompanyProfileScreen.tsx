@@ -26,7 +26,7 @@ import {
   subscribeFirebaseUser,
 } from '../../../services/firebase/firebaseAuthService';
 import { isFirebaseConfigured } from '../../../services/firebase/firebaseConfig';
-import { createCompanyCode, normalizeCompanyId } from '../../../services/firebase/companyWorkspaceService';
+import { normalizeCompanyId } from '../../../services/firebase/companyWorkspaceService';
 import {
   backupCompanyProfileToCloud,
   restoreCompanyProfileFromCloud,
@@ -337,10 +337,6 @@ export function CompanyProfileScreen() {
     setError(null);
   }
 
-  function generateCompanyCode() {
-    updateValue('companyId', createCompanyCode());
-  }
-
   function hasCompanyCode(): boolean {
     return normalizeCompanyId(values.companyId).length > 0;
   }
@@ -470,11 +466,6 @@ export function CompanyProfileScreen() {
                 />
               </View>
             ))}
-            <AppButton
-              label="Firma Kodu Olustur"
-              variant="secondary"
-              onPress={generateCompanyCode}
-            />
             <AppButton
               label="Firma Koduyla Katil"
               disabled={isSaving}
