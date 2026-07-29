@@ -5,7 +5,7 @@ import {
   signInAnonymously,
   signInWithEmailAndPassword,
   signOut,
-} from 'firebase/auth';
+} from '@firebase/auth';
 
 import { logger } from '../logger';
 import { getFirebaseServices } from './firebaseConfig';

@@ -605,47 +605,64 @@ export function QuotePreviewScreen() {
 
       {saveMessage ? <Text style={styles.success}>{saveMessage}</Text> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      <View style={styles.actionRow}>
+      <AppCard style={styles.actionsCard}>
+        <Text style={styles.sectionTitle}>Teklif islemleri</Text>
+        <Text style={styles.helperText}>
+          Teklifi Kaydet, bu fiyat ve musteri bilgileriyle teklif kaydi olusturur. Tasarim cizimi
+          icin editor ekranindaki Kaydet kullanilir.
+        </Text>
+        <AppButton label="Teklifi Kaydet" loading={isSaving} disabled={isSaving} onPress={() => void saveDraftQuote()} />
         <AppButton
-          label="WhatsApp Gonder"
+          label="Teklifi Paylas"
           variant="secondary"
+          loading={isSharing}
           disabled={isSharing}
-          onPress={() => void sendWhatsAppQuote()}
-          style={styles.actionButton}
+          onPress={() => void shareQuote()}
         />
-        <AppButton
-          label="SMS Gonder"
-          variant="secondary"
-          disabled={isSharing}
-          onPress={() => void sendSmsQuote()}
-          style={styles.actionButton}
-        />
-      </View>
-      <Text style={styles.helperText}>
-        Teklifi Kaydet, bu fiyat ve musteri bilgileriyle teklif kaydi olusturur. Tasarim cizimi
-        icin editor ekranindaki Kaydet kullanilir.
-      </Text>
-      <AppButton label="Teklifi Kaydet" loading={isSaving} disabled={isSaving} onPress={() => void saveDraftQuote()} />
-      <AppButton label="Teklifi Paylas" loading={isSharing} disabled={isSharing} onPress={() => void shareQuote()} />
-      <View style={styles.actionRow}>
-        <AppButton
-          label="Teklif PDF"
-          variant="secondary"
-          loading={isPdfSharing}
-          disabled={isPdfSharing}
-          onPress={() => void shareCustomerPdf()}
-          style={styles.actionButton}
-        />
-        <AppButton
-          label="Imalat PDF"
-          variant="secondary"
-          loading={isPdfSharing}
-          disabled={isPdfSharing}
-          onPress={() => void shareProductionForm()}
-          style={styles.actionButton}
-        />
-      </View>
-      <AppButton label="Tasarimi Duzenle" variant="secondary" onPress={() => router.push(routes.designEditor(design.id))} />
+      </AppCard>
+
+      <AppCard style={styles.actionsCard}>
+        <Text style={styles.sectionTitle}>Musteriye gonder</Text>
+        <View style={styles.actionRow}>
+          <AppButton
+            label="WhatsApp"
+            variant="secondary"
+            disabled={isSharing}
+            onPress={() => void sendWhatsAppQuote()}
+            style={styles.actionButton}
+          />
+          <AppButton
+            label="SMS"
+            variant="secondary"
+            disabled={isSharing}
+            onPress={() => void sendSmsQuote()}
+            style={styles.actionButton}
+          />
+        </View>
+      </AppCard>
+
+      <AppCard style={styles.actionsCard}>
+        <Text style={styles.sectionTitle}>PDF ve tasarim</Text>
+        <View style={styles.actionRow}>
+          <AppButton
+            label="Teklif PDF"
+            variant="secondary"
+            loading={isPdfSharing}
+            disabled={isPdfSharing}
+            onPress={() => void shareCustomerPdf()}
+            style={styles.actionButton}
+          />
+          <AppButton
+            label="Imalat PDF"
+            variant="secondary"
+            loading={isPdfSharing}
+            disabled={isPdfSharing}
+            onPress={() => void shareProductionForm()}
+            style={styles.actionButton}
+          />
+        </View>
+        <AppButton label="Tasarimi Duzenle" variant="secondary" onPress={() => router.push(routes.designEditor(design.id))} />
+      </AppCard>
     </AppScreen>
   );
 }
@@ -772,6 +789,9 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   breakdownCard: {
+    gap: spacing.sm,
+  },
+  actionsCard: {
     gap: spacing.sm,
   },
   installments: {
