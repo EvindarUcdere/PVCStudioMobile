@@ -33,6 +33,25 @@ export const routes = {
   designDetails: (designId: string) => `/designs/${designId}`,
   designEditor: (designId: string) => `/designs/${designId}/edit`,
   designQuote: (designId: string) => `/designs/${designId}/quote`,
+  designPdfPreview: (
+    designId: string,
+    type: 'quote' | 'production',
+    customerName = '',
+    customerPhone = '',
+    note = '',
+  ) => {
+    const params = new URLSearchParams({ type });
+    if (customerName) {
+      params.set('customerName', customerName);
+    }
+    if (customerPhone) {
+      params.set('customerPhone', customerPhone);
+    }
+    if (note) {
+      params.set('note', note);
+    }
+    return `/designs/${designId}/pdf-preview?${params.toString()}`;
+  },
   jobDetails: (jobId: string) => `/jobs/${jobId}`,
   customerDetails: (customerId: string) => `/customers/${customerId}`,
   newDesignForCustomer: (customerId: string) => `/new-design?customerId=${customerId}`,

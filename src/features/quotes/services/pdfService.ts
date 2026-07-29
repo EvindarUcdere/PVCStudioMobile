@@ -41,24 +41,33 @@ export type JobProductionPdfInput = {
 };
 
 export async function shareCustomerQuotePdf(input: QuotePdfInput | SavedQuotePdfInput): Promise<void> {
-  const companyProfile = await getCompanyProfile();
-  const html =
-    'quote' in input
-      ? buildSavedCustomerQuoteHtml(input.quote, companyProfile)
-      : buildCustomerQuoteHtml(input, companyProfile);
-  await printAndShare(html, 'PVC teklif.pdf');
+  await printAndShare(await buildCustomerQuotePdfHtml(input), 'PVC teklif.pdf');
 }
 
 export async function shareProductionPdf(input: QuotePdfInput): Promise<void> {
-  const companyProfile = await getCompanyProfile();
-  const html = buildProductionHtml(input, companyProfile);
-  await printAndShare(html, 'PVC imalat formu.pdf');
+  await printAndShare(await buildProductionPdfHtml(input), 'PVC imalat formu.pdf');
 }
 
 export async function shareJobProductionPdf(input: JobProductionPdfInput): Promise<void> {
   const companyProfile = await getCompanyProfile();
   const html = buildJobProductionHtml(input, companyProfile);
   await printAndShare(html, 'PVC toplu imalat formu.pdf');
+}
+
+export async function buildCustomerQuotePdfHtml(input: QuotePdfInput | SavedQuotePdfInput): Promise<string> {
+  const companyProfile = await getCompanyProfile();
+  return 'quote' in input
+    ? buildSavedCustomerQuoteHtml(input.quote, companyProfile)
+    : buildCustomerQuoteHtml(input, companyProfile);
+}
+
+export async function buildProductionPdfHtml(input: QuotePdfInput): Promise<string> {
+  const companyProfile = await getCompanyProfile();
+  return buildProductionHtml(input, companyProfile);
+}
+
+export async function sharePdfHtml(html: string, dialogTitle: string): Promise<void> {
+  await printAndShare(html, dialogTitle);
 }
 
 async function printAndShare(html: string, dialogTitle: string): Promise<void> {

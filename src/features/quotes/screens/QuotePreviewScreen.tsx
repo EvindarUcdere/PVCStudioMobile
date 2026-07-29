@@ -40,7 +40,6 @@ import {
   normalizeTurkishWhatsAppPhone,
   sanitizePhoneInput,
 } from '../../../utils/phone';
-import { shareCustomerQuotePdf, shareProductionPdf } from '../services/pdfService';
 
 export function QuotePreviewScreen() {
   const { designId } = useLocalSearchParams<{ designId: string }>();
@@ -58,7 +57,6 @@ export function QuotePreviewScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
-  const [isPdfSharing, setIsPdfSharing] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -367,37 +365,12 @@ export function QuotePreviewScreen() {
     setSaveMessage(null);
   }
 
-  async function shareCustomerPdf() {
-    if (!design || !estimate || isPdfSharing) {
+  function openPdfPreview(type: 'quote' | 'production') {
+    if (!design) {
       return;
     }
 
-    setIsPdfSharing(true);
-    try {
-      await saveCurrentQuote('sent');
-      await shareCustomerQuotePdf({ design, estimate, customerName, customerPhone, note });
-    } catch (pdfError) {
-      logger.error('Customer quote PDF share failed', pdfError);
-      setError('Teklif PDF paylasilamadi.');
-    } finally {
-      setIsPdfSharing(false);
-    }
-  }
-
-  async function shareProductionForm() {
-    if (!design || !estimate || isPdfSharing) {
-      return;
-    }
-
-    setIsPdfSharing(true);
-    try {
-      await shareProductionPdf({ design, estimate, customerName, customerPhone, note });
-    } catch (pdfError) {
-      logger.error('Production PDF share failed', pdfError);
-      setError('Imalat PDF paylasilamadi.');
-    } finally {
-      setIsPdfSharing(false);
-    }
+    router.push(routes.designPdfPreview(design.id, type, customerName, customerPhone, note));
   }
 
   async function saveCurrentQuote(status: Quote['status']): Promise<Quote | null> {
@@ -645,19 +618,15 @@ export function QuotePreviewScreen() {
         <Text style={styles.sectionTitle}>PDF ve tasarim</Text>
         <View style={styles.actionRow}>
           <AppButton
-            label="Teklif PDF"
+            label="Teklif Onizle"
             variant="secondary"
-            loading={isPdfSharing}
-            disabled={isPdfSharing}
-            onPress={() => void shareCustomerPdf()}
+            onPress={() => openPdfPreview('quote')}
             style={styles.actionButton}
           />
           <AppButton
-            label="Imalat PDF"
+            label="Imalat Onizle"
             variant="secondary"
-            loading={isPdfSharing}
-            disabled={isPdfSharing}
-            onPress={() => void shareProductionForm()}
+            onPress={() => openPdfPreview('production')}
             style={styles.actionButton}
           />
         </View>
