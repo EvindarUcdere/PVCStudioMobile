@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, where } from 'firebase/firestore';
+import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 
 import { logger } from '../logger';
 import { ensureFirebaseUser } from './firebaseAuthService';
@@ -134,10 +134,5 @@ async function getLicenseSnapshot(companyId: string): Promise<{
     return { ref: licenseRef, data: snapshot.data() as LicenseDocument };
   }
 
-  const byCompanyId = await getDocs(
-    query(collection(services.firestore, 'licenses'), where('companyId', '==', companyId)),
-  );
-  const firstMatch = byCompanyId.docs[0];
-
-  return firstMatch ? { ref: firstMatch.ref, data: firstMatch.data() as LicenseDocument } : null;
+  return null;
 }

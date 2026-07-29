@@ -1,0 +1,73 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function licenseExists(companyId) {
+      return exists(/databases/$(database)/documents/licenses/$(companyId));
+    }
+
+    function licenseData(companyId) {
+      return get(/databases/$(database)/documents/licenses/$(companyId)).data;
+    }
+
+    function hasActiveLicense(companyId) {
+      return licenseExists(companyId)
+        && licenseData(companyId).isActive == true;
+    }
+
+    function existingActiveUserIds() {
+      return 'activeUserIds' in resource.data ? resource.data.activeUserIds : {};
+    }
+
+    function isCompanyMember(companyId) {
+      return signedIn()
+        && hasActiveLicense(companyId)
+        && (
+          licenseData(companyId).activeUserIds[request.auth.uid] == true
+          || get(/databases/$(database)/documents/companies/$(companyId)).data.memberUserIds[request.auth.uid] == true
+        );
+    }
+
+    match /licenses/{companyId} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create, delete: if false;
+      allow update: if signedIn()
+        && resource.data.isActive == true
+        && request.resource.data.activeUserIds[request.auth.uid] == true
+        && request.resource.data.activeUserIds.diff(existingActiveUserIds()).affectedKeys().hasOnly([
+          request.auth.uid
+        ])
+        && (
+          !('maxUsers' in resource.data)
+          || resource.data.maxUsers == null
+          || request.resource.data.activeUserIds.keys().size() <= resource.data.maxUsers
+        )
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'activeUserIds',
+          'lastJoinedAt',
+          'updatedAt'
+        ]);
+    }
+
+    match /companies/{companyId} {
+      allow read, write: if isCompanyMember(companyId);
+
+      match /{document=**} {
+        allow read, write: if isCompanyMember(companyId);
+      }
+    }
+
+    match /users/{uid} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
