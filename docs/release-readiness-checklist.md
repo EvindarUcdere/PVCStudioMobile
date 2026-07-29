@@ -11,6 +11,7 @@ Bu belge teslimden once uygulamanin veri, guvenlik ve kararlilik tarafinda kontr
 - Her firma icin `licenses/{FIRMA-KODU}` dokumani elle veya admin panelinden olusturulmali.
 - Firma kodu dokuman ID'si ile ayni olmalidir. Ornek: `licenses/ALI-PVC-2026`.
 - APK yayinlamadan once temiz kurulum, firma kodu girisi, tasarim, teklif, odeme, atelye, PDF onizleme ve bulut senkron testi yapilmali.
+- Musteriye destek, lisans tasima ve veri kurtarma sureci `docs/support-recovery-plan.md` temel alinarak anlatilmali.
 
 ## Veri dayanikliligi
 
@@ -19,6 +20,7 @@ Bu belge teslimden once uygulamanin veri, guvenlik ve kararlilik tarafinda kontr
 - Uygulama acilisinda Firebase'deki daha yeni kayitlar lokale geri yuklenir.
 - Offline durumda uygulama calismaya devam eder; internet gelince manuel veya akisa bagli yedekleme tekrar denenir.
 - Silme islemleri soft-delete mantigiyla tutulur; ani veri kaybi riskini azaltir.
+- Lisans veya sunucu sorunu kullanici verisini silmemelidir; mevcut lokal veri korunur.
 
 ## Guvenlik notlari
 
@@ -27,6 +29,7 @@ Bu belge teslimden once uygulamanin veri, guvenlik ve kararlilik tarafinda kontr
 - Firma verileri `companies/{firmaKodu}` altinda tutulur.
 - Calisanlar ayni firma kodu ile katildiginda ayni firma verisini gorur.
 - Loglarda `actorUserId` ve uygun yerlerde `actorName` tutulur; kimin ne yaptigi daha sonra takip edilebilir.
+- Lisans iptali veri silme mekanizmasi olarak kullanilmamalidir; mumkunse salt-okunur politika uygulanmalidir.
 
 ## Yayin oncesi test
 
