@@ -1,6 +1,6 @@
 import { User } from 'firebase/auth';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { AppButton } from '../../../components/ui/AppButton';
@@ -33,7 +33,12 @@ import {
   restoreCompanyProfileFromCloud,
 } from '../../../services/firebase/companyProfileCloudService';
 import { backupAllLocalDataToCloud, restoreAllCloudDataToLocal } from '../../../services/firebase/fullSyncService';
-import { validateAndJoinLicense } from '../../../services/firebase/licenseService';
+import {
+  getLicenseSeatSummary,
+  LicenseSeatSummary,
+  releaseCurrentLicenseSeat,
+  validateAndJoinLicense,
+} from '../../../services/firebase/licenseService';
 import { logger } from '../../../services/logger';
 import { colors, radius, spacing, typography } from '../../../theme';
 
@@ -60,9 +65,28 @@ export function CompanyProfileScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isAuthBusy, setIsAuthBusy] = useState(false);
+  const [isLicenseBusy, setIsLicenseBusy] = useState(false);
+  const [licenseSummary, setLicenseSummary] = useState<LicenseSeatSummary | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const firebaseReady = isFirebaseConfigured();
+
+  const loadLicenseSummary = useCallback(
+    async (companyId = normalizeCompanyId(values.companyId)) => {
+      if (!firebaseReady || !companyId) {
+        setLicenseSummary(null);
+        return;
+      }
+
+      setIsLicenseBusy(true);
+      try {
+        setLicenseSummary(await getLicenseSeatSummary(companyId));
+      } finally {
+        setIsLicenseBusy(false);
+      }
+    },
+    [firebaseReady, values.companyId],
+  );
 
   useEffect(() => {
     const unsubscribe = subscribeFirebaseUser(setUser);
@@ -74,8 +98,10 @@ export function CompanyProfileScreen() {
           getLocalOperatorName(),
         ]);
         setValues(toFormValues(loadedProfile));
-        setSavedCompanyId(normalizeCompanyId(loadedProfile.companyId));
+        const normalizedCompanyId = normalizeCompanyId(loadedProfile.companyId);
+        setSavedCompanyId(normalizedCompanyId);
         setOperatorName(loadedOperatorName ?? '');
+        void loadLicenseSummary(normalizedCompanyId);
       } catch (loadError) {
         logger.error('Company profile load failed', loadError);
         setError('Firma bilgileri yuklenemedi.');
@@ -86,7 +112,7 @@ export function CompanyProfileScreen() {
 
     void loadProfile();
     return unsubscribe;
-  }, []);
+  }, [loadLicenseSummary]);
 
   function updateValue(key: keyof CompanyProfile, value: string) {
     setValues((current) => ({ ...current, [key]: value }));
@@ -129,7 +155,9 @@ export function CompanyProfileScreen() {
       const savedProfile = await saveCompanyProfile(parsed);
       await saveLocalOperatorName(operatorName);
       setValues(toFormValues(savedProfile));
-      setSavedCompanyId(normalizeCompanyId(savedProfile.companyId));
+      const normalizedCompanyId = normalizeCompanyId(savedProfile.companyId);
+      setSavedCompanyId(normalizedCompanyId);
+      void loadLicenseSummary(normalizedCompanyId);
       void backupCompanyProfileToCloud(savedProfile);
       setMessage('Firma bilgileri kaydedildi.');
       router.replace(routes.home);
@@ -189,6 +217,7 @@ export function CompanyProfileScreen() {
       await restoreAllCloudDataToLocal();
       const restoredProfile = await getCompanyProfile();
       setValues(toFormValues(restoredProfile));
+      void loadLicenseSummary(normalizeCompanyId(restoredProfile.companyId));
       setMessage('Giris yapildi. Buluttaki veriler cihaza alindi.');
       router.replace(routes.home);
     });
@@ -223,6 +252,30 @@ export function CompanyProfileScreen() {
       setError('Sifre sifirlama e-postasi gonderilemedi. E-posta adresini kontrol edin.');
     } finally {
       setIsAuthBusy(false);
+    }
+  }
+
+  async function releaseThisDeviceSeat() {
+    const companyId = normalizeCompanyId(values.companyId);
+    if (!firebaseReady || !companyId) {
+      setError('Cihaz lisansini bosaltmak icin firma kodu ve Firebase gerekli.');
+      return;
+    }
+
+    setIsLicenseBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const released = await releaseCurrentLicenseSeat(companyId);
+      if (!released) {
+        setError('Bu cihaz lisans koltugundan cikarilamadi.');
+        return;
+      }
+
+      await loadLicenseSummary(companyId);
+      setMessage('Bu cihaz lisans koltugundan cikarildi. Firma verileri silinmedi.');
+    } finally {
+      setIsLicenseBusy(false);
     }
   }
 
@@ -267,7 +320,9 @@ export function CompanyProfileScreen() {
 
       const restoredProfile = await getCompanyProfile();
       setValues(toFormValues(restoredProfile));
-      setSavedCompanyId(normalizeCompanyId(restoredProfile.companyId));
+      const normalizedCompanyId = normalizeCompanyId(restoredProfile.companyId);
+      setSavedCompanyId(normalizedCompanyId);
+      void loadLicenseSummary(normalizedCompanyId);
       setMessage(
         `Lisans dogrulandi. Artik ${result.companyId} kodlu ortak alandasiniz.${
           license.maxUsers ? ` Kullanici: ${license.activeUserCount}/${license.maxUsers}` : ''
@@ -298,7 +353,9 @@ export function CompanyProfileScreen() {
       await saveLocalOperatorName(operatorName);
       const backedUp = await backupCompanyProfileToCloud(savedProfile);
       setValues(toFormValues(savedProfile));
-      setSavedCompanyId(normalizeCompanyId(savedProfile.companyId));
+      const normalizedCompanyId = normalizeCompanyId(savedProfile.companyId);
+      setSavedCompanyId(normalizedCompanyId);
+      void loadLicenseSummary(normalizedCompanyId);
       setMessage(backedUp ? 'Firma bilgileri buluta yedeklendi.' : 'Bulut yedegi yapilamadi.');
     } finally {
       setIsSaving(false);
@@ -327,7 +384,9 @@ export function CompanyProfileScreen() {
 
       const savedProfile = await saveCompanyProfile(cloudProfile);
       setValues(toFormValues(savedProfile));
-      setSavedCompanyId(normalizeCompanyId(savedProfile.companyId));
+      const normalizedCompanyId = normalizeCompanyId(savedProfile.companyId);
+      setSavedCompanyId(normalizedCompanyId);
+      void loadLicenseSummary(normalizedCompanyId);
       setMessage('Buluttaki firma bilgileri cihaza alindi.');
     } finally {
       setIsSaving(false);
@@ -503,6 +562,46 @@ export function CompanyProfileScreen() {
               disabled={isSaving}
               onPress={() => void joinCompanyByCode()}
             />
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Lisans cihazlari</Text>
+            <Text style={styles.statusCaption}>
+              Bu alan sadece lisans koltugunu yonetir; musteri, tasarim, teklif veya stok verisi silmez.
+            </Text>
+            {licenseSummary ? (
+              <View style={styles.statusCard}>
+                <Text style={styles.statusTitle}>
+                  Kullanici: {licenseSummary.activeUserCount}
+                  {licenseSummary.maxUsers ? `/${licenseSummary.maxUsers}` : ''}
+                </Text>
+                {licenseSummary.seats.map((seat, index) => (
+                  <Text key={seat.userId} style={styles.statusCaption}>
+                    {index + 1}. {seat.userId.slice(0, 10)}... {seat.isCurrentDevice ? '(bu cihaz)' : ''}
+                  </Text>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.statusCaption}>Lisans cihaz bilgisi henuz yuklenmedi.</Text>
+            )}
+            <View style={styles.row}>
+              <AppButton
+                label="Yenile"
+                variant="secondary"
+                loading={isLicenseBusy}
+                disabled={isLicenseBusy}
+                onPress={() => void loadLicenseSummary()}
+                style={styles.flexButton}
+              />
+              <AppButton
+                label="Bu Cihazi Cikar"
+                variant="secondary"
+                loading={isLicenseBusy}
+                disabled={isLicenseBusy}
+                onPress={() => void releaseThisDeviceSeat()}
+                style={styles.flexButton}
+              />
+            </View>
           </View>
 
           {message ? <Text style={styles.success}>{message}</Text> : null}

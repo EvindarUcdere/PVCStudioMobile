@@ -18,6 +18,19 @@ export type LicenseValidationResult =
       message: string;
     };
 
+export type LicenseSeat = {
+  userId: string;
+  isCurrentDevice: boolean;
+};
+
+export type LicenseSeatSummary = {
+  companyId: string;
+  companyName: string | null;
+  maxUsers: number | null;
+  activeUserCount: number;
+  seats: LicenseSeat[];
+};
+
 type LicenseDocument = {
   companyId?: string;
   companyName?: string;
@@ -153,6 +166,77 @@ export async function validateAndJoinLicense(companyId: string): Promise<License
       reason: 'unknown',
       message: 'Lisans kontrolu sirasinda hata olustu.',
     };
+  }
+}
+
+export async function getLicenseSeatSummary(companyId: string): Promise<LicenseSeatSummary | null> {
+  const services = getFirebaseServices();
+  const user = await ensureFirebaseUser();
+
+  if (!services || !user) {
+    return null;
+  }
+
+  try {
+    const licenseSnapshot = await getLicenseSnapshot(companyId);
+    if (!licenseSnapshot) {
+      return null;
+    }
+
+    const license = licenseSnapshot.data;
+    const activeUserIds = license.activeUserIds ?? {};
+    const seats = Object.entries(activeUserIds)
+      .filter(([, isActive]) => isActive === true)
+      .map(([userId]) => ({
+        userId,
+        isCurrentDevice: userId === user.uid,
+      }));
+    const maxUsers = typeof license.maxUsers === 'number' && license.maxUsers > 0 ? Math.floor(license.maxUsers) : null;
+
+    return {
+      companyId,
+      companyName: license.companyName?.trim() || null,
+      maxUsers,
+      activeUserCount: seats.length,
+      seats,
+    };
+  } catch (error) {
+    logger.error('License seat summary failed', error);
+    return null;
+  }
+}
+
+export async function releaseCurrentLicenseSeat(companyId: string): Promise<boolean> {
+  const services = getFirebaseServices();
+  const user = await ensureFirebaseUser();
+
+  if (!services || !user) {
+    return false;
+  }
+
+  try {
+    const licenseRef = doc(services.firestore, 'licenses', companyId);
+    await runTransaction(services.firestore, async (transaction) => {
+      const snapshot = await transaction.get(licenseRef);
+      if (!snapshot.exists()) {
+        return;
+      }
+
+      transaction.set(
+        licenseRef,
+        {
+          activeUserIds: {
+            [user.uid]: false,
+          },
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      );
+    });
+    return true;
+  } catch (error) {
+    logger.error('License seat release failed', error);
+    return false;
   }
 }
 
