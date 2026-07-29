@@ -5,6 +5,11 @@ import { DomainValidationError } from '../../designs/errors';
 import { designProjectSchema } from '../../designs/schemas/designProjectSchema';
 import { createIsoTimestamp } from '../../designs/utils/date';
 import { createId } from '../../designs/utils/id';
+import {
+  maxDesignMeasurementMm,
+  maxDesignQuantity,
+  minDesignMeasurementMm,
+} from '../../../utils/inputValidation';
 import { DesignTemplate } from '../entities/DesignTemplate';
 import { cloneTemplateTree } from '../utils/cloneTemplateTree';
 
@@ -21,9 +26,9 @@ export type CreateDesignFromTemplateInput = {
 
 export const createDesignFromTemplateInputSchema = z.object({
   name: z.string().min(1, 'Tasarım adı zorunludur.'),
-  width: z.number().min(200).max(10000),
-  height: z.number().min(200).max(10000),
-  quantity: z.number().int().min(1).max(999),
+  width: z.number().min(minDesignMeasurementMm).max(maxDesignMeasurementMm),
+  height: z.number().min(minDesignMeasurementMm).max(maxDesignMeasurementMm),
+  quantity: z.number().int().min(1).max(maxDesignQuantity),
   customerId: z.string().min(1).nullable().optional(),
   jobName: z.string().nullable().optional(),
   jobId: z.string().min(1).nullable().optional(),

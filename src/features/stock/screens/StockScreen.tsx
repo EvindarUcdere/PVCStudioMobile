@@ -1,7 +1,8 @@
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -29,6 +30,7 @@ import {
 import { backupStockItemToCloud } from '../../../services/firebase/fullSyncService';
 import { logger } from '../../../services/logger';
 import { colors, radius, spacing, typography } from '../../../theme';
+import { maxMoneyAmount, maxStockQuantity, sanitizeDecimalInput } from '../../../utils/inputValidation';
 
 type StockForm = {
   name: string;
@@ -71,6 +73,8 @@ export function StockScreen() {
   const [isSeeding, setIsSeeding] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const saveInFlightRef = useRef(false);
+  const toggleInFlightRef = useRef(false);
   const lowStockItems = useMemo(
     () => items.filter((item) => item.isActive && item.quantity <= item.minimumQuantity),
     [items],
@@ -103,6 +107,10 @@ export function StockScreen() {
   }
 
   async function saveItem() {
+    if (saveInFlightRef.current || isSaving) {
+      return;
+    }
+
     const quantity = parseRequiredNumber(form.quantity);
     const minimumQuantity = parseRequiredNumber(form.minimumQuantity);
     const purchasePrice = parseOptionalNumber(form.purchasePrice);
@@ -112,6 +120,7 @@ export function StockScreen() {
       return;
     }
 
+    saveInFlightRef.current = true;
     setIsSaving(true);
     setError(null);
     setMessage(null);
@@ -134,11 +143,35 @@ export function StockScreen() {
       logger.error('Stock item save failed', saveError);
       setError('Stok urunu kaydedilemedi.');
     } finally {
+      saveInFlightRef.current = false;
       setIsSaving(false);
     }
   }
 
   async function toggleActive(item: StockItem) {
+    if (toggleInFlightRef.current) {
+      return;
+    }
+
+    Alert.alert(
+      item.isActive ? 'Stok urununu pasife al' : 'Stok urununu aktif yap',
+      item.isActive
+        ? 'Bu urun listede pasif gorunecek, gecmis kayitlar silinmeyecek.'
+        : 'Bu urun tekrar aktif stok listesine alinacak.',
+      [
+        { text: 'Vazgec', style: 'cancel' },
+        {
+          text: item.isActive ? 'Pasife Al' : 'Aktif Yap',
+          onPress: () => {
+            void toggleActiveConfirmed(item);
+          },
+        },
+      ],
+    );
+  }
+
+  async function toggleActiveConfirmed(item: StockItem) {
+    toggleInFlightRef.current = true;
     try {
       const repository = await createStockRepository();
       const saved = await repository.setActive(item.id, !item.isActive);
@@ -147,6 +180,8 @@ export function StockScreen() {
     } catch (toggleError) {
       logger.error('Stock item active toggle failed', toggleError);
       setError('Stok durumu guncellenemedi.');
+    } finally {
+      toggleInFlightRef.current = false;
     }
   }
 
@@ -238,7 +273,7 @@ export function StockScreen() {
                     <TextInput
                       accessibilityLabel="Miktar"
                       keyboardType="numeric"
-                      onChangeText={(value) => updateForm('quantity', value)}
+                      onChangeText={(value) => updateForm('quantity', sanitizeDecimalInput(value))}
                       placeholder="Miktar"
                       placeholderTextColor={colors.textSecondary}
                       style={[styles.input, styles.flexInput]}
@@ -247,7 +282,7 @@ export function StockScreen() {
                     <TextInput
                       accessibilityLabel="Minimum stok"
                       keyboardType="numeric"
-                      onChangeText={(value) => updateForm('minimumQuantity', value)}
+                      onChangeText={(value) => updateForm('minimumQuantity', sanitizeDecimalInput(value))}
                       placeholder="Min."
                       placeholderTextColor={colors.textSecondary}
                       style={[styles.input, styles.flexInput]}
@@ -267,7 +302,7 @@ export function StockScreen() {
                   <TextInput
                     accessibilityLabel="Alis fiyati"
                     keyboardType="numeric"
-                    onChangeText={(value) => updateForm('purchasePrice', value)}
+                    onChangeText={(value) => updateForm('purchasePrice', sanitizeDecimalInput(value))}
                     placeholder="Alis fiyati opsiyonel"
                     placeholderTextColor={colors.textSecondary}
                     style={styles.input}
@@ -385,7 +420,7 @@ function parseRequiredNumber(value: string): number | null {
   }
 
   const parsed = Number(value.replace(',', '.').trim());
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+  return Number.isFinite(parsed) && parsed >= 0 && parsed <= maxStockQuantity ? parsed : null;
 }
 
 function parseOptionalNumber(value: string): number | null | undefined {
@@ -394,7 +429,7 @@ function parseOptionalNumber(value: string): number | null | undefined {
   }
 
   const parsed = Number(value.replace(',', '.').trim());
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
+  return Number.isFinite(parsed) && parsed >= 0 && parsed <= maxMoneyAmount ? parsed : undefined;
 }
 
 function nullableTrim(value: string): string | null {

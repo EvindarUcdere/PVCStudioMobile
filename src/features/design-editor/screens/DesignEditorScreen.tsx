@@ -43,6 +43,11 @@ import { consumeDesignStock } from '../../../domain/inventory/consumeDesignStock
 import { JobProject } from '../../../domain/jobs/entities/JobProject';
 import { logger } from '../../../services/logger';
 import { colors, radius, spacing, typography } from '../../../theme';
+import {
+  maxDesignMeasurementMm,
+  maxDesignQuantity,
+  sanitizeIntegerInput,
+} from '../../../utils/inputValidation';
 import { CustomerSelector } from '../../customers/components/CustomerSelector';
 import { JobStatusSelector } from '../../designs/components/JobStatusSelector';
 import { DesignCanvas } from '../components/DesignCanvas';
@@ -147,6 +152,22 @@ export function DesignEditorScreen() {
     router.replace(routes.home);
   }
 
+  function handleBack() {
+    if (!isDirty) {
+      router.back();
+      return;
+    }
+
+    Alert.alert(
+      'Kaydedilmemis degisiklik var',
+      'Cikarsaniz degisiklikler taslak olarak korunur. Yine de cikmak istiyor musunuz?',
+      [
+        { text: 'Vazgec', style: 'cancel' },
+        { text: 'Cik', onPress: () => router.back() },
+      ],
+    );
+  }
+
   function handleJobStatusChange(jobStatus: JobStatus) {
     updateJobStatus(jobStatus);
 
@@ -235,7 +256,7 @@ export function DesignEditorScreen() {
               onPress={() => void saveAndGoHome()}
               style={styles.headerSaveButton}
             />
-            <AppButton label="Geri" variant="ghost" onPress={() => router.back()} style={styles.headerBackButton} />
+            <AppButton label="Geri" variant="ghost" onPress={handleBack} style={styles.headerBackButton} />
           </View>
         }
       />
@@ -278,8 +299,8 @@ export function DesignEditorScreen() {
                 accessibilityLabel="Adet"
                 keyboardType="numeric"
                 onChangeText={(value) => {
-                  const parsed = Number(value.replace(',', '.').trim());
-                  if (Number.isInteger(parsed) && parsed > 0) {
+                  const parsed = Number(sanitizeIntegerInput(value));
+                  if (Number.isInteger(parsed) && parsed > 0 && parsed <= maxDesignQuantity) {
                     updateQuantity(parsed);
                   }
                 }}
@@ -383,7 +404,7 @@ export function DesignEditorScreen() {
                 <TextInput
                   accessibilityLabel="Eklenecek alan olcusu"
                   keyboardType="numeric"
-                  onChangeText={setAddPanelSize}
+                  onChangeText={(value) => setAddPanelSize(sanitizeIntegerInput(value))}
                   placeholder="Secili alan kadar"
                   placeholderTextColor={colors.textSecondary}
                   style={styles.addSizeInput}
@@ -653,7 +674,7 @@ function parseOptionalPositiveNumber(value: string): number | undefined {
   }
 
   const parsed = Number(normalized);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+  return Number.isFinite(parsed) && parsed > 0 && parsed <= maxDesignMeasurementMm ? parsed : undefined;
 }
 
 function nullableTrim(value: string): string | null {

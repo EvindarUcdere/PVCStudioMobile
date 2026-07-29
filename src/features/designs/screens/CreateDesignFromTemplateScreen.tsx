@@ -1,8 +1,9 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -27,6 +28,7 @@ import { DesignTemplate } from '../../../domain/templates/entities/DesignTemplat
 import { backupDesignToCloud } from '../../../services/firebase/fullSyncService';
 import { logger } from '../../../services/logger';
 import { colors, radius, spacing, typography } from '../../../theme';
+import { sanitizeIntegerInput } from '../../../utils/inputValidation';
 import { CustomerSelector } from '../../customers/components/CustomerSelector';
 import { createTemplateService } from '../../templates/services/templateService';
 
@@ -59,6 +61,14 @@ export function CreateDesignFromTemplateScreen() {
   } = useForm<FormValues>({
     defaultValues: { name: '', jobName: '', width: '', height: '', quantity: '1' },
   });
+  const watchedValues = useWatch({ control });
+  const hasUnsavedInput =
+    Boolean(watchedValues.name?.trim()) ||
+    Boolean(watchedValues.jobName?.trim()) ||
+    Boolean(watchedValues.width?.trim()) ||
+    Boolean(watchedValues.height?.trim()) ||
+    watchedValues.quantity !== '1' ||
+    selectedCustomerId !== null;
 
   useEffect(() => {
     async function loadTemplate() {
@@ -168,18 +178,35 @@ export function CreateDesignFromTemplateScreen() {
       style={styles.keyboard}
     >
       <AppScreen>
-        <AppHeader title="Tasarım Oluştur" subtitle={template.name} />
+        <AppHeader
+          title="Tasarım Oluştur"
+          subtitle={template.name}
+          rightAction={<AppButton label="Geri" variant="ghost" onPress={() => confirmBack(hasUnsavedInput)} />}
+        />
         <View style={styles.form}>
           <FormField control={control} name="name" label="Tasarım Adı" keyboardType="default" />
           <FormField control={control} name="jobName" label="Is adi" keyboardType="default" />
-          <FormField control={control} name="width" label="Genişlik (mm)" keyboardType="numeric" />
+          <FormField
+            control={control}
+            name="width"
+            label="Genişlik (mm)"
+            keyboardType="numeric"
+            sanitize={sanitizeIntegerInput}
+          />
           <FormField
             control={control}
             name="height"
             label="Yükseklik (mm)"
             keyboardType="numeric"
+            sanitize={sanitizeIntegerInput}
           />
-          <FormField control={control} name="quantity" label="Adet" keyboardType="numeric" />
+          <FormField
+            control={control}
+            name="quantity"
+            label="Adet"
+            keyboardType="numeric"
+            sanitize={sanitizeIntegerInput}
+          />
           <CustomerSelector
             customers={customers}
             selectedCustomerId={selectedCustomerId}
@@ -203,9 +230,10 @@ type FormFieldProps = {
   name: keyof FormValues;
   label: string;
   keyboardType: 'default' | 'numeric';
+  sanitize?: (value: string) => string;
 };
 
-function FormField({ control, name, label, keyboardType }: FormFieldProps) {
+function FormField({ control, name, label, keyboardType, sanitize }: FormFieldProps) {
   return (
     <Controller
       control={control}
@@ -217,7 +245,7 @@ function FormField({ control, name, label, keyboardType }: FormFieldProps) {
             accessibilityLabel={label}
             keyboardType={keyboardType}
             onBlur={field.onBlur}
-            onChangeText={field.onChange}
+            onChangeText={(value) => field.onChange(sanitize ? sanitize(value) : value)}
             style={[styles.input, fieldState.error ? styles.inputError : null]}
             value={field.value}
           />
@@ -228,6 +256,18 @@ function FormField({ control, name, label, keyboardType }: FormFieldProps) {
       )}
     />
   );
+}
+
+function confirmBack(hasUnsavedInput: boolean) {
+  if (!hasUnsavedInput) {
+    router.back();
+    return;
+  }
+
+  Alert.alert('Degisiklikler kaybolacak', 'Bu tasarim henuz olusturulmadi. Cikmak istiyor musunuz?', [
+    { text: 'Vazgec', style: 'cancel' },
+    { text: 'Cik', style: 'destructive', onPress: () => router.back() },
+  ]);
 }
 
 function nullableTrim(value: string): string | null {

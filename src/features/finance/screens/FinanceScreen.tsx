@@ -1,5 +1,5 @@
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -35,6 +35,12 @@ import { PaymentInstallment } from '../../../domain/payments/entities/PaymentPla
 import { backupCashTransactionToCloud } from '../../../services/firebase/fullSyncService';
 import { logger } from '../../../services/logger';
 import { colors, radius, spacing, typography } from '../../../theme';
+import {
+  isValidDateInput,
+  maxMoneyAmount,
+  sanitizeDateInput,
+  sanitizeDecimalInput,
+} from '../../../utils/inputValidation';
 
 type FinanceForm = {
   type: CashTransactionType;
@@ -80,6 +86,7 @@ export function FinanceScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const saveInFlightRef = useRef(false);
   const thisMonthRange = useMemo(() => getCurrentMonthRange(), []);
   const monthSummary = useMemo(
     () => summarize(transactions.filter((item) => isInRange(item.transactionDate, thisMonthRange))),
@@ -134,6 +141,10 @@ export function FinanceScreen() {
   }
 
   async function saveTransaction() {
+    if (saveInFlightRef.current || isSaving) {
+      return;
+    }
+
     const amount = parseAmount(form.amount);
 
     if (!form.title.trim() || !amount || !isValidDate(form.transactionDate)) {
@@ -141,6 +152,7 @@ export function FinanceScreen() {
       return;
     }
 
+    saveInFlightRef.current = true;
     setIsSaving(true);
     setError(null);
     setMessage(null);
@@ -167,11 +179,17 @@ export function FinanceScreen() {
       logger.error('Cash transaction save failed', saveError);
       setError('Kayit eklenemedi.');
     } finally {
+      saveInFlightRef.current = false;
       setIsSaving(false);
     }
   }
 
   async function markInstallmentPaid(installment: PaymentInstallment) {
+    if (saveInFlightRef.current || isSaving) {
+      return;
+    }
+
+    saveInFlightRef.current = true;
     setIsSaving(true);
     setError(null);
     setMessage(null);
@@ -180,6 +198,7 @@ export function FinanceScreen() {
       const transactionRepository = await createCashTransactionRepository();
       await paymentRepository.markInstallmentPaid(installment.id);
       const savedTransaction = await transactionRepository.save({
+        id: `installment-payment-${installment.id}`,
         type: 'income',
         category: 'job_payment',
         title: `${installment.customerName ?? 'Musteri'} taksit odemesi`,
@@ -196,11 +215,17 @@ export function FinanceScreen() {
       logger.error('Installment paid failed', payError);
       setError('Taksit odendi olarak isaretlenemedi.');
     } finally {
+      saveInFlightRef.current = false;
       setIsSaving(false);
     }
   }
 
   async function postponeInstallment(installment: PaymentInstallment, days: number) {
+    if (saveInFlightRef.current || isSaving) {
+      return;
+    }
+
+    saveInFlightRef.current = true;
     setIsSaving(true);
     setError(null);
     setMessage(null);
@@ -214,6 +239,7 @@ export function FinanceScreen() {
       logger.error('Installment postpone failed', postponeError);
       setError('Taksit tarihi ertelenemedi.');
     } finally {
+      saveInFlightRef.current = false;
       setIsSaving(false);
     }
   }
@@ -318,7 +344,7 @@ export function FinanceScreen() {
                     <TextInput
                       accessibilityLabel="Tutar"
                       keyboardType="numeric"
-                      onChangeText={(value) => updateForm('amount', value)}
+                      onChangeText={(value) => updateForm('amount', sanitizeDecimalInput(value))}
                       placeholder="Tutar"
                       placeholderTextColor={colors.textSecondary}
                       style={[styles.input, styles.flexInput]}
@@ -326,7 +352,7 @@ export function FinanceScreen() {
                     />
                     <TextInput
                       accessibilityLabel="Tarih"
-                      onChangeText={(value) => updateForm('transactionDate', value)}
+                      onChangeText={(value) => updateForm('transactionDate', sanitizeDateInput(value))}
                       placeholder="YYYY-AA-GG"
                       placeholderTextColor={colors.textSecondary}
                       style={[styles.input, styles.flexInput]}
@@ -557,11 +583,11 @@ function isInRange(value: string, range: { from: string; to: string }): boolean 
 
 function parseAmount(value: string): number | null {
   const parsed = Number(value.replace(',', '.').trim());
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  return Number.isFinite(parsed) && parsed > 0 && parsed <= maxMoneyAmount ? parsed : null;
 }
 
 function isValidDate(value: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(new Date(value).getTime());
+  return isValidDateInput(value);
 }
 
 function nullableTrim(value: string): string | null {

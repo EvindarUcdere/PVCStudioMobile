@@ -40,6 +40,13 @@ import {
   normalizeTurkishWhatsAppPhone,
   sanitizePhoneInput,
 } from '../../../utils/phone';
+import {
+  isValidDateInput,
+  maxMoneyAmount,
+  sanitizeDateInput,
+  sanitizeDecimalInput,
+  sanitizeIntegerInput,
+} from '../../../utils/inputValidation';
 
 export function QuotePreviewScreen() {
   const { designId } = useLocalSearchParams<{ designId: string }>();
@@ -267,7 +274,8 @@ export function QuotePreviewScreen() {
       paidNow > displayedTotal ||
       !Number.isInteger(count) ||
       count < 0 ||
-      (count > 0 && !isValidDate(firstDueDate))
+      paidNow > maxMoneyAmount ||
+      (count > 0 && !isValidDateInput(firstDueDate))
     ) {
       setError('Odeme plani icin pesinat, taksit sayisi ve tarih dogru girilmeli.');
       return;
@@ -545,7 +553,7 @@ export function QuotePreviewScreen() {
           <TextInput
             accessibilityLabel="Pesinat"
             keyboardType="numeric"
-            onChangeText={setPaidNowAmount}
+            onChangeText={(value) => setPaidNowAmount(sanitizeDecimalInput(value))}
             placeholder="Simdi alinacak"
             placeholderTextColor={colors.textSecondary}
             style={[styles.input, styles.actionButton]}
@@ -554,7 +562,7 @@ export function QuotePreviewScreen() {
           <TextInput
             accessibilityLabel="Taksit sayisi"
             keyboardType="numeric"
-            onChangeText={setInstallmentCount}
+            onChangeText={(value) => setInstallmentCount(sanitizeIntegerInput(value))}
             placeholder="Taksit (0 pesin)"
             placeholderTextColor={colors.textSecondary}
             style={[styles.input, styles.actionButton]}
@@ -566,7 +574,7 @@ export function QuotePreviewScreen() {
         </Text>
         <TextInput
           accessibilityLabel="Ilk odeme tarihi"
-          onChangeText={setFirstDueDate}
+          onChangeText={(value) => setFirstDueDate(sanitizeDateInput(value))}
           placeholder="YYYY-AA-GG"
           placeholderTextColor={colors.textSecondary}
           style={styles.input}
@@ -583,7 +591,7 @@ export function QuotePreviewScreen() {
                 </View>
                 <TextInput
                   accessibilityLabel={`${installment.sequence}. taksit tarihi`}
-                  onChangeText={(value) => updateInstallmentDate(installment.id, value)}
+                  onChangeText={(value) => updateInstallmentDate(installment.id, sanitizeDateInput(value))}
                   placeholder="YYYY-AA-GG"
                   placeholderTextColor={colors.textSecondary}
                   style={styles.input}
@@ -773,7 +781,7 @@ function parsePositiveAmount(value: string): number | null {
 }
 
 function isValidDate(value: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(new Date(value).getTime());
+  return isValidDateInput(value);
 }
 
 const styles = StyleSheet.create({

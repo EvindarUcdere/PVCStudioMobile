@@ -5,6 +5,11 @@ import { accessorySelectionSchema } from './accessorySelectionSchema';
 import { designNodeSchema } from './designNodeSchema';
 import { glassSelectionSchema } from './glassSelectionSchema';
 import { profileSystemSelectionSchema } from './profileSystemSelectionSchema';
+import {
+  maxDesignMeasurementMm,
+  maxDesignQuantity,
+  minDesignMeasurementMm,
+} from '../../../utils/inputValidation';
 
 export const isoDateStringSchema = z.string().datetime();
 
@@ -13,9 +18,9 @@ export const designProjectSchema: z.ZodType<DesignProject> = z.object({
   name: z.string().min(1),
   customerId: z.string().min(1).nullable(),
   templateId: z.string().min(1).nullable(),
-  width: z.number().positive(),
-  height: z.number().positive(),
-  quantity: z.number().int().positive(),
+  width: z.number().min(minDesignMeasurementMm).max(maxDesignMeasurementMm),
+  height: z.number().min(minDesignMeasurementMm).max(maxDesignMeasurementMm),
+  quantity: z.number().int().min(1).max(maxDesignQuantity),
   jobStatus: z.enum(['draft', 'quoted', 'approved', 'production', 'installation', 'done', 'canceled']),
   jobName: z.string().nullable(),
   jobId: z.string().min(1).nullable(),

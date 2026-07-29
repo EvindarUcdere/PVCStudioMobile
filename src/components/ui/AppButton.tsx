@@ -1,4 +1,5 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, ViewStyle } from 'react-native';
+import { useRef } from 'react';
 
 import { colors, radius, spacing, typography } from '../../theme';
 
@@ -22,13 +23,26 @@ export function AppButton({
   style,
 }: AppButtonProps) {
   const isDisabled = disabled || loading;
+  const pressLockedRef = useRef(false);
+
+  function handlePress() {
+    if (!onPress || isDisabled || pressLockedRef.current) {
+      return;
+    }
+
+    pressLockedRef.current = true;
+    onPress();
+    setTimeout(() => {
+      pressLockedRef.current = false;
+    }, 600);
+  }
 
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ disabled: isDisabled, busy: loading }}
       disabled={isDisabled}
-      onPress={onPress}
+      onPress={handlePress}
       style={({ pressed }) => [
         styles.base,
         styles[variant],
