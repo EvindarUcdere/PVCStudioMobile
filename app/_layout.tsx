@@ -1,6 +1,6 @@
 import { router, Stack, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import { AppButton } from '../src/components/ui/AppButton';
 import { AppScreen } from '../src/components/ui/AppScreen';
@@ -33,14 +33,12 @@ export function ErrorBoundary({ error, retry }: RouteErrorBoundaryProps) {
 export default function RootLayout() {
   const { isInitialized, initializationError, retryInitialization } = useAppInitialization();
   const pathname = usePathname();
-  const [isCheckingCompanyAccess, setIsCheckingCompanyAccess] = useState(true);
 
   const checkCompanyAccess = useCallback(async () => {
     if (!isInitialized || initializationError) {
       return;
     }
 
-    setIsCheckingCompanyAccess(true);
     try {
       const companyId = await getActiveCompanyId();
       if (!companyId && pathname !== routes.companyProfile) {
@@ -51,8 +49,6 @@ export default function RootLayout() {
       if (pathname !== routes.companyProfile) {
         router.replace(routes.companyProfile);
       }
-    } finally {
-      setIsCheckingCompanyAccess(false);
     }
   }, [initializationError, isInitialized, pathname]);
 
@@ -76,15 +72,12 @@ export default function RootLayout() {
     );
   }
 
-  if (isCheckingCompanyAccess && pathname !== routes.companyProfile) {
-    return <LoadingScreen message="Firma lisansi kontrol ediliyor..." />;
-  }
-
   return (
     <>
       <StatusBar style="dark" />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="company-profile" />
       </Stack>
     </>
   );

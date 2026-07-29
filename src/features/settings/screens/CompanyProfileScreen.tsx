@@ -372,7 +372,9 @@ export function CompanyProfileScreen() {
         <AppHeader
           title="Firma Bilgileri"
           subtitle="Firma kodu, ortak kullanim ve PDF bilgileri"
-          rightAction={<AppButton label="Geri" variant="ghost" onPress={() => router.back()} />}
+          rightAction={
+            savedCompanyId ? <AppButton label="Geri" variant="ghost" onPress={() => router.back()} /> : null
+          }
         />
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.statusCard}>
