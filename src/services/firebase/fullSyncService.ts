@@ -705,6 +705,11 @@ async function setSingleDocument(
   documentId: string,
   data: unknown,
 ): Promise<void> {
+  const authorizedCompanyId = await ensureCompanyWorkspace();
+  if (authorizedCompanyId !== companyId) {
+    throw new Error('Cloud workspace is not authorized for this company.');
+  }
+
   const batch = writeBatch(firestore);
   const workspaceDoc = doc(firestore, 'companies', companyId);
   batch.set(doc(workspaceDoc, collectionName, documentId), data);

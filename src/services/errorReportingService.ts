@@ -40,23 +40,23 @@ async function reportError(message: string, error?: unknown, context: ErrorLogCo
       return;
     }
 
-    const errorMessage = getErrorMessage(error);
+    const errorMessage = redactSensitiveText(getErrorMessage(error));
     const reportKey = `${message}|${errorMessage ?? ''}|${context.screen ?? ''}|${context.action ?? ''}`;
     if (isDuplicateReport(reportKey)) {
       return;
     }
 
     await addDoc(collection(services.firestore, workspace.rootCollection, workspace.rootId, 'errorReports'), {
-      message,
+      message: redactSensitiveText(message),
       errorMessage,
-      stack: getErrorStack(error),
+      stack: redactSensitiveText(getErrorStack(error)),
       userId: services.auth.currentUser?.uid ?? null,
       companyId: workspace.rootId,
       screen: context.screen ?? inferScreen(message),
       action: context.action ?? inferAction(message),
       entityType: context.entityType ?? null,
       entityId: context.entityId ?? null,
-      customerName: context.customerName ?? null,
+      customerName: redactSensitiveText(context.customerName ?? null),
       appVersion: Constants.expoConfig?.version ?? Constants.manifest2?.extra?.expoClient?.version ?? null,
       buildVersion:
         Constants.expoConfig?.android?.versionCode ??
@@ -65,7 +65,7 @@ async function reportError(message: string, error?: unknown, context: ErrorLogCo
       deviceModel: Constants.deviceName ?? null,
       platform: Platform.OS,
       osVersion: String(Platform.Version),
-      metadata: context.metadata ?? null,
+      metadata: sanitizeMetadata(context.metadata),
       occurredAt: new Date().toISOString(),
       createdAt: serverTimestamp(),
     });
@@ -161,4 +161,29 @@ function getErrorMessage(error: unknown): string | null {
 
 function getErrorStack(error: unknown): string | null {
   return error instanceof Error ? error.stack ?? null : null;
+}
+
+function sanitizeMetadata(metadata: Record<string, unknown> | null | undefined): Record<string, unknown> | null {
+  if (!metadata) {
+    return null;
+  }
+
+  return Object.fromEntries(
+    Object.entries(metadata).map(([key, value]) => [
+      key,
+      typeof value === 'string' ? redactSensitiveText(value) : value,
+    ]),
+  );
+}
+
+function redactSensitiveText(value: string | null): string | null {
+  if (!value) {
+    return value;
+  }
+
+  return value
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[redacted-email]')
+    .replace(/(password|sifre|şifre|token|api[_-]?key|apikey|authorization)(["'=:\s]+)([^"'\s,}]+)/gi, '$1$2[redacted]')
+    .replace(/(key=)([^&\s]+)/gi, '$1[redacted]')
+    .replace(/(Bearer\s+)[A-Za-z0-9._-]+/gi, '$1[redacted]');
 }

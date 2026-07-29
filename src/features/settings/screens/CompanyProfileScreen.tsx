@@ -189,6 +189,7 @@ export function CompanyProfileScreen() {
 
       await saveLocalOperatorName(operatorName);
       await registerWithEmail(email, password);
+      setPassword('');
       await backupAllLocalDataToCloud();
       setMessage('Hesap olusturuldu ve veriler buluta yedeklendi.');
     });
@@ -214,6 +215,7 @@ export function CompanyProfileScreen() {
 
       await saveLocalOperatorName(operatorName);
       await signInWithEmail(email, password);
+      setPassword('');
       await restoreAllCloudDataToLocal();
       const restoredProfile = await getCompanyProfile();
       setValues(toFormValues(restoredProfile));
@@ -226,6 +228,7 @@ export function CompanyProfileScreen() {
   async function signOut() {
     await runAuthAction(async () => {
       await signOutFirebaseUser();
+      setPassword('');
       setMessage('Cikis yapildi.');
     });
   }
