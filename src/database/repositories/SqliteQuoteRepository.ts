@@ -30,9 +30,11 @@ export class SqliteQuoteRepository implements QuoteRepository {
 
   async save(input: SaveQuoteInput): Promise<Quote> {
     try {
-      const existing = await this.getById(input.id);
+      const existing = (await this.getById(input.id)) ?? (await this.getLatestByDesignId(input.designId));
+      const id = existing?.id ?? input.id;
       const now = createIsoTimestamp();
       const createdAt = existing?.createdAt ?? now;
+      const status = resolveStatus(existing?.status, input.status);
 
       await this.database.runAsync(
         `
@@ -43,13 +45,13 @@ export class SqliteQuoteRepository implements QuoteRepository {
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         `,
         [
-          input.id,
+          id,
           input.designId,
           input.designName,
           input.customerName,
           input.customerPhone,
           input.note,
-          input.status,
+          status,
           input.width,
           input.height,
           input.quantity,
@@ -64,7 +66,7 @@ export class SqliteQuoteRepository implements QuoteRepository {
         ],
       );
 
-      const saved = await this.getById(input.id);
+      const saved = await this.getById(id);
       if (!saved) {
         throw new RepositoryError('Saved quote could not be read.');
       }
@@ -83,6 +85,15 @@ export class SqliteQuoteRepository implements QuoteRepository {
     const row = await this.database.getFirstAsync<QuoteRow>(
       'SELECT * FROM quotes WHERE id = ? LIMIT 1;',
       [id],
+    );
+
+    return row ? toDomain(row) : null;
+  }
+
+  private async getLatestByDesignId(designId: string): Promise<Quote | null> {
+    const row = await this.database.getFirstAsync<QuoteRow>(
+      'SELECT * FROM quotes WHERE design_id = ? ORDER BY updated_at DESC LIMIT 1;',
+      [designId],
     );
 
     return row ? toDomain(row) : null;
@@ -130,6 +141,21 @@ export class SqliteQuoteRepository implements QuoteRepository {
 
     return saved;
   }
+}
+
+function resolveStatus(currentStatus: QuoteStatus | undefined, nextStatus: QuoteStatus): QuoteStatus {
+  const priority: Record<QuoteStatus, number> = {
+    draft: 1,
+    sent: 2,
+    accepted: 3,
+    rejected: 3,
+  };
+
+  if (!currentStatus) {
+    return nextStatus;
+  }
+
+  return priority[currentStatus] > priority[nextStatus] ? currentStatus : nextStatus;
 }
 
 function toDomain(row: QuoteRow): Quote {

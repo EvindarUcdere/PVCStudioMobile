@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
   ActivityIndicator,
@@ -50,6 +50,7 @@ export function CreateDesignFromTemplateScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const saveInFlightRef = useRef(false);
   const {
     control,
     handleSubmit,
@@ -93,7 +94,7 @@ export function CreateDesignFromTemplateScreen() {
   }, [customerId, reset, templateId]);
 
   async function submit(values: FormValues) {
-    if (!template || isSaving) {
+    if (!template || saveInFlightRef.current || isSaving) {
       return;
     }
 
@@ -122,6 +123,7 @@ export function CreateDesignFromTemplateScreen() {
       return;
     }
 
+    saveInFlightRef.current = true;
     setIsSaving(true);
     setError(null);
     try {
@@ -135,6 +137,7 @@ export function CreateDesignFromTemplateScreen() {
       logger.error('Create design from template failed', saveError);
       setError('Tasarım oluşturulurken bir sorun oluştu. Lütfen tekrar deneyin.');
     } finally {
+      saveInFlightRef.current = false;
       setIsSaving(false);
     }
   }

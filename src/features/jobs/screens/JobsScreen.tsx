@@ -1,5 +1,5 @@
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { AppButton } from '../../../components/ui/AppButton';
@@ -30,6 +30,7 @@ export function JobsScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const saveInFlightRef = useRef(false);
   const customerById = useMemo(
     () => new Map(customers.map((customer) => [customer.id, customer])),
     [customers],
@@ -74,11 +75,16 @@ export function JobsScreen() {
   );
 
   async function saveJob() {
-    if (!name.trim() || isSaving) {
+    if (saveInFlightRef.current || isSaving) {
+      return;
+    }
+
+    if (!name.trim()) {
       setError('Is adi girilmeli.');
       return;
     }
 
+    saveInFlightRef.current = true;
     setIsSaving(true);
     setError(null);
     try {
@@ -102,6 +108,7 @@ export function JobsScreen() {
       logger.error('Job save failed', saveError);
       setError('Is kaydedilemedi.');
     } finally {
+      saveInFlightRef.current = false;
       setIsSaving(false);
     }
   }

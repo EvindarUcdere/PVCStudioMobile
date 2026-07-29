@@ -1,5 +1,5 @@
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -46,6 +46,7 @@ export function CustomersScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const saveInFlightRef = useRef(false);
 
   const loadCustomers = useCallback(async (query = search) => {
     setIsLoading(true);
@@ -74,6 +75,10 @@ export function CustomersScreen() {
   }
 
   async function saveCustomer() {
+    if (saveInFlightRef.current || isSaving) {
+      return;
+    }
+
     if (!form.fullName.trim()) {
       setError('Musteri adi zorunlu.');
       return;
@@ -85,6 +90,7 @@ export function CustomersScreen() {
       return;
     }
 
+    saveInFlightRef.current = true;
     setIsSaving(true);
     setError(null);
     setMessage(null);
@@ -99,6 +105,7 @@ export function CustomersScreen() {
       logger.error('Customer save failed', saveError);
       setError('Musteri kaydedilemedi.');
     } finally {
+      saveInFlightRef.current = false;
       setIsSaving(false);
     }
   }

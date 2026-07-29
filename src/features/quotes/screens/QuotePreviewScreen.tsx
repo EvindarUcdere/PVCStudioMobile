@@ -1,5 +1,5 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Linking, Platform, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { AppButton } from '../../../components/ui/AppButton';
@@ -59,6 +59,9 @@ export function QuotePreviewScreen() {
   const [isSharing, setIsSharing] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const saveInFlightRef = useRef(false);
+  const shareInFlightRef = useRef(false);
+  const paymentInFlightRef = useRef(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -128,10 +131,11 @@ export function QuotePreviewScreen() {
   );
 
   async function shareQuote() {
-    if (!design || !estimate || isSharing) {
+    if (!design || !estimate || isSharing || shareInFlightRef.current) {
       return;
     }
 
+    shareInFlightRef.current = true;
     setIsSharing(true);
     try {
       await saveCurrentQuote('sent');
@@ -148,12 +152,13 @@ export function QuotePreviewScreen() {
       logger.error('Quote share failed', shareError);
       setError('Teklif paylasilamadi.');
     } finally {
+      shareInFlightRef.current = false;
       setIsSharing(false);
     }
   }
 
   async function sendSmsQuote() {
-    if (!design || !estimate) {
+    if (!design || !estimate || isSharing || shareInFlightRef.current) {
       return;
     }
 
@@ -174,17 +179,22 @@ export function QuotePreviewScreen() {
     );
     const separator = Platform.OS === 'ios' ? '&' : '?';
 
+    shareInFlightRef.current = true;
+    setIsSharing(true);
     try {
       await saveCurrentQuote('sent');
       await Linking.openURL(`sms:${phone}${separator}body=${body}`);
     } catch (smsError) {
       logger.error('Quote SMS failed', smsError);
       setError('SMS uygulamasi acilamadi.');
+    } finally {
+      shareInFlightRef.current = false;
+      setIsSharing(false);
     }
   }
 
   async function sendWhatsAppQuote() {
-    if (!design || !estimate) {
+    if (!design || !estimate || isSharing || shareInFlightRef.current) {
       return;
     }
 
@@ -204,21 +214,31 @@ export function QuotePreviewScreen() {
       }),
     );
 
+    shareInFlightRef.current = true;
+    setIsSharing(true);
     try {
       await saveCurrentQuote('sent');
       await Linking.openURL(`https://wa.me/${phone}?text=${text}`);
     } catch (whatsAppError) {
       logger.error('Quote WhatsApp failed', whatsAppError);
       setError('WhatsApp acilamadi.');
+    } finally {
+      shareInFlightRef.current = false;
+      setIsSharing(false);
     }
   }
 
   async function saveDraftQuote() {
+    if (saveInFlightRef.current || isSaving) {
+      return;
+    }
+
     if (customerPhone.trim() && !normalizeTurkishPhone(customerPhone)) {
       setError('Telefon 05xxxxxxxxx formatinda olmali.');
       return;
     }
 
+    saveInFlightRef.current = true;
     setIsSaving(true);
     try {
       await saveCurrentQuote('draft');
@@ -228,12 +248,13 @@ export function QuotePreviewScreen() {
       logger.error('Quote draft save failed', saveError);
       setError('Teklif kaydedilemedi.');
     } finally {
+      saveInFlightRef.current = false;
       setIsSaving(false);
     }
   }
 
   async function savePaymentPlan() {
-    if (!design || !estimate) {
+    if (!design || !estimate || paymentInFlightRef.current || isSaving) {
       return;
     }
 
@@ -257,6 +278,7 @@ export function QuotePreviewScreen() {
       return;
     }
 
+    paymentInFlightRef.current = true;
     setIsSaving(true);
     try {
       const quote = await saveCurrentQuote('draft');
@@ -267,6 +289,7 @@ export function QuotePreviewScreen() {
       if (count === 0) {
         const transactionRepository = await createCashTransactionRepository();
         const savedTransaction = await transactionRepository.save({
+          id: `cash-payment-${quote.id}`,
           type: 'income',
           category: 'job_payment',
           title: `${customerName || 'Musteri'} pesin odeme`,
@@ -321,12 +344,13 @@ export function QuotePreviewScreen() {
       logger.error('Payment plan save failed', planError);
       setError('Odeme plani kaydedilemedi.');
     } finally {
+      paymentInFlightRef.current = false;
       setIsSaving(false);
     }
   }
 
   async function saveInstallmentDates() {
-    if (!paymentPlan) {
+    if (!paymentPlan || paymentInFlightRef.current || isSaving) {
       return;
     }
 
@@ -335,6 +359,7 @@ export function QuotePreviewScreen() {
       return;
     }
 
+    paymentInFlightRef.current = true;
     setIsSaving(true);
     try {
       const paymentRepository = await createPaymentRepository();
@@ -351,6 +376,7 @@ export function QuotePreviewScreen() {
       logger.error('Payment installment dates save failed', dateError);
       setError('Taksit tarihleri kaydedilemedi.');
     } finally {
+      paymentInFlightRef.current = false;
       setIsSaving(false);
     }
   }
