@@ -111,7 +111,7 @@ function buildCustomerQuoteHtml({
         ['Aksam/kayit', formatCurrency(estimate.hardwareSubtotal)],
         ['Kemer farki', formatCurrency(estimate.archSubtotal)],
         ['Malzeme karsiligi', formatCurrency(estimate.materialSubtotal)],
-        ['Iscilik / hizmet', formatCurrency(estimate.serviceLaborSubtotal)],
+        ['Hizmet payi', formatCurrency(estimate.serviceLaborSubtotal)],
       ])}
       <p class="muted">${escapeHtml(companyProfile.pdfNote || defaultCompanyProfile.pdfNote)}</p>
       <p class="muted">Teklif gecerlilik suresi: ${companyProfile.quoteValidityDays} gun.</p>
@@ -223,7 +223,7 @@ function buildProductionHtml(
         ['Toplam profil', `${estimate.profileLengthMeters} m`],
         ['Toplam cam alani', `${estimate.glassAreaSquareMeters} m2`],
         ['Malzeme karsiligi', formatCurrency(estimate.materialSubtotal)],
-        ['Iscilik / hizmet', formatCurrency(estimate.serviceLaborSubtotal)],
+        ['Hizmet payi', formatCurrency(estimate.serviceLaborSubtotal)],
         ['Tahmini teklif', formatCurrency(estimate.total)],
         ['Panel sayisi', String(summary.panelCount)],
         ['Acilir panel', String(summary.openingPanelCount)],
@@ -326,7 +326,7 @@ function buildJobProductionHtml(
         <div class="kv"><span>Tasarim sayisi</span><strong>${designs.length}</strong></div>
         <div class="kv"><span>Toplam adet</span><strong>${designs.reduce((sum, design) => sum + design.quantity, 0)}</strong></div>
         <div class="kv"><span>Malzeme karsiligi</span><strong>${formatCurrency(totalMaterial)}</strong></div>
-        <div class="kv"><span>Iscilik / hizmet</span><strong>${formatCurrency(totalService)}</strong></div>
+        <div class="kv"><span>Hizmet payi</span><strong>${formatCurrency(totalService)}</strong></div>
         <div class="kv"><span>Tahmini toplam</span><strong>${formatCurrency(totalEstimate)}</strong></div>
       </div>
       ${designBlocks}

@@ -26,7 +26,7 @@ const shortcuts: SettingsShortcut[] = [
   },
   {
     title: 'Fiyat ve kutuphaneler',
-    description: 'Profil kalitesi, cam tipleri, renk katsayilari ve iscilik/hizmet bedeli.',
+    description: 'Profil kalitesi, cam tipleri, renk katsayilari ve hizmet payi.',
     icon: 'calculator-outline',
     onPress: () => router.push(routes.pricingSettings),
   },

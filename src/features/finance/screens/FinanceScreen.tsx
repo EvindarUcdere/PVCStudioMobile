@@ -223,7 +223,7 @@ export function FinanceScreen() {
       <AppScreen scroll={false}>
         <AppHeader
           title="Gelir / Gider"
-          subtitle="Musteri odemesi ve malzeme maliyeti"
+          subtitle="Kasaya giren, kasadan cikan ve net durum"
           rightAction={<AppButton label="Geri" variant="ghost" onPress={() => router.back()} />}
         />
         {isLoading ? (
@@ -239,6 +239,17 @@ export function FinanceScreen() {
             ListHeaderComponent={
               <View style={styles.headerContent}>
                 <SummaryCard summary={monthSummary} />
+                <AppCard style={styles.infoCard}>
+                  <Text style={styles.sectionTitle}>Kasa mantigi</Text>
+                  <Text style={styles.caption}>
+                    Musteriden alinan toplam satis bedeli gelir olarak tutulur. Hizmet payi teklifin icindedir,
+                    gider degildir.
+                  </Text>
+                  <Text style={styles.caption}>
+                    Gider sadece profil, cam, aksesuar, nakliye veya disariya yaptirilan ekstra is gibi gercek
+                    odemeler icin eklenir.
+                  </Text>
+                </AppCard>
                 {dueInstallments.length > 0 ? (
                   <AppCard style={styles.formCard}>
                     <Text style={styles.sectionTitle}>Odeme hatirlatmasi</Text>
@@ -620,6 +631,9 @@ const styles = StyleSheet.create({
   },
   formCard: {
     gap: spacing.sm,
+  },
+  infoCard: {
+    gap: spacing.xs,
   },
   sectionTitle: {
     ...typography.heading,

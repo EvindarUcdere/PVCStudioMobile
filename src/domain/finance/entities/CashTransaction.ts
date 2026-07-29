@@ -35,7 +35,7 @@ export const cashTransactionCategoryLabels: Record<CashTransactionCategory, stri
   glass: 'Cam',
   accessory: 'Aksesuar',
   hardware: 'Mekanizma',
-  labor: 'Iscilik',
+  labor: 'Dis iscilik',
   transport: 'Nakliye',
   material: 'Malzeme',
   rent: 'Kira',

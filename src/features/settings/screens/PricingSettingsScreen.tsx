@@ -257,8 +257,8 @@ export function PricingSettingsScreen() {
               onChangeText={(value) => updateBaseValue('archSurcharge', value)}
             />
             <PriceRow
-              label="Iscilik / hizmet"
-              detail="Malzeme ustune eklenen tek hizmet bedeli"
+              label="Hizmet payi"
+              detail="Musteriye verilen satis fiyatina eklenen hizmet payi; gider degildir"
               suffix="TL / adet"
               value={values.serviceLaborPrice}
               onChangeText={(value) => updateBaseValue('serviceLaborPrice', value)}
