@@ -217,7 +217,18 @@ export function DesignEditorScreen() {
       <AppHeader
         title={design.name}
         subtitle={isDirty ? 'Degisiklikler kaydedilmedi' : 'Tasarim editoru'}
-        rightAction={<AppButton label="Geri" variant="ghost" onPress={() => router.back()} />}
+        rightAction={
+          <View style={styles.headerActions}>
+            <AppButton
+              label="Kaydet"
+              disabled={!isDirty}
+              loading={isSaving}
+              onPress={() => void saveDesign()}
+              style={styles.headerSaveButton}
+            />
+            <AppButton label="Geri" variant="ghost" onPress={() => router.back()} style={styles.headerBackButton} />
+          </View>
+        }
       />
       <View style={styles.editorBody}>
         <View style={styles.canvasWrap}>
@@ -293,12 +304,6 @@ export function DesignEditorScreen() {
                   style={styles.flexButton}
                 />
               </View>
-              <AppButton
-                label="Tasarimi Kaydet"
-                disabled={!isDirty}
-                loading={isSaving}
-                onPress={() => void saveDesign()}
-              />
               <AppButton
                 label="Teklif / Odeme Olustur"
                 variant="secondary"
@@ -661,6 +666,21 @@ const styles = StyleSheet.create({
   editorBody: {
     flex: 1,
     gap: spacing.md,
+  },
+  headerActions: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  headerSaveButton: {
+    minHeight: 38,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  headerBackButton: {
+    minHeight: 38,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
   },
   canvasWrap: {
     flex: 1,

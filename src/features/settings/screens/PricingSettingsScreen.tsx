@@ -184,7 +184,7 @@ export function PricingSettingsScreen() {
   }
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.keyboard}>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboard}>
       <AppScreen scroll={false}>
         <AppHeader title="Fiyat Ayarlari" subtitle="Usta, seri, renk ve cam fiyatlari." />
         <ScrollView contentContainerStyle={styles.form} showsVerticalScrollIndicator={false}>

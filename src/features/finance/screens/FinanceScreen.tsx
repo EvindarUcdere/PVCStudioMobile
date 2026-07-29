@@ -219,7 +219,7 @@ export function FinanceScreen() {
   }
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.keyboard}>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboard}>
       <AppScreen scroll={false}>
         <AppHeader
           title="Gelir / Gider"

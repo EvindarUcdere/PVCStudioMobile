@@ -27,7 +27,10 @@ export function AppScreen({
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       {scroll ? (
         <ScrollView
+          automaticallyAdjustKeyboardInsets
           contentContainerStyle={styles.scrollContent}
+          keyboardDismissMode="interactive"
+          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           {content}
@@ -46,6 +49,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
+    paddingBottom: spacing.xl,
   },
   content: {
     flex: 1,

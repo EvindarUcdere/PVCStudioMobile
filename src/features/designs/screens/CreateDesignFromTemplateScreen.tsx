@@ -161,7 +161,7 @@ export function CreateDesignFromTemplateScreen() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.keyboard}
     >
       <AppScreen>

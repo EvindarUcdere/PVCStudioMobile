@@ -7,13 +7,16 @@
     "scheme": "pvc-studio-mobile",
     "userInterfaceStyle": "light",
     "newArchEnabled": false,
+    "icon": "./assets/icon.png",
     "ios": {
       "bundleIdentifier": "com.pvcstudio.mobile",
       "supportsTablet": false
     },
     "android": {
       "package": "com.pvcstudio.mobile",
+      "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#F8FAF7"
       }
     },
