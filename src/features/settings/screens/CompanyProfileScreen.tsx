@@ -6,6 +6,7 @@ import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleShe
 import { AppButton } from '../../../components/ui/AppButton';
 import { AppHeader } from '../../../components/ui/AppHeader';
 import { AppScreen } from '../../../components/ui/AppScreen';
+import { routes } from '../../../constants/routes';
 import {
   getCompanyProfile,
   saveCompanyProfile,
@@ -130,6 +131,7 @@ export function CompanyProfileScreen() {
       setSavedCompanyId(normalizeCompanyId(savedProfile.companyId));
       void backupCompanyProfileToCloud(savedProfile);
       setMessage('Firma bilgileri kaydedildi.');
+      router.replace(routes.home);
     } catch (saveError) {
       logger.error('Company profile save failed', saveError);
       setError('Firma bilgileri kaydedilemedi.');
@@ -187,6 +189,7 @@ export function CompanyProfileScreen() {
       const restoredProfile = await getCompanyProfile();
       setValues(toFormValues(restoredProfile));
       setMessage('Giris yapildi. Buluttaki veriler cihaza alindi.');
+      router.replace(routes.home);
     });
   }
 
@@ -244,6 +247,7 @@ export function CompanyProfileScreen() {
           license.maxUsers ? ` Kullanici: ${license.activeUserCount}/${license.maxUsers}` : ''
         }`,
       );
+      router.replace(routes.home);
     } finally {
       setIsSaving(false);
     }
