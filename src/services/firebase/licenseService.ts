@@ -1,4 +1,4 @@
-import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { doc, getDoc, runTransaction, serverTimestamp } from 'firebase/firestore';
 
 import { logger } from '../logger';
 import { ensureFirebaseUser } from './firebaseAuthService';
@@ -80,24 +80,71 @@ export async function validateAndJoinLicense(companyId: string): Promise<License
       };
     }
 
-    await setDoc(
-      licenseSnapshot.ref,
-      {
-        activeUserIds: {
-          [user.uid]: true,
+    const joined = await runTransaction(services.firestore, async (transaction) => {
+      const latestSnapshot = await transaction.get(licenseSnapshot.ref);
+      if (!latestSnapshot.exists()) {
+        return null;
+      }
+
+      const latestLicense = latestSnapshot.data() as LicenseDocument;
+      if (latestLicense.isActive !== true || isExpired(latestLicense.expiresAt)) {
+        return null;
+      }
+
+      const latestActiveUserIds = latestLicense.activeUserIds ?? {};
+      const latestAlreadyJoined = latestActiveUserIds[user.uid] === true;
+      const latestActiveUserCount = Object.values(latestActiveUserIds).filter(Boolean).length;
+      const latestMaxUsers =
+        typeof latestLicense.maxUsers === 'number' && latestLicense.maxUsers > 0
+          ? Math.floor(latestLicense.maxUsers)
+          : null;
+
+      if (!latestAlreadyJoined && latestMaxUsers !== null && latestActiveUserCount >= latestMaxUsers) {
+        return {
+          ok: false as const,
+          reason: 'user-limit' as const,
+          message: `Bu lisans icin kullanici limiti dolu. Limit: ${latestMaxUsers}`,
+        };
+      }
+
+      transaction.set(
+        licenseSnapshot.ref,
+        {
+          activeUserIds: {
+            [user.uid]: true,
+          },
+          lastJoinedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
         },
-        lastJoinedAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true },
-    );
+        { merge: true },
+      );
+
+      return {
+        ok: true as const,
+        companyName: latestLicense.companyName?.trim() || null,
+        maxUsers: latestMaxUsers,
+        activeUserCount: latestAlreadyJoined ? latestActiveUserCount : latestActiveUserCount + 1,
+      };
+    });
+
+    if (!joined) {
+      return {
+        ok: false,
+        reason: 'unknown',
+        message: 'Lisans kontrolu sirasinda hata olustu.',
+      };
+    }
+
+    if (!joined.ok) {
+      return joined;
+    }
 
     return {
       ok: true,
       companyId,
-      companyName: license.companyName?.trim() || null,
-      maxUsers,
-      activeUserCount: alreadyJoined ? activeUserCount : activeUserCount + 1,
+      companyName: joined.companyName,
+      maxUsers: joined.maxUsers,
+      activeUserCount: joined.activeUserCount,
     };
   } catch (error) {
     logger.error('License validation failed', error);
