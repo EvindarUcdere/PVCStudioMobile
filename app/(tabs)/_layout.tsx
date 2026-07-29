@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, radius, shadows, spacing } from '../../src/theme';
 
@@ -15,10 +16,10 @@ function NewTabIcon({ focused }: { focused: boolean }) {
         alignItems: 'center',
         backgroundColor: focused ? colors.primaryPressed : colors.primary,
         borderRadius: radius.full,
-        height: 48,
+        height: 46,
         justifyContent: 'center',
-        marginBottom: spacing.sm,
-        width: 48,
+        marginBottom: spacing.xs,
+        width: 46,
         ...shadows.md,
       }}
     >
@@ -32,6 +33,10 @@ function TabIcon({ name, focused }: { name: TabIconName; focused: boolean }) {
 }
 
 export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
+  const bottomInset = Math.max(insets.bottom, spacing.sm);
+  const tabBarHeight = 64 + bottomInset;
+
   return (
     <Tabs
       screenOptions={{
@@ -45,8 +50,8 @@ export default function TabsLayout() {
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
-          height: 76,
-          paddingBottom: spacing.md,
+          height: tabBarHeight,
+          paddingBottom: bottomInset,
           paddingTop: spacing.sm,
         },
       }}
