@@ -56,7 +56,11 @@ export class SqliteCustomerRepository implements CustomerRepository {
 
     const saved = await this.getById(id);
     if (!saved) {
-      throw new RepositoryError('Saved customer could not be read.');
+      const rawSaved = await this.getRawById(id);
+      if (!rawSaved) {
+        throw new RepositoryError('Saved customer could not be read.');
+      }
+      return rawSaved;
     }
 
     return saved;
@@ -128,6 +132,26 @@ export class SqliteCustomerRepository implements CustomerRepository {
       syncStatus: 'pending',
       version: existing.version + 1,
     };
+  }
+
+  async restore(id: string): Promise<Customer> {
+    const existing = await this.getRawById(id);
+    if (!existing) {
+      throw new EntityNotFoundError('Customer', id);
+    }
+
+    const now = createIsoTimestamp();
+    await this.database.runAsync(
+      'UPDATE customers SET deleted_at = ?, updated_at = ?, sync_status = ?, version = ? WHERE id = ?;',
+      [null, now, 'pending', existing.version + 1, id],
+    );
+
+    const restored = await this.getById(id);
+    if (!restored) {
+      throw new RepositoryError('Restored customer could not be read.');
+    }
+
+    return restored;
   }
 }
 

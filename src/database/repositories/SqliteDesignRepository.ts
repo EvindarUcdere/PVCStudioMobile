@@ -102,7 +102,11 @@ export class SqliteDesignRepository implements DesignRepository {
 
       const saved = await this.getById(row.id);
       if (!saved) {
-        throw new RepositoryError('Created design project could not be read.');
+        const rawSaved = await this.getRawById(row.id);
+        if (!rawSaved) {
+          throw new RepositoryError('Created design project could not be read.');
+        }
+        return rawSaved;
       }
 
       return saved;
@@ -121,6 +125,19 @@ export class SqliteDesignRepository implements DesignRepository {
       return row ? toDomain(row) : null;
     } catch (error) {
       throw mapRepositoryError(error, 'Design project read failed.');
+    }
+  }
+
+  private async getRawById(id: string): Promise<DesignProject | null> {
+    try {
+      const row = await this.database.getFirstAsync<DesignProjectRow>(
+        'SELECT * FROM design_projects WHERE id = ? LIMIT 1;',
+        [id],
+      );
+
+      return row ? toDomain(row) : null;
+    } catch (error) {
+      throw mapRepositoryError(error, 'Design project raw read failed.');
     }
   }
 
@@ -206,6 +223,7 @@ export class SqliteDesignRepository implements DesignRepository {
             accessories_json = ?,
             notes = ?,
             updated_at = ?,
+            deleted_at = ?,
             sync_status = ?,
             version = ?
            WHERE id = ? AND deleted_at IS NULL;`,
@@ -226,6 +244,7 @@ export class SqliteDesignRepository implements DesignRepository {
             row.accessories_json,
             row.notes,
             row.updated_at,
+            row.deleted_at,
             row.sync_status,
             row.version,
             row.id,
@@ -239,7 +258,11 @@ export class SqliteDesignRepository implements DesignRepository {
 
       const saved = await this.getById(project.id);
       if (!saved) {
-        throw new RepositoryError('Updated design project could not be read.');
+        const rawSaved = await this.getRawById(project.id);
+        if (!rawSaved) {
+          throw new RepositoryError('Updated design project could not be read.');
+        }
+        return rawSaved;
       }
 
       return saved;
@@ -279,9 +302,9 @@ export class SqliteDesignRepository implements DesignRepository {
       const now = createIsoTimestamp();
       await this.database.runAsync(
         `UPDATE design_projects
-         SET deleted_at = ?, updated_at = ?, version = ?
+         SET deleted_at = ?, updated_at = ?, sync_status = ?, version = ?
          WHERE id = ?;`,
-        [deleted ? now : null, now, row.version + 1, id],
+        [deleted ? now : null, now, 'pending', row.version + 1, id],
       );
     } catch (error) {
       throw mapRepositoryError(error, 'Design project delete state change failed.');

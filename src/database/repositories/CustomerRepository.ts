@@ -23,4 +23,5 @@ export interface CustomerRepository {
   getById(id: string): Promise<Customer | null>;
   list(options?: ListCustomersOptions): Promise<Customer[]>;
   softDelete(id: string): Promise<Customer>;
+  restore(id: string): Promise<Customer>;
 }

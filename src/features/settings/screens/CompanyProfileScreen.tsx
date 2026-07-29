@@ -21,6 +21,7 @@ import {
 } from '../../../domain/company/entities/CompanyProfile';
 import {
   registerWithEmail,
+  sendPasswordReset,
   signInWithEmail,
   signOutFirebaseUser,
   subscribeFirebaseUser,
@@ -198,6 +199,31 @@ export function CompanyProfileScreen() {
       await signOutFirebaseUser();
       setMessage('Cikis yapildi.');
     });
+  }
+
+  async function resetPassword() {
+    if (!firebaseReady) {
+      setError('Firebase config girilmedi.');
+      return;
+    }
+
+    if (!email.trim()) {
+      setError('Sifre sifirlama icin e-posta girilmeli.');
+      return;
+    }
+
+    setIsAuthBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await sendPasswordReset(email);
+      setMessage('Sifre sifirlama baglantisi e-posta adresine gonderildi.');
+    } catch (resetError) {
+      logger.error('Firebase password reset failed', resetError);
+      setError('Sifre sifirlama e-postasi gonderilemedi. E-posta adresini kontrol edin.');
+    } finally {
+      setIsAuthBusy(false);
+    }
   }
 
   async function joinCompanyByCode() {
@@ -426,6 +452,12 @@ export function CompanyProfileScreen() {
                 style={styles.flexButton}
               />
             </View>
+            <AppButton
+              label="Sifremi Unuttum"
+              variant="ghost"
+              disabled={isAuthBusy}
+              onPress={() => void resetPassword()}
+            />
             <AppButton label="Cikis Yap" variant="ghost" disabled={isAuthBusy} onPress={() => void signOut()} />
           </View>
 

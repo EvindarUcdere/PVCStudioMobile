@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { createDesignRepository } from '../../../database/repositories/createRepositories';
 import { DesignProject } from '../../../domain/designs/entities/DesignProject';
@@ -43,6 +44,12 @@ type DesignEditorState = {
 };
 
 const invalidTreeMessage = 'Bu islem tasarim agacini bozabilecegi icin uygulanmadi.';
+const autosavePrefix = 'design-editor-draft:';
+
+type AutosavedDesignDraft = {
+  design: DesignProject;
+  savedAt: string;
+};
 
 function buildValidEditorState(
   current: DesignEditorState,
@@ -73,6 +80,7 @@ function buildValidEditorState(
 }
 
 export function useDesignEditor(designId: string | undefined) {
+  const hasLoadedRef = useRef(false);
   const [state, setState] = useState<DesignEditorState>({
     design: null,
     history: [],
@@ -144,17 +152,22 @@ export function useDesignEditor(designId: string | undefined) {
         return;
       }
 
+      const autosavedDesign = await loadAutosavedDraft(designId, design);
+
       setState({
-        design,
+        design: autosavedDesign.design,
         history: [],
         future: [],
         selection: null,
         isLoading: false,
         isSaving: false,
-        isDirty: false,
+        isDirty: autosavedDesign.isDraftNewer,
         error: null,
-        saveMessage: null,
+        saveMessage: autosavedDesign.isDraftNewer
+          ? 'Kaydedilmemis taslak geri yuklendi.'
+          : null,
       });
+      hasLoadedRef.current = true;
     } catch (error) {
       logger.error('Design editor load failed', error);
       setState({
@@ -172,6 +185,7 @@ export function useDesignEditor(designId: string | undefined) {
   }, [designId]);
 
   useEffect(() => {
+    hasLoadedRef.current = false;
     void loadDesign();
 
     return () => {
@@ -188,6 +202,19 @@ export function useDesignEditor(designId: string | undefined) {
       });
     };
   }, [loadDesign]);
+
+  useEffect(() => {
+    const draftDesign = state.design;
+    if (!hasLoadedRef.current || !designId || !draftDesign || !state.isDirty || state.isSaving) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      void saveAutosavedDraft(designId, draftDesign);
+    }, 800);
+
+    return () => clearTimeout(timeout);
+  }, [designId, state.design, state.isDirty, state.isSaving]);
 
   const selectPanelById = useCallback((panelId: string) => {
     setState((current) => ({
@@ -520,6 +547,9 @@ export function useDesignEditor(designId: string | undefined) {
     try {
       const repository = await createDesignRepository();
       const savedDesign = await repository.update(state.design);
+      if (designId) {
+        await clearAutosavedDraft(designId);
+      }
       void backupDesignToCloud(savedDesign);
       setState((current) => ({
         ...current,
@@ -538,7 +568,7 @@ export function useDesignEditor(designId: string | undefined) {
         error: 'Degisiklikler kaydedilemedi. Lutfen tekrar deneyin.',
       }));
     }
-  }, [state.design, state.isSaving]);
+  }, [designId, state.design, state.isSaving]);
 
   const undoLastChange = useCallback(() => {
     setState((current) => {
@@ -610,4 +640,59 @@ export function useDesignEditor(designId: string | undefined) {
     undoLastChange,
     redoLastChange,
   };
+}
+
+async function loadAutosavedDraft(
+  designId: string,
+  savedDesign: DesignProject,
+): Promise<{ design: DesignProject; isDraftNewer: boolean }> {
+  try {
+    const rawDraft = await AsyncStorage.getItem(getAutosaveKey(designId));
+    if (!rawDraft) {
+      return { design: savedDesign, isDraftNewer: false };
+    }
+
+    const parsed = JSON.parse(rawDraft) as AutosavedDesignDraft;
+    const draft = designProjectSchema.safeParse(parsed.design);
+    if (!draft.success || draft.data.id !== savedDesign.id) {
+      await clearAutosavedDraft(designId);
+      return { design: savedDesign, isDraftNewer: false };
+    }
+
+    const draftTime = new Date(parsed.savedAt).getTime();
+    const savedTime = new Date(savedDesign.updatedAt).getTime();
+    if (!Number.isFinite(draftTime) || draftTime <= savedTime) {
+      await clearAutosavedDraft(designId);
+      return { design: savedDesign, isDraftNewer: false };
+    }
+
+    return { design: draft.data, isDraftNewer: true };
+  } catch (error) {
+    logger.error('Design autosave restore failed', error);
+    return { design: savedDesign, isDraftNewer: false };
+  }
+}
+
+async function saveAutosavedDraft(designId: string, design: DesignProject): Promise<void> {
+  try {
+    const payload: AutosavedDesignDraft = {
+      design,
+      savedAt: new Date().toISOString(),
+    };
+    await AsyncStorage.setItem(getAutosaveKey(designId), JSON.stringify(payload));
+  } catch (error) {
+    logger.error('Design autosave failed', error);
+  }
+}
+
+async function clearAutosavedDraft(designId: string): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(getAutosaveKey(designId));
+  } catch (error) {
+    logger.error('Design autosave cleanup failed', error);
+  }
+}
+
+function getAutosaveKey(designId: string): string {
+  return `${autosavePrefix}${designId}`;
 }

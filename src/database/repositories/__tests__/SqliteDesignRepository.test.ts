@@ -63,7 +63,7 @@ class InMemoryDatabase implements SqliteDatabaseLike, MigrationDatabase {
       normalized.startsWith('update design_projects set') &&
       normalized.includes('root_node_json')
     ) {
-      const id = String(params[18]);
+      const id = String(params[19]);
       const existing = this.designProjects.get(id);
       if (!existing || existing.deleted_at !== null) {
         return {};
@@ -87,14 +87,15 @@ class InMemoryDatabase implements SqliteDatabaseLike, MigrationDatabase {
         accessories_json: String(params[13]),
         notes: params[14] === null ? null : String(params[14]),
         updated_at: String(params[15]),
-        sync_status: String(params[16]),
-        version: Number(params[17]),
+        deleted_at: params[16] === null ? null : String(params[16]),
+        sync_status: String(params[17]),
+        version: Number(params[18]),
       });
       return {};
     }
 
     if (normalized.startsWith('update design_projects') && normalized.includes('deleted_at')) {
-      const id = String(params[3]);
+      const id = String(params[4]);
       const existing = this.designProjects.get(id);
       if (!existing) {
         return {};
@@ -104,7 +105,8 @@ class InMemoryDatabase implements SqliteDatabaseLike, MigrationDatabase {
         ...existing,
         deleted_at: params[0] === null ? null : String(params[0]),
         updated_at: String(params[1]),
-        version: Number(params[2]),
+        sync_status: String(params[2]),
+        version: Number(params[3]),
       });
       return {};
     }

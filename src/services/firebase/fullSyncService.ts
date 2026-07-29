@@ -455,6 +455,9 @@ export async function restoreAllCloudDataToLocal(): Promise<FullSyncResult | nul
     const cashTransactionRepository = await createCashTransactionRepository();
     const stockRepository = await createStockRepository();
     const activityLogRepository = await createActivityLogRepository();
+    const localCustomers = await customerRepository.list({ includeDeleted: true, limit: 1000 });
+    const localDesigns = await designRepository.list({ includeDeleted: true, limit: 1000 });
+    const localJobs = await jobRepository.list({ includeDeleted: true, limit: 1000 });
     const customerSnapshots = await getDocs(collection(workspaceDoc, 'customers'));
     const designSnapshots = await getDocs(collection(workspaceDoc, 'designs'));
     const jobSnapshots = await getDocs(collection(workspaceDoc, 'jobProjects'));
@@ -478,7 +481,7 @@ export async function restoreAllCloudDataToLocal(): Promise<FullSyncResult | nul
     for (const snapshot of customerSnapshots.docs) {
       const document = snapshot.data() as CloudCustomerDocument;
       const cloudCustomer = document.data;
-      const localCustomer = await customerRepository.getById(cloudCustomer.id);
+      const localCustomer = localCustomers.find((customer) => customer.id === cloudCustomer.id) ?? null;
 
       if (!localCustomer || isCloudNewer(cloudCustomer.updatedAt, localCustomer.updatedAt)) {
         await customerRepository.save({
@@ -498,16 +501,27 @@ export async function restoreAllCloudDataToLocal(): Promise<FullSyncResult | nul
     for (const snapshot of designSnapshots.docs) {
       const document = snapshot.data() as CloudDesignDocument;
       const cloudDesign = normalizeCloudDesign(document.data);
-      const localDesign = await designRepository.getById(cloudDesign.id);
+      const localDesign = localDesigns.find((design) => design.id === cloudDesign.id) ?? null;
 
       if (!localDesign) {
-        await designRepository.create(cloudDesign);
-        restoredDesigns += 1;
+        if (!cloudDesign.deletedAt) {
+          await designRepository.create(cloudDesign);
+          restoredDesigns += 1;
+        }
         continue;
       }
 
       if (isCloudNewer(cloudDesign.updatedAt, localDesign.updatedAt)) {
-        await designRepository.update(cloudDesign);
+        if (cloudDesign.deletedAt) {
+          if (!localDesign.deletedAt) {
+            await designRepository.softDelete(cloudDesign.id);
+          }
+        } else {
+          if (localDesign.deletedAt) {
+            await designRepository.restore(cloudDesign.id);
+          }
+          await designRepository.update({ ...cloudDesign, deletedAt: null });
+        }
         restoredDesigns += 1;
       }
     }
@@ -515,7 +529,7 @@ export async function restoreAllCloudDataToLocal(): Promise<FullSyncResult | nul
     for (const snapshot of jobSnapshots.docs) {
       const document = snapshot.data() as CloudJobProjectDocument;
       const cloudJob = document.data;
-      const localJob = await jobRepository.getById(cloudJob.id);
+      const localJob = localJobs.find((job) => job.id === cloudJob.id) ?? null;
 
       if (!localJob || isCloudNewer(cloudJob.updatedAt, localJob.updatedAt)) {
         await jobRepository.save({

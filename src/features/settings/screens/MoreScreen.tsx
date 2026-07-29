@@ -60,6 +60,12 @@ const options: MoreOption[] = [
     onPress: () => router.push(routes.activity),
   },
   {
+    title: 'Geri Donusum',
+    icon: 'refresh-circle-outline',
+    state: 'Geri al',
+    onPress: () => router.push(routes.recycleBin),
+  },
+  {
     title: 'Fiyat Ayarlari',
     icon: 'calculator-outline',
     state: 'Ac',

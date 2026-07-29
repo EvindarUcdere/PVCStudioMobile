@@ -1,5 +1,6 @@
 import { logger } from '../services/logger';
 import { getDatabase } from './client';
+import { DATABASE_NAME } from '../constants/app';
 import { initialMetadataMigration } from './migrations/001_initial_metadata';
 import { designDomainMigration } from './migrations/002_design_domain';
 import { designTemplatesMigration } from './migrations/003_design_templates';
@@ -19,7 +20,7 @@ import { DatabaseMigration, MigrationDatabase } from './migrations/types';
 import { seedReferenceData } from './seeds/seedReferenceData';
 import { seedProfileMeasurementSettings } from './seeds/seedProfileMeasurementSettings';
 import { seedSystemTemplates } from './seeds/seedSystemTemplates';
-import { SQLiteBindParams, SQLiteDatabase } from 'expo-sqlite';
+import { SQLiteBindParams, SQLiteDatabase, backupDatabaseAsync, openDatabaseAsync } from 'expo-sqlite';
 
 const migrations: DatabaseMigration[] = [
   initialMetadataMigration,
@@ -63,12 +64,19 @@ async function hasMigrationRun(database: MigrationDatabase, migrationId: string)
 }
 
 async function runMigrations(database: MigrationDatabase): Promise<void> {
+  let backupCreated = false;
+
   for (const migration of migrations) {
     if (
       migration.id !== initialMetadataMigration.id &&
       (await hasMigrationRun(database, migration.id))
     ) {
       continue;
+    }
+
+    if (migration.id !== initialMetadataMigration.id && !backupCreated) {
+      await createPreMigrationBackup(database);
+      backupCreated = true;
     }
 
     await database.execAsync('BEGIN TRANSACTION;');
@@ -82,6 +90,32 @@ async function runMigrations(database: MigrationDatabase): Promise<void> {
       throw error;
     }
   }
+}
+
+async function createPreMigrationBackup(database: MigrationDatabase): Promise<void> {
+  const sourceDatabase = await getDatabase();
+  const backupName = getMigrationBackupDatabaseName();
+  let backupDatabase: SQLiteDatabase | null = null;
+
+  try {
+    backupDatabase = await openDatabaseAsync(backupName);
+    await backupDatabaseAsync({
+      sourceDatabase,
+      destDatabase: backupDatabase,
+    });
+    await setMetadata(database, 'last_migration_backup', backupName);
+  } catch (error) {
+    logger.error('SQLite migration backup failed', error);
+  } finally {
+    await backupDatabase?.closeAsync().catch((closeError) => {
+      logger.error('SQLite migration backup close failed', closeError);
+    });
+  }
+}
+
+function getMigrationBackupDatabaseName(): string {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  return `${DATABASE_NAME.replace(/\.db$/i, '')}_pre_migration_${timestamp}.db`;
 }
 
 function createMigrationDatabase(database: SQLiteDatabase): MigrationDatabase {

@@ -29,7 +29,7 @@ export class SqliteJobRepository implements JobRepository {
       throw new RepositoryError('Job project name is required.');
     }
 
-    const existing = await this.getById(id);
+    const existing = await this.getRawById(id);
     const now = createIsoTimestamp();
     const createdAt = existing?.createdAt ?? now;
     const version = input.version ?? (existing ? existing.version + 1 : 1);
@@ -56,7 +56,11 @@ export class SqliteJobRepository implements JobRepository {
 
     const saved = await this.getById(id);
     if (!saved) {
-      throw new RepositoryError('Saved job project could not be read.');
+      const rawSaved = await this.getRawById(id);
+      if (!rawSaved) {
+        throw new RepositoryError('Saved job project could not be read.');
+      }
+      return rawSaved;
     }
 
     return saved;
@@ -65,6 +69,15 @@ export class SqliteJobRepository implements JobRepository {
   async getById(id: string): Promise<JobProject | null> {
     const row = await this.database.getFirstAsync<JobProjectRow>(
       'SELECT * FROM job_projects WHERE id = ? AND deleted_at IS NULL LIMIT 1;',
+      [id],
+    );
+
+    return row ? toDomain(row) : null;
+  }
+
+  private async getRawById(id: string): Promise<JobProject | null> {
+    const row = await this.database.getFirstAsync<JobProjectRow>(
+      'SELECT * FROM job_projects WHERE id = ? LIMIT 1;',
       [id],
     );
 

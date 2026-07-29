@@ -8,6 +8,7 @@ import { EmptyState } from '../src/components/ui/EmptyState';
 import { LoadingScreen } from '../src/components/ui/LoadingScreen';
 import { routes } from '../src/constants/routes';
 import { useAppInitialization } from '../src/hooks/useAppInitialization';
+import { installRemoteErrorReporting } from '../src/services/errorReportingService';
 import { getActiveCompanyId } from '../src/services/firebase/companyWorkspaceService';
 import { logger } from '../src/services/logger';
 
@@ -33,6 +34,10 @@ export function ErrorBoundary({ error, retry }: RouteErrorBoundaryProps) {
 export default function RootLayout() {
   const { isInitialized, initializationError, retryInitialization } = useAppInitialization();
   const pathname = usePathname();
+
+  useEffect(() => {
+    installRemoteErrorReporting();
+  }, []);
 
   const checkCompanyAccess = useCallback(async () => {
     if (!isInitialized || initializationError) {

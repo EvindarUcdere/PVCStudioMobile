@@ -2,6 +2,7 @@ import {
   User,
   createUserWithEmailAndPassword,
   onAuthStateChanged,
+  sendPasswordResetEmail,
   signInAnonymously,
   signInWithEmailAndPassword,
   signOut,
@@ -61,6 +62,16 @@ export async function registerWithEmail(email: string, password: string): Promis
 
   const credential = await createUserWithEmailAndPassword(services.auth, email.trim(), password);
   return credential.user;
+}
+
+export async function sendPasswordReset(email: string): Promise<void> {
+  const services = getFirebaseServices();
+
+  if (!services) {
+    return;
+  }
+
+  await sendPasswordResetEmail(services.auth, email.trim());
 }
 
 export async function signOutFirebaseUser(): Promise<void> {

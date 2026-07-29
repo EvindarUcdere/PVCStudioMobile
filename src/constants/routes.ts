@@ -9,6 +9,7 @@ export const routes = {
   finance: '/finance',
   stock: '/stock',
   activity: '/activity',
+  recycleBin: '/recycle-bin',
   jobs: '/jobs',
   pricingSettings: '/pricing-settings',
   companyProfile: '/company-profile',
