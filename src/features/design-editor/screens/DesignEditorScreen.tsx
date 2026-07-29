@@ -138,6 +138,15 @@ export function DesignEditorScreen() {
     router.push(routes.designQuote(design.id));
   }
 
+  async function saveAndGoHome() {
+    if (!design || isSaving) {
+      return;
+    }
+
+    await saveDesign();
+    router.replace(routes.home);
+  }
+
   function handleJobStatusChange(jobStatus: JobStatus) {
     updateJobStatus(jobStatus);
 
@@ -223,7 +232,7 @@ export function DesignEditorScreen() {
               label="Kaydet"
               disabled={!isDirty}
               loading={isSaving}
-              onPress={() => void saveDesign()}
+              onPress={() => void saveAndGoHome()}
               style={styles.headerSaveButton}
             />
             <AppButton label="Geri" variant="ghost" onPress={() => router.back()} style={styles.headerBackButton} />
