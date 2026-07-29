@@ -508,7 +508,7 @@ export function QuotePreviewScreen() {
         <Info label="Aksam/kayit" value={formatCurrency(estimate.hardwareSubtotal)} />
         {estimate.archSubtotal > 0 ? <Info label="Kemer farki" value={formatCurrency(estimate.archSubtotal)} /> : null}
         <Info label="Malzeme karsiligi" value={formatCurrency(estimate.materialSubtotal)} />
-        <Info label="Hizmet payi" value={formatCurrency(estimate.serviceLaborSubtotal)} />
+        <Info label={`Hizmet payi (%${estimate.rates.serviceLaborRate})`} value={formatCurrency(estimate.serviceLaborSubtotal)} />
         <Info label="Renk katsayisi" value={`x${estimate.colorMultiplier}`} />
       </AppCard>
 
@@ -711,7 +711,7 @@ function buildQuoteMessage({
     `Renk: ${estimate.selectedColor.name}`,
     `Cam: ${estimate.selectedGlassType.name}`,
     `Malzeme karsiligi: ${formatCurrency(estimate.materialSubtotal)}`,
-    `Hizmet payi: ${formatCurrency(estimate.serviceLaborSubtotal)}`,
+    `Hizmet payi (%${estimate.rates.serviceLaborRate}): ${formatCurrency(estimate.serviceLaborSubtotal)}`,
     `Birim fiyat: ${formatCurrency(estimate.unitTotal)}`,
     `Toplam: ${formatCurrency(estimate.total)}`,
     note.trim() ? `Not: ${note.trim()}` : null,

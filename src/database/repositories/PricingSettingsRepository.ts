@@ -14,7 +14,7 @@ const priceEstimateRatesSchema: z.ZodType<PriceEstimateRates> = z.object({
   openingPanelPrice: z.number().nonnegative(),
   fixedPanelPrice: z.number().nonnegative(),
   archSurcharge: z.number().nonnegative(),
-  serviceLaborPrice: z.number().nonnegative(),
+  serviceLaborRate: z.number().nonnegative(),
   customColorMultiplier: z.number().nonnegative(),
   profileSystems: z.array(
     z.object({
@@ -94,15 +94,29 @@ function mergeWithDefaults(value: unknown): PriceEstimateRates {
     return defaultPriceEstimateRates;
   }
 
-  const partial = value as Partial<PriceEstimateRates>;
+  const legacyPartial = value as Partial<PriceEstimateRates> & { serviceLaborPrice?: number };
+  const serviceLaborRate =
+    typeof legacyPartial.serviceLaborRate === 'number'
+      ? legacyPartial.serviceLaborRate
+      : legacyServiceLaborPriceToRate(legacyPartial.serviceLaborPrice);
 
   return {
     ...defaultPriceEstimateRates,
-    ...partial,
-    profileSystems: mergeOptionList(defaultPriceEstimateRates.profileSystems, partial.profileSystems),
-    glassTypes: mergeOptionList(defaultPriceEstimateRates.glassTypes, partial.glassTypes),
-    colorMultipliers: mergeOptionList(defaultPriceEstimateRates.colorMultipliers, partial.colorMultipliers),
+    ...legacyPartial,
+    serviceLaborRate,
+    profileSystems: mergeOptionList(defaultPriceEstimateRates.profileSystems, legacyPartial.profileSystems),
+    glassTypes: mergeOptionList(defaultPriceEstimateRates.glassTypes, legacyPartial.glassTypes),
+    colorMultipliers: mergeOptionList(defaultPriceEstimateRates.colorMultipliers, legacyPartial.colorMultipliers),
   };
+}
+
+function legacyServiceLaborPriceToRate(value: number | undefined): number {
+  if (typeof value !== 'number' || value <= 0) {
+    return defaultPriceEstimateRates.serviceLaborRate;
+  }
+
+  const approximateTypicalMaterial = 5000;
+  return Math.round((value / approximateTypicalMaterial) * 100);
 }
 
 function mergeOptionList<T extends { id: string }>(defaults: T[], saved: T[] | undefined): T[] {

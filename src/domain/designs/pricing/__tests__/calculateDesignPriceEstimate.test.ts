@@ -28,7 +28,7 @@ describe('calculateDesignPriceEstimate', () => {
       openingPanelPrice: 300,
       fixedPanelPrice: 50,
       archSurcharge: 500,
-      serviceLaborPrice: 250,
+      serviceLaborRate: 10,
     });
 
     expect(estimate.profileLengthMeters).toBeGreaterThan(0);
@@ -38,7 +38,7 @@ describe('calculateDesignPriceEstimate', () => {
     expect(estimate.materialSubtotal).toBe(
       estimate.profileSubtotal + estimate.glassSubtotal + estimate.hardwareSubtotal + estimate.archSubtotal,
     );
-    expect(estimate.serviceLaborSubtotal).toBe(250);
+    expect(estimate.serviceLaborSubtotal).toBe(Math.round(estimate.materialSubtotal * 0.1 * 100) / 100);
     expect(estimate.unitTotal).toBe(estimate.materialSubtotal + estimate.serviceLaborSubtotal);
     expect(estimate.total).toBe(estimate.unitTotal * 2);
   });

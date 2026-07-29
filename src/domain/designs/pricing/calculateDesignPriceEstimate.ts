@@ -39,7 +39,7 @@ export type PriceEstimateRates = {
   openingPanelPrice: number;
   fixedPanelPrice: number;
   archSurcharge: number;
-  serviceLaborPrice: number;
+  serviceLaborRate: number;
   profileSystems: ProfileSystemPriceOption[];
   glassTypes: GlassPriceOption[];
   colorMultipliers: ColorPriceOption[];
@@ -71,7 +71,7 @@ export const defaultPriceEstimateRates: PriceEstimateRates = {
   openingPanelPrice: 650,
   fixedPanelPrice: 120,
   archSurcharge: 850,
-  serviceLaborPrice: 0,
+  serviceLaborRate: 20,
   customColorMultiplier: 1.22,
   profileSystems: [
     {
@@ -181,7 +181,7 @@ export function calculateDesignPriceEstimate(
   );
   const archSubtotal = summary.archHeight ? rates.archSurcharge : 0;
   const materialSubtotal = roundMoney(profileSubtotal + glassSubtotal + hardwareSubtotal + archSubtotal);
-  const serviceLaborSubtotal = rates.serviceLaborPrice;
+  const serviceLaborSubtotal = roundMoney(materialSubtotal * (rates.serviceLaborRate / 100));
   const unitTotal = roundMoney(materialSubtotal + serviceLaborSubtotal);
 
   return {

@@ -62,7 +62,7 @@ export function DesignPriceEstimateCard({ design }: DesignPriceEstimateCardProps
       <Info label="Aksam/kayit" value={formatCurrency(estimate.hardwareSubtotal)} />
       {estimate.archSubtotal > 0 ? <Info label="Kemer farki" value={formatCurrency(estimate.archSubtotal)} /> : null}
       <Info label="Malzeme karsiligi" value={formatCurrency(estimate.materialSubtotal)} />
-      <Info label="Hizmet payi" value={formatCurrency(estimate.serviceLaborSubtotal)} />
+      <Info label={`Hizmet payi (%${estimate.rates.serviceLaborRate})`} value={formatCurrency(estimate.serviceLaborSubtotal)} />
       <Info label="Renk katsayisi" value={`x${estimate.colorMultiplier}`} />
       <Text style={styles.description}>
         Toplam teklif, malzeme karsiligi uzerine hizmet payi eklenerek hesaplanir. Hizmet payi gider degildir.
