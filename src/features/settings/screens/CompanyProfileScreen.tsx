@@ -102,6 +102,24 @@ export function CompanyProfileScreen() {
       return;
     }
 
+    if (!parsed.companyId) {
+      setError('Uygulamayi kullanmak icin firma kodu girilmeli.');
+      return;
+    }
+
+    if (!savedCompanyId) {
+      if (!firebaseReady) {
+        setError('Firma kodunu dogrulamak icin Firebase config girilmeli.');
+        return;
+      }
+
+      const license = await validateAndJoinLicense(parsed.companyId);
+      if (!license.ok) {
+        setError(license.message);
+        return;
+      }
+    }
+
     setIsSaving(true);
     setError(null);
     setMessage(null);

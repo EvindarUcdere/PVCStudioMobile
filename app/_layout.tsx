@@ -1,11 +1,14 @@
-import { Stack } from 'expo-router';
+import { router, Stack, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useCallback, useEffect, useState } from 'react';
 
 import { AppButton } from '../src/components/ui/AppButton';
 import { AppScreen } from '../src/components/ui/AppScreen';
 import { EmptyState } from '../src/components/ui/EmptyState';
 import { LoadingScreen } from '../src/components/ui/LoadingScreen';
+import { routes } from '../src/constants/routes';
 import { useAppInitialization } from '../src/hooks/useAppInitialization';
+import { getActiveCompanyId } from '../src/services/firebase/companyWorkspaceService';
 import { logger } from '../src/services/logger';
 
 type RouteErrorBoundaryProps = {
@@ -29,6 +32,33 @@ export function ErrorBoundary({ error, retry }: RouteErrorBoundaryProps) {
 
 export default function RootLayout() {
   const { isInitialized, initializationError, retryInitialization } = useAppInitialization();
+  const pathname = usePathname();
+  const [isCheckingCompanyAccess, setIsCheckingCompanyAccess] = useState(true);
+
+  const checkCompanyAccess = useCallback(async () => {
+    if (!isInitialized || initializationError) {
+      return;
+    }
+
+    setIsCheckingCompanyAccess(true);
+    try {
+      const companyId = await getActiveCompanyId();
+      if (!companyId && pathname !== routes.companyProfile) {
+        router.replace(routes.companyProfile);
+      }
+    } catch (error) {
+      logger.error('Firma erisim kontrolu basarisiz oldu', error);
+      if (pathname !== routes.companyProfile) {
+        router.replace(routes.companyProfile);
+      }
+    } finally {
+      setIsCheckingCompanyAccess(false);
+    }
+  }, [initializationError, isInitialized, pathname]);
+
+  useEffect(() => {
+    void checkCompanyAccess();
+  }, [checkCompanyAccess]);
 
   if (!isInitialized && !initializationError) {
     return <LoadingScreen message="Uygulama hazırlanıyor..." />;
@@ -44,6 +74,10 @@ export default function RootLayout() {
         />
       </AppScreen>
     );
+  }
+
+  if (isCheckingCompanyAccess && pathname !== routes.companyProfile) {
+    return <LoadingScreen message="Firma lisansi kontrol ediliyor..." />;
   }
 
   return (
