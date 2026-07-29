@@ -10,7 +10,7 @@ import { routes } from '../src/constants/routes';
 import { useAppInitialization } from '../src/hooks/useAppInitialization';
 import { installRemoteErrorReporting } from '../src/services/errorReportingService';
 import { getActiveCompanyId } from '../src/services/firebase/companyWorkspaceService';
-import { logger } from '../src/services/logger';
+import { logger, setLoggerContext } from '../src/services/logger';
 
 type RouteErrorBoundaryProps = {
   error: Error;
@@ -18,7 +18,7 @@ type RouteErrorBoundaryProps = {
 };
 
 export function ErrorBoundary({ error, retry }: RouteErrorBoundaryProps) {
-  logger.error('Beklenmeyen route hatasi', error);
+  logger.error('Beklenmeyen route hatasi', error, { action: 'route_error_boundary' });
 
   return (
     <AppScreen centered>
@@ -39,6 +39,10 @@ export default function RootLayout() {
     installRemoteErrorReporting();
   }, []);
 
+  useEffect(() => {
+    setLoggerContext({ screen: pathname });
+  }, [pathname]);
+
   const checkCompanyAccess = useCallback(async () => {
     if (!isInitialized || initializationError) {
       return;
@@ -50,7 +54,10 @@ export default function RootLayout() {
         router.replace(routes.companyProfile);
       }
     } catch (error) {
-      logger.error('Firma erisim kontrolu basarisiz oldu', error);
+      logger.error('Firma erisim kontrolu basarisiz oldu', error, {
+        action: 'company_access_check',
+        screen: pathname,
+      });
       if (pathname !== routes.companyProfile) {
         router.replace(routes.companyProfile);
       }
