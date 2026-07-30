@@ -1,5 +1,6 @@
 import { deleteField, doc, getDoc, runTransaction, serverTimestamp } from 'firebase/firestore';
 
+import { getLegacyLocalDeviceId } from '../../database/repositories/LocalUserSettingsRepository';
 import { logger } from '../logger';
 import { ensureFirebaseUser } from './firebaseAuthService';
 import { getFirebaseServices } from './firebaseConfig';
@@ -209,6 +210,7 @@ export async function getLicenseSeatSummary(companyId: string): Promise<LicenseS
 export async function releaseCurrentLicenseSeat(companyId: string): Promise<boolean> {
   const services = getFirebaseServices();
   const user = await ensureFirebaseUser();
+  const legacySeatId = await getLegacyLocalDeviceId();
 
   if (!services || !user) {
     return false;
@@ -227,6 +229,10 @@ export async function releaseCurrentLicenseSeat(companyId: string): Promise<bool
         updatedAt: serverTimestamp(),
         [`activeUserIds.${user.uid}`]: deleteField(),
       };
+
+      if (legacySeatId) {
+        updates[`activeUserIds.${legacySeatId}`] = deleteField();
+      }
 
       Object.entries(license.activeUserIds ?? {}).forEach(([activeSeatId, isActive]) => {
         if (isActive !== true) {

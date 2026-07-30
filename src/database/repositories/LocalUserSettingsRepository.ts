@@ -1,6 +1,7 @@
 import { getDatabase } from '../client';
 
 const operatorNameKey = 'local_operator_name';
+const legacyDeviceIdKey = 'local_device_id';
 
 type MetadataRow = {
   value: string | null;
@@ -28,4 +29,14 @@ export async function saveLocalOperatorName(name: string): Promise<string | null
   );
 
   return normalized ? normalized : null;
+}
+
+export async function getLegacyLocalDeviceId(): Promise<string | null> {
+  const database = await getDatabase();
+  const row = await database.getFirstAsync<MetadataRow>(
+    'SELECT value FROM app_metadata WHERE key = ? LIMIT 1;',
+    [legacyDeviceIdKey],
+  );
+  const deviceId = row?.value?.trim();
+  return deviceId ? deviceId : null;
 }
