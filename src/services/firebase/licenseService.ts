@@ -1,6 +1,5 @@
 import { deleteField, doc, getDoc, runTransaction, serverTimestamp } from 'firebase/firestore';
 
-import { getLocalDeviceId } from '../../database/repositories/LocalUserSettingsRepository';
 import { logger } from '../logger';
 import { ensureFirebaseUser } from './firebaseAuthService';
 import { getFirebaseServices } from './firebaseConfig';
@@ -44,7 +43,6 @@ type LicenseDocument = {
 export async function validateAndJoinLicense(companyId: string): Promise<LicenseValidationResult> {
   const services = getFirebaseServices();
   const user = await ensureFirebaseUser();
-  const seatId = await getLocalDeviceId();
 
   if (!services || !user) {
     return {
@@ -83,7 +81,7 @@ export async function validateAndJoinLicense(companyId: string): Promise<License
     }
 
     const activeUserIds = license.activeUserIds ?? {};
-    const alreadyJoined = activeUserIds[seatId] === true;
+    const alreadyJoined = activeUserIds[user.uid] === true;
     const activeUserCount = Object.values(activeUserIds).filter(Boolean).length;
     const maxUsers = typeof license.maxUsers === 'number' && license.maxUsers > 0 ? Math.floor(license.maxUsers) : null;
 
@@ -107,7 +105,7 @@ export async function validateAndJoinLicense(companyId: string): Promise<License
       }
 
       const latestActiveUserIds = latestLicense.activeUserIds ?? {};
-      const latestAlreadyJoined = latestActiveUserIds[seatId] === true;
+      const latestAlreadyJoined = latestActiveUserIds[user.uid] === true;
       const latestActiveUserCount = Object.values(latestActiveUserIds).filter(Boolean).length;
       const latestMaxUsers =
         typeof latestLicense.maxUsers === 'number' && latestLicense.maxUsers > 0
@@ -126,7 +124,7 @@ export async function validateAndJoinLicense(companyId: string): Promise<License
         licenseSnapshot.ref,
         {
           activeUserIds: {
-            [seatId]: true,
+            [user.uid]: true,
           },
           lastJoinedAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
@@ -174,7 +172,6 @@ export async function validateAndJoinLicense(companyId: string): Promise<License
 export async function getLicenseSeatSummary(companyId: string): Promise<LicenseSeatSummary | null> {
   const services = getFirebaseServices();
   const user = await ensureFirebaseUser();
-  const seatId = await getLocalDeviceId();
 
   if (!services || !user) {
     return null;
@@ -190,9 +187,9 @@ export async function getLicenseSeatSummary(companyId: string): Promise<LicenseS
     const activeUserIds = license.activeUserIds ?? {};
     const seats = Object.entries(activeUserIds)
       .filter(([, isActive]) => isActive === true)
-      .map(([activeSeatId]) => ({
-        userId: activeSeatId,
-        isCurrentDevice: activeSeatId === seatId || activeSeatId === user.uid,
+      .map(([userId]) => ({
+        userId,
+        isCurrentDevice: userId === user.uid,
       }));
     const maxUsers = typeof license.maxUsers === 'number' && license.maxUsers > 0 ? Math.floor(license.maxUsers) : null;
 
@@ -212,7 +209,6 @@ export async function getLicenseSeatSummary(companyId: string): Promise<LicenseS
 export async function releaseCurrentLicenseSeat(companyId: string): Promise<boolean> {
   const services = getFirebaseServices();
   const user = await ensureFirebaseUser();
-  const seatId = await getLocalDeviceId();
 
   if (!services || !user) {
     return false;
@@ -229,7 +225,6 @@ export async function releaseCurrentLicenseSeat(companyId: string): Promise<bool
       const license = snapshot.data() as LicenseDocument;
       const updates: Record<string, unknown> = {
         updatedAt: serverTimestamp(),
-        [`activeUserIds.${seatId}`]: deleteField(),
         [`activeUserIds.${user.uid}`]: deleteField(),
       };
 
