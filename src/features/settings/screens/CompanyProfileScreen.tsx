@@ -45,7 +45,6 @@ import { colors, radius, spacing, typography } from '../../../theme';
 type CompanyProfileForm = Record<keyof CompanyProfile, string>;
 
 const fields: { key: keyof CompanyProfile; label: string; keyboardType?: 'default' | 'numeric' | 'phone-pad' }[] = [
-  { key: 'companyId', label: 'Firma kodu' },
   { key: 'companyName', label: 'Firma adi' },
   { key: 'ownerName', label: 'Yetkili kisi' },
   { key: 'phone', label: 'Telefon', keyboardType: 'phone-pad' },
@@ -57,6 +56,7 @@ const fields: { key: keyof CompanyProfile; label: string; keyboardType?: 'defaul
 
 export function CompanyProfileScreen() {
   const [values, setValues] = useState<CompanyProfileForm>(toFormValues(defaultCompanyProfile));
+  const [companyCodeInput, setCompanyCodeInput] = useState('');
   const [user, setUser] = useState<User | null>(null);
   const [operatorName, setOperatorName] = useState('');
   const [savedCompanyId, setSavedCompanyId] = useState('');
@@ -100,6 +100,7 @@ export function CompanyProfileScreen() {
         ]);
         setValues(toFormValues(loadedProfile));
         const normalizedCompanyId = normalizeCompanyId(loadedProfile.companyId);
+        setCompanyCodeInput(normalizedCompanyId);
         setSavedCompanyId(normalizedCompanyId);
         setOperatorName(loadedOperatorName ?? '');
         void loadLicenseSummary(normalizedCompanyId);
@@ -116,13 +117,17 @@ export function CompanyProfileScreen() {
   }, [loadLicenseSummary]);
 
   function updateValue(key: keyof CompanyProfile, value: string) {
-    const nextValue = key === 'companyId' ? normalizeCompanyId(value) : value;
-    setValues((current) => ({ ...current, [key]: nextValue }));
+    setValues((current) => ({ ...current, [key]: value }));
+    clearStatus();
+  }
+
+  function updateCompanyCode(value: string) {
+    setCompanyCodeInput(normalizeCompanyId(value));
     clearStatus();
   }
 
   async function save() {
-    const parsed = parseProfile(values);
+    const parsed = parseProfile(values, companyCodeInput);
     if (!parsed) {
       setError('Teklif geçerlilik günü 0 veya daha büyük sayı olmalı.');
       return;
@@ -158,6 +163,7 @@ export function CompanyProfileScreen() {
       await saveLocalOperatorName(operatorName);
       setValues(toFormValues(savedProfile));
       const normalizedCompanyId = normalizeCompanyId(savedProfile.companyId);
+      setCompanyCodeInput(normalizedCompanyId);
       setSavedCompanyId(normalizedCompanyId);
       void loadLicenseSummary(normalizedCompanyId);
       void backupCompanyProfileToCloud(savedProfile);
@@ -178,7 +184,7 @@ export function CompanyProfileScreen() {
         return;
       }
 
-      const companyId = normalizeCompanyId(values.companyId);
+      const companyId = normalizeCompanyId(companyCodeInput);
       if (!canUseCompanyCode(companyId)) {
         return;
       }
@@ -204,7 +210,7 @@ export function CompanyProfileScreen() {
         return;
       }
 
-      const companyId = normalizeCompanyId(values.companyId);
+      const companyId = normalizeCompanyId(companyCodeInput);
       if (!canUseCompanyCode(companyId)) {
         return;
       }
@@ -275,7 +281,7 @@ export function CompanyProfileScreen() {
   }
 
   async function releaseThisDeviceSeat() {
-    const companyId = normalizeCompanyId(values.companyId);
+    const companyId = normalizeCompanyId(companyCodeInput);
     if (!firebaseReady || !companyId) {
       setError('Cihaz lisansını boşaltmak için firma kodu ve Firebase gerekli.');
       return;
@@ -313,7 +319,7 @@ export function CompanyProfileScreen() {
     setError(null);
     setMessage(null);
     try {
-      const parsed = parseProfile(values);
+      const parsed = parseProfile(values, companyCodeInput);
       if (!parsed) {
         setError('Firma koduyla katılmak için firma alanlarını düzeltin.');
         return;
@@ -340,6 +346,7 @@ export function CompanyProfileScreen() {
       const restoredProfile = await getCompanyProfile();
       setValues(toFormValues(restoredProfile));
       const normalizedCompanyId = normalizeCompanyId(restoredProfile.companyId);
+      setCompanyCodeInput(normalizedCompanyId);
       setSavedCompanyId(normalizedCompanyId);
       void loadLicenseSummary(normalizedCompanyId);
       setMessage(
@@ -354,7 +361,7 @@ export function CompanyProfileScreen() {
   }
 
   async function backupProfile() {
-    const parsed = parseProfile(values);
+    const parsed = parseProfile(values, companyCodeInput);
     if (!parsed) {
       setError('Buluta yedeklemek için firma alanlarını düzeltin.');
       return;
@@ -373,6 +380,7 @@ export function CompanyProfileScreen() {
       const backedUp = await backupCompanyProfileToCloud(savedProfile);
       setValues(toFormValues(savedProfile));
       const normalizedCompanyId = normalizeCompanyId(savedProfile.companyId);
+      setCompanyCodeInput(normalizedCompanyId);
       setSavedCompanyId(normalizedCompanyId);
       void loadLicenseSummary(normalizedCompanyId);
       setMessage(backedUp ? 'Firma bilgileri buluta yedeklendi.' : 'Bulut yedeği yapılamadı.');
@@ -387,7 +395,7 @@ export function CompanyProfileScreen() {
       return;
     }
 
-    if (!canUseCompanyCode(values.companyId)) {
+    if (!canUseCompanyCode(companyCodeInput)) {
       return;
     }
 
@@ -404,6 +412,7 @@ export function CompanyProfileScreen() {
       const savedProfile = await saveCompanyProfile(cloudProfile);
       setValues(toFormValues(savedProfile));
       const normalizedCompanyId = normalizeCompanyId(savedProfile.companyId);
+      setCompanyCodeInput(normalizedCompanyId);
       setSavedCompanyId(normalizedCompanyId);
       void loadLicenseSummary(normalizedCompanyId);
       setMessage('Buluttaki firma bilgileri cihaza alındı.');
@@ -442,7 +451,7 @@ export function CompanyProfileScreen() {
   }
 
   function hasCompanyCode(): boolean {
-    return normalizeCompanyId(values.companyId).length > 0;
+    return normalizeCompanyId(companyCodeInput).length > 0;
   }
 
   function canUseCompanyCode(nextCompanyId: string): boolean {
@@ -485,7 +494,7 @@ export function CompanyProfileScreen() {
                 : 'Firebase config girilmedi'}
             </Text>
             <Text style={styles.statusCaption}>
-              Firma kodu: {hasCompanyCode() ? normalizeCompanyId(values.companyId) : 'Girilmedi'}
+              Firma kodu: {hasCompanyCode() ? normalizeCompanyId(companyCodeInput) : 'Girilmedi'}
             </Text>
             <Text style={styles.statusCaption}>
               Kullanıcı: {operatorName.trim() || user?.email || 'Belirtilmedi'}
@@ -546,6 +555,22 @@ export function CompanyProfileScreen() {
               işlemi yapan kişi olarak görünür. Firma kodunun Firebase lisans kaydında aktif olması gerekir.
             </Text>
             <View style={styles.field}>
+              <Text style={styles.label}>Firma kodu</Text>
+              <TextInput
+                accessibilityLabel="Firma kodu"
+                autoCapitalize="characters"
+                autoCorrect={false}
+                onChangeText={updateCompanyCode}
+                placeholder="Örn: ALI-PVC-2026"
+                placeholderTextColor={colors.textSecondary}
+                style={styles.input}
+                value={companyCodeInput}
+              />
+              <Text style={styles.statusCaption}>
+                Kod yazarken işlem yapılmaz; yalnızca Firma Koduyla Katıl veya Kaydet butonuna basınca kontrol edilir.
+              </Text>
+            </View>
+            <View style={styles.field}>
               <Text style={styles.label}>Bu cihazdaki kullanıcı adı</Text>
               <TextInput
                 accessibilityLabel="Bu cihazdaki kullanıcı adı"
@@ -564,8 +589,8 @@ export function CompanyProfileScreen() {
                 <Text style={styles.label}>{field.label}</Text>
                 <TextInput
                   accessibilityLabel={field.label}
-                  autoCapitalize={field.key === 'companyId' ? 'characters' : 'sentences'}
-                  autoCorrect={field.key !== 'companyId'}
+                  autoCapitalize="sentences"
+                  autoCorrect
                   keyboardType={field.keyboardType ?? 'default'}
                   multiline={field.key === 'address' || field.key === 'pdfNote'}
                   onChangeText={(value) => updateValue(field.key, value)}
@@ -611,7 +636,7 @@ export function CompanyProfileScreen() {
                 variant="secondary"
                 loading={isLicenseBusy}
                 disabled={isLicenseBusy}
-                onPress={() => void loadLicenseSummary(values.companyId)}
+                onPress={() => void loadLicenseSummary(companyCodeInput)}
                 style={styles.flexButton}
               />
               <AppButton
@@ -664,7 +689,7 @@ function toFormValues(profile: CompanyProfile): CompanyProfileForm {
   };
 }
 
-function parseProfile(values: CompanyProfileForm): CompanyProfile | null {
+function parseProfile(values: CompanyProfileForm, companyCode: string): CompanyProfile | null {
   const quoteValidityDays = Number(values.quoteValidityDays.replace(',', '.').trim());
 
   if (!Number.isFinite(quoteValidityDays) || quoteValidityDays < 0) {
@@ -672,7 +697,7 @@ function parseProfile(values: CompanyProfileForm): CompanyProfile | null {
   }
 
   return {
-    companyId: normalizeCompanyId(values.companyId),
+    companyId: normalizeCompanyId(companyCode),
     companyName: values.companyName.trim(),
     ownerName: values.ownerName.trim(),
     phone: values.phone.trim(),
