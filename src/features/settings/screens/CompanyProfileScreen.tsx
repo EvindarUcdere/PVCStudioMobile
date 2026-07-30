@@ -72,20 +72,21 @@ export function CompanyProfileScreen() {
   const firebaseReady = isFirebaseConfigured();
 
   const loadLicenseSummary = useCallback(
-    async (companyId = normalizeCompanyId(values.companyId)) => {
-      if (!firebaseReady || !companyId) {
+    async (companyId: string) => {
+      const normalizedCompanyId = normalizeCompanyId(companyId);
+      if (!firebaseReady || !normalizedCompanyId) {
         setLicenseSummary(null);
         return;
       }
 
       setIsLicenseBusy(true);
       try {
-        setLicenseSummary(await getLicenseSeatSummary(companyId));
+        setLicenseSummary(await getLicenseSeatSummary(normalizedCompanyId));
       } finally {
         setIsLicenseBusy(false);
       }
     },
-    [firebaseReady, values.companyId],
+    [firebaseReady],
   );
 
   useEffect(() => {
@@ -115,7 +116,8 @@ export function CompanyProfileScreen() {
   }, [loadLicenseSummary]);
 
   function updateValue(key: keyof CompanyProfile, value: string) {
-    setValues((current) => ({ ...current, [key]: value }));
+    const nextValue = key === 'companyId' ? normalizeCompanyId(value) : value;
+    setValues((current) => ({ ...current, [key]: nextValue }));
     clearStatus();
   }
 
@@ -226,11 +228,25 @@ export function CompanyProfileScreen() {
   }
 
   async function signOut() {
-    await runAuthAction(async () => {
+    if (!firebaseReady) {
+      setError('Firebase config girilmedi.');
+      return;
+    }
+
+    setIsAuthBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
       await signOutFirebaseUser();
       setPassword('');
+      setUser(null);
       setMessage('Çıkış yapıldı.');
-    });
+    } catch (signOutError) {
+      logger.error('Firebase sign out failed', signOutError);
+      setError('Çıkış yapılamadı. İnternet bağlantısını ve Firebase ayarlarını kontrol edin.');
+    } finally {
+      setIsAuthBusy(false);
+    }
   }
 
   async function resetPassword() {
@@ -548,6 +564,8 @@ export function CompanyProfileScreen() {
                 <Text style={styles.label}>{field.label}</Text>
                 <TextInput
                   accessibilityLabel={field.label}
+                  autoCapitalize={field.key === 'companyId' ? 'characters' : 'sentences'}
+                  autoCorrect={field.key !== 'companyId'}
                   keyboardType={field.keyboardType ?? 'default'}
                   multiline={field.key === 'address' || field.key === 'pdfNote'}
                   onChangeText={(value) => updateValue(field.key, value)}
@@ -593,7 +611,7 @@ export function CompanyProfileScreen() {
                 variant="secondary"
                 loading={isLicenseBusy}
                 disabled={isLicenseBusy}
-                onPress={() => void loadLicenseSummary()}
+                onPress={() => void loadLicenseSummary(values.companyId)}
                 style={styles.flexButton}
               />
               <AppButton
