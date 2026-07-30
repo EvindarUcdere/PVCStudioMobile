@@ -14,8 +14,8 @@ import {
 } from '../../../database/repositories/createRepositories';
 import { Customer } from '../../../domain/customers/entities/Customer';
 import { DesignProject } from '../../../domain/designs/entities/DesignProject';
-import { jobStatusLabels } from '../../../domain/designs/enums/JobStatus';
 import { getDesignProfileColor } from '../../../domain/designs/colors/profileColorOptions';
+import { jobStatusLabels } from '../../../domain/designs/enums/JobStatus';
 import { DesignTemplate } from '../../../domain/templates/entities/DesignTemplate';
 import { backupDesignToCloud } from '../../../services/firebase/fullSyncService';
 import { logger } from '../../../services/logger';
@@ -143,6 +143,26 @@ export function DesignDetailsPlaceholderScreen() {
         <Info label="Oluşturulma" value={new Date(project.createdAt).toLocaleDateString('tr-TR')} />
       </View>
       <AppButton label="Tasarımı Aç" onPress={() => router.push(routes.designEditor(project.id))} />
+      <View style={styles.actions}>
+        <AppButton
+          label="Teklif PDF"
+          variant="secondary"
+          onPress={() =>
+            router.push(routes.designPdfPreview(project.id, 'quote', customer?.fullName ?? '', customer?.phone ?? '', ''))
+          }
+          style={styles.actionButton}
+        />
+        <AppButton
+          label="Imalat PDF"
+          variant="secondary"
+          onPress={() =>
+            router.push(
+              routes.designPdfPreview(project.id, 'production', customer?.fullName ?? '', customer?.phone ?? '', ''),
+            )
+          }
+          style={styles.actionButton}
+        />
+      </View>
       <AppButton label="Teklif Oluştur" variant="secondary" onPress={() => router.push(routes.designQuote(project.id))} />
       <View style={styles.stockNeeds}>
         <DesignStockNeedsCard design={project} />

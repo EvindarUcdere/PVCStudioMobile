@@ -535,6 +535,25 @@ export function QuotePreviewScreen() {
         <Info label="Birim fiyat" value={formatCurrency(estimate.unitTotal)} />
       </AppCard>
 
+      <AppCard style={styles.actionsCard}>
+        <Text style={styles.sectionTitle}>PDF ön izleme</Text>
+        <Text style={styles.helperText}>Göndermeden veya imalata almadan önce teklif ve imalat PDF dosyasını kontrol edin.</Text>
+        <View style={styles.actionRow}>
+          <AppButton
+            label="Teklif PDF"
+            variant="secondary"
+            onPress={() => openPdfPreview('quote')}
+            style={styles.actionButton}
+          />
+          <AppButton
+            label="Imalat PDF"
+            variant="secondary"
+            onPress={() => openPdfPreview('production')}
+            style={styles.actionButton}
+          />
+        </View>
+      </AppCard>
+
       <AppCard style={styles.breakdownCard}>
         <Text style={styles.sectionTitle}>Fiyat dokumu</Text>
         <Info label="Profil tutari" value={formatCurrency(estimate.profileSubtotal)} />
@@ -649,21 +668,7 @@ export function QuotePreviewScreen() {
       </AppCard>
 
       <AppCard style={styles.actionsCard}>
-        <Text style={styles.sectionTitle}>PDF ve tasarim</Text>
-        <View style={styles.actionRow}>
-          <AppButton
-            label="Teklif Onizle"
-            variant="secondary"
-            onPress={() => openPdfPreview('quote')}
-            style={styles.actionButton}
-          />
-          <AppButton
-            label="Imalat Onizle"
-            variant="secondary"
-            onPress={() => openPdfPreview('production')}
-            style={styles.actionButton}
-          />
-        </View>
+        <Text style={styles.sectionTitle}>Tasarım</Text>
         <AppButton label="Tasarimi Duzenle" variant="secondary" onPress={() => router.push(routes.designEditor(design.id))} />
       </AppCard>
     </AppScreen>
