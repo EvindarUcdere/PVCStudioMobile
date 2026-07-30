@@ -1,7 +1,6 @@
-import { User } from 'firebase/auth';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { AppButton } from '../../../components/ui/AppButton';
 import { AppHeader } from '../../../components/ui/AppHeader';
@@ -20,11 +19,7 @@ import {
   defaultCompanyProfile,
 } from '../../../domain/company/entities/CompanyProfile';
 import {
-  registerWithEmail,
-  sendPasswordReset,
-  signInWithEmail,
   signOutFirebaseUser,
-  subscribeFirebaseUser,
 } from '../../../services/firebase/firebaseAuthService';
 import { isFirebaseConfigured } from '../../../services/firebase/firebaseConfig';
 import { normalizeCompanyId } from '../../../services/firebase/companyWorkspaceService';
@@ -32,7 +27,7 @@ import {
   backupCompanyProfileToCloud,
   restoreCompanyProfileFromCloud,
 } from '../../../services/firebase/companyProfileCloudService';
-import { backupAllLocalDataToCloud, restoreAllCloudDataToLocal } from '../../../services/firebase/fullSyncService';
+import { restoreAllCloudDataToLocal } from '../../../services/firebase/fullSyncService';
 import {
   getLicenseSeatSummary,
   LicenseSeatSummary,
@@ -57,14 +52,10 @@ const fields: { key: keyof CompanyProfile; label: string; keyboardType?: 'defaul
 export function CompanyProfileScreen() {
   const [values, setValues] = useState<CompanyProfileForm>(toFormValues(defaultCompanyProfile));
   const [companyCodeInput, setCompanyCodeInput] = useState('');
-  const [user, setUser] = useState<User | null>(null);
   const [operatorName, setOperatorName] = useState('');
   const [savedCompanyId, setSavedCompanyId] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [isAuthBusy, setIsAuthBusy] = useState(false);
   const [isLicenseBusy, setIsLicenseBusy] = useState(false);
   const [licenseSummary, setLicenseSummary] = useState<LicenseSeatSummary | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -90,8 +81,6 @@ export function CompanyProfileScreen() {
   );
 
   useEffect(() => {
-    const unsubscribe = subscribeFirebaseUser(setUser);
-
     async function loadProfile() {
       try {
         const [loadedProfile, loadedOperatorName] = await Promise.all([
@@ -113,7 +102,6 @@ export function CompanyProfileScreen() {
     }
 
     void loadProfile();
-    return unsubscribe;
   }, [loadLicenseSummary]);
 
   function updateValue(key: keyof CompanyProfile, value: string) {
@@ -177,109 +165,6 @@ export function CompanyProfileScreen() {
     }
   }
 
-  async function register() {
-    await runAuthAction(async () => {
-      if (!hasCompanyCode()) {
-        setError('Ortak kullanım için önce firma kodu girilmeli.');
-        return;
-      }
-
-      const companyId = normalizeCompanyId(companyCodeInput);
-      if (!canUseCompanyCode(companyId)) {
-        return;
-      }
-
-      const license = await validateAndJoinLicense(companyId);
-      if (!license.ok) {
-        setError(license.message);
-        return;
-      }
-
-      await saveLocalOperatorName(operatorName);
-      await registerWithEmail(email, password);
-      setPassword('');
-      await backupAllLocalDataToCloud();
-      setMessage('Hesap oluşturuldu ve veriler buluta yedeklendi.');
-    });
-  }
-
-  async function signIn() {
-    await runAuthAction(async () => {
-      if (!hasCompanyCode()) {
-        setError('Buluttaki firma verilerini almak için firma kodu girilmeli.');
-        return;
-      }
-
-      const companyId = normalizeCompanyId(companyCodeInput);
-      if (!canUseCompanyCode(companyId)) {
-        return;
-      }
-
-      const license = await validateAndJoinLicense(companyId);
-      if (!license.ok) {
-        setError(license.message);
-        return;
-      }
-
-      await saveLocalOperatorName(operatorName);
-      await signInWithEmail(email, password);
-      setPassword('');
-      await restoreAllCloudDataToLocal();
-      const restoredProfile = await getCompanyProfile();
-      setValues(toFormValues(restoredProfile));
-      void loadLicenseSummary(normalizeCompanyId(restoredProfile.companyId));
-      setMessage('Giriş yapıldı. Buluttaki veriler cihaza alındı.');
-      router.replace(routes.home);
-    });
-  }
-
-  async function signOut() {
-    if (!firebaseReady) {
-      setError('Firebase config girilmedi.');
-      return;
-    }
-
-    setIsAuthBusy(true);
-    setError(null);
-    setMessage(null);
-    try {
-      await signOutFirebaseUser();
-      setPassword('');
-      setUser(null);
-      setMessage('Çıkış yapıldı.');
-    } catch (signOutError) {
-      logger.error('Firebase sign out failed', signOutError);
-      setError('Çıkış yapılamadı. İnternet bağlantısını ve Firebase ayarlarını kontrol edin.');
-    } finally {
-      setIsAuthBusy(false);
-    }
-  }
-
-  async function resetPassword() {
-    if (!firebaseReady) {
-      setError('Firebase config girilmedi.');
-      return;
-    }
-
-    if (!email.trim()) {
-      setError('Şifre sıfırlama için e-posta girilmeli.');
-      return;
-    }
-
-    setIsAuthBusy(true);
-    setError(null);
-    setMessage(null);
-    try {
-      await sendPasswordReset(email);
-      setMessage('Şifre sıfırlama bağlantısı e-posta adresine gönderildi.');
-    } catch (resetError) {
-      logger.error('Firebase password reset failed', resetError);
-      setError('Şifre sıfırlama e-postası gönderilemedi. E-posta adresini kontrol edin.');
-    } finally {
-      setIsAuthBusy(false);
-    }
-  }
-
   async function releaseThisDeviceSeat() {
     const companyId = normalizeCompanyId(companyCodeInput);
     if (!firebaseReady || !companyId) {
@@ -301,6 +186,51 @@ export function CompanyProfileScreen() {
       setMessage('Bu cihaz lisans koltuğundan çıkarıldı. Firma verileri silinmedi.');
     } finally {
       setIsLicenseBusy(false);
+    }
+  }
+
+  function confirmLeaveCompany() {
+    Alert.alert(
+      'Firmadan çık',
+      'Bu cihaz firma kodundan ayrılacak. Müşteri, tasarım ve teklif verileri silinmez; tekrar firma koduyla bağlanabilirsiniz.',
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: 'Firmadan Çık',
+          style: 'destructive',
+          onPress: () => {
+            void leaveCompany();
+          },
+        },
+      ],
+    );
+  }
+
+  async function leaveCompany() {
+    const companyId = normalizeCompanyId(companyCodeInput);
+    setIsSaving(true);
+    setError(null);
+    setMessage(null);
+    try {
+      if (firebaseReady && companyId) {
+        await releaseCurrentLicenseSeat(companyId);
+        await signOutFirebaseUser();
+      }
+
+      await saveCompanyProfile(defaultCompanyProfile);
+      await saveLocalOperatorName('');
+      setValues(toFormValues(defaultCompanyProfile));
+      setCompanyCodeInput('');
+      setSavedCompanyId('');
+      setOperatorName('');
+      setLicenseSummary(null);
+      setMessage('Bu cihaz firmadan ayrıldı. Tekrar firma koduyla giriş yapabilirsiniz.');
+      router.replace(routes.companyProfile);
+    } catch (leaveError) {
+      logger.error('Company leave failed', leaveError);
+      setError('Firmadan çıkış tamamlanamadı. Lütfen tekrar deneyin.');
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -421,30 +351,6 @@ export function CompanyProfileScreen() {
     }
   }
 
-  async function runAuthAction(action: () => Promise<void>) {
-    if (!firebaseReady) {
-      setError('Firebase config girilmedi.');
-      return;
-    }
-
-    if (!email.trim() || password.length < 6) {
-      setError('E-posta ve en az 6 karakter şifre girilmeli.');
-      return;
-    }
-
-    setIsAuthBusy(true);
-    setError(null);
-    setMessage(null);
-    try {
-      await action();
-    } catch (authError) {
-      logger.error('Firebase auth action failed', authError);
-      setError('Hesap işlemi başarısız oldu. E-posta/şifre ve Firebase ayarlarını kontrol edin.');
-    } finally {
-      setIsAuthBusy(false);
-    }
-  }
-
   function clearStatus() {
     setMessage(null);
     setError(null);
@@ -487,65 +393,13 @@ export function CompanyProfileScreen() {
         />
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.statusCard}>
-            <Text style={styles.statusTitle}>Hesap</Text>
-            <Text style={styles.statusCaption}>
-              {firebaseReady
-                ? user?.email ?? (user?.isAnonymous ? 'Anonim Firebase kullanıcısı' : 'Giriş yapılmadı')
-                : 'Firebase config girilmedi'}
-            </Text>
+            <Text style={styles.statusTitle}>Firma bağlantısı</Text>
             <Text style={styles.statusCaption}>
               Firma kodu: {hasCompanyCode() ? normalizeCompanyId(companyCodeInput) : 'Girilmedi'}
             </Text>
             <Text style={styles.statusCaption}>
-              Kullanıcı: {operatorName.trim() || user?.email || 'Belirtilmedi'}
+              Kullanıcı: {operatorName.trim() || 'Belirtilmedi'}
             </Text>
-          </View>
-
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Giriş / Kayıt</Text>
-            <TextInput
-              accessibilityLabel="E-posta"
-              autoCapitalize="none"
-              keyboardType="email-address"
-              onChangeText={setEmail}
-              placeholder="E-posta"
-              placeholderTextColor={colors.textSecondary}
-              style={styles.input}
-              value={email}
-            />
-            <TextInput
-              accessibilityLabel="Şifre"
-              onChangeText={setPassword}
-              placeholder="Şifre"
-              placeholderTextColor={colors.textSecondary}
-              secureTextEntry
-              style={styles.input}
-              value={password}
-            />
-            <View style={styles.row}>
-              <AppButton
-                label="Giriş"
-                variant="secondary"
-                loading={isAuthBusy}
-                disabled={isAuthBusy}
-                onPress={() => void signIn()}
-                style={styles.flexButton}
-              />
-              <AppButton
-                label="Kayıt Ol"
-                variant="secondary"
-                disabled={isAuthBusy}
-                onPress={() => void register()}
-                style={styles.flexButton}
-              />
-            </View>
-            <AppButton
-              label="Şifremi Unuttum"
-              variant="ghost"
-              disabled={isAuthBusy}
-              onPress={() => void resetPassword()}
-            />
-            <AppButton label="Çıkış Yap" variant="ghost" disabled={isAuthBusy} onPress={() => void signOut()} />
           </View>
 
           <View style={styles.section}>
@@ -604,21 +458,21 @@ export function CompanyProfileScreen() {
               </View>
             ))}
             <AppButton
-              label="Firma Koduyla Katil"
+              label="Firma Koduyla Katıl"
               disabled={isSaving}
               onPress={() => void joinCompanyByCode()}
             />
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Lisans cihazlari</Text>
+            <Text style={styles.sectionTitle}>Lisans cihazları</Text>
             <Text style={styles.statusCaption}>
-              Bu alan sadece lisans koltugunu yonetir; musteri, tasarim, teklif veya stok verisi silmez.
+              Bu alan sadece lisans koltuğunu yönetir; müşteri, tasarım, teklif veya stok verisi silmez.
             </Text>
             {licenseSummary ? (
               <View style={styles.statusCard}>
                 <Text style={styles.statusTitle}>
-                  Kullanici: {licenseSummary.activeUserCount}
+                  Kullanıcı: {licenseSummary.activeUserCount}
                   {licenseSummary.maxUsers ? `/${licenseSummary.maxUsers}` : ''}
                 </Text>
                 {licenseSummary.seats.map((seat, index) => (
@@ -628,7 +482,7 @@ export function CompanyProfileScreen() {
                 ))}
               </View>
             ) : (
-              <Text style={styles.statusCaption}>Lisans cihaz bilgisi henuz yuklenmedi.</Text>
+              <Text style={styles.statusCaption}>Lisans cihaz bilgisi henüz yüklenmedi.</Text>
             )}
             <View style={styles.row}>
               <AppButton
@@ -648,6 +502,12 @@ export function CompanyProfileScreen() {
                 style={styles.flexButton}
               />
             </View>
+            <AppButton
+              label="Firmadan Çık"
+              variant="ghost"
+              disabled={isSaving}
+              onPress={confirmLeaveCompany}
+            />
           </View>
 
           {message ? <Text style={styles.success}>{message}</Text> : null}
