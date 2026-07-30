@@ -19,20 +19,20 @@ type SettingsShortcut = {
 
 const shortcuts: SettingsShortcut[] = [
   {
-    title: 'Firma ve ortak kullanim',
-    description: 'Firma kodu, patron-cirak kullanimi, e-posta girisi ve bulut senkron ayarlari.',
+    title: 'Firma ve ortak kullanım',
+    description: 'Firma kodu, patron-çırak kullanımı, e-posta girişi ve bulut senkron ayarları.',
     icon: 'business-outline',
     onPress: () => router.push(routes.companyProfile),
   },
   {
-    title: 'Fiyat ve kutuphaneler',
-    description: 'Profil kalitesi, cam tipleri, renk katsayilari ve hizmet payi.',
+    title: 'Fiyat ve kütüphaneler',
+    description: 'Profil kalitesi, cam tipleri, renk katsayıları ve hizmet payı.',
     icon: 'calculator-outline',
     onPress: () => router.push(routes.pricingSettings),
   },
   {
-    title: 'Hareket kayitlari',
-    description: 'Is, teklif, odeme ve atolye hareketlerinin sistem kaydi.',
+    title: 'Hareket kayıtları',
+    description: 'İş, teklif, ödeme ve atölye hareketlerinin sistem kaydı.',
     icon: 'time-outline',
     onPress: () => router.push(routes.activity),
   },
@@ -44,7 +44,7 @@ export function AppSettingsScreen() {
   return (
     <AppScreen>
       <AppHeader
-        title="Uygulama Ayarlari"
+        title="Uygulama Ayarları"
         subtitle="Firma, senkron ve temel uygulama tercihleri."
         rightAction={<AppButton label="Geri" variant="ghost" onPress={() => router.back()} />}
       />
@@ -58,8 +58,8 @@ export function AppSettingsScreen() {
           <Text style={styles.statusTitle}>Bulut durumu</Text>
           <Text style={styles.statusCaption}>
             {firebaseReady
-              ? 'Firebase config hazir. Ortak kullanim ve yedekleme kullanilabilir.'
-              : 'Firebase config eksik. Uygulama bu cihazda lokal modda calisir.'}
+              ? 'Firebase config hazır. Ortak kullanım ve yedekleme kullanılabilir.'
+              : 'Firebase config eksik. Uygulama bu cihazda lokal modda çalışır.'}
           </Text>
         </View>
       </View>

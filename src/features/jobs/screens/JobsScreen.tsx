@@ -62,7 +62,7 @@ export function JobsScreen() {
       setCustomers(loadedCustomers);
     } catch (loadError) {
       logger.error('Jobs screen load failed', loadError);
-      setError('Isler yuklenemedi.');
+      setError('İşler yüklenemedi.');
     } finally {
       setIsLoading(false);
     }
@@ -80,7 +80,7 @@ export function JobsScreen() {
     }
 
     if (!name.trim()) {
-      setError('Is adi girilmeli.');
+      setError('İş adı girilmeli.');
       return;
     }
 
@@ -94,8 +94,8 @@ export function JobsScreen() {
       void backupJobToCloud(saved);
       void recordActivity({
         type: 'job_created',
-        title: `${saved.name} isi olusturuldu`,
-        description: customerName ? `${customerName} musterisine baglandi.` : 'Musterisiz is olusturuldu.',
+        title: `${saved.name} işi oluşturuldu`,
+        description: customerName ? `${customerName} müşterisine bağlandı.` : 'Müşterisiz iş oluşturuldu.',
         entityType: 'job',
         entityId: saved.id,
         customerName,
@@ -106,7 +106,7 @@ export function JobsScreen() {
       router.push(routes.jobDetails(saved.id));
     } catch (saveError) {
       logger.error('Job save failed', saveError);
-      setError('Is kaydedilemedi.');
+      setError('İş kaydedilemedi.');
     } finally {
       saveInFlightRef.current = false;
       setIsSaving(false);
@@ -116,8 +116,8 @@ export function JobsScreen() {
   return (
     <AppScreen scroll={false}>
       <AppHeader
-        title="Isler"
-        subtitle="Bir ev, oda veya santiye icin coklu tasarim"
+        title="İşler"
+        subtitle="Bir ev, oda veya şantiye için çoklu tasarım"
         rightAction={<AppButton label="Geri" variant="ghost" onPress={() => router.back()} />}
       />
       {isLoading ? (
@@ -132,17 +132,17 @@ export function JobsScreen() {
           ListHeaderComponent={
             <View style={styles.headerContent}>
               <TextInput
-                accessibilityLabel="Is ara"
+                accessibilityLabel="İş ara"
                 onChangeText={setSearch}
-                placeholder="Is veya musteri ara"
+                placeholder="İş veya müşteri ara"
                 placeholderTextColor={colors.textSecondary}
                 style={styles.input}
                 value={search}
               />
               <AppCard style={styles.formCard}>
-                <Text style={styles.sectionTitle}>Yeni is</Text>
+                <Text style={styles.sectionTitle}>Yeni iş</Text>
                 <TextInput
-                  accessibilityLabel="Is adi"
+                  accessibilityLabel="İş adı"
                   onChangeText={setName}
                   placeholder="Orn: Ahmet Bey daire pencereleri"
                   placeholderTextColor={colors.textSecondary}
@@ -152,7 +152,7 @@ export function JobsScreen() {
                 {customers.length > 0 ? (
                   <View style={styles.chips}>
                     <Chip
-                      label="Musterisiz"
+                      label="Müşterisiz"
                       selected={selectedCustomerId === null}
                       onPress={() => setSelectedCustomerId(null)}
                     />
@@ -167,7 +167,7 @@ export function JobsScreen() {
                   </View>
                 ) : null}
                 {error ? <Text style={styles.error}>{error}</Text> : null}
-                <AppButton label="Is Olustur" loading={isSaving} disabled={isSaving} onPress={() => void saveJob()} />
+                <AppButton label="İş Oluştur" loading={isSaving} disabled={isSaving} onPress={() => void saveJob()} />
               </AppCard>
             </View>
           }
@@ -175,14 +175,14 @@ export function JobsScreen() {
             <AppCard onPress={() => router.push(routes.jobDetails(item.id))} style={styles.jobCard}>
               <Text style={styles.jobTitle}>{item.name}</Text>
               <Text style={styles.caption}>
-                {customerById.get(item.customerId ?? '')?.fullName ?? 'Musterisiz'} - {jobStatusLabels[item.status]}
+                {customerById.get(item.customerId ?? '')?.fullName ?? 'Müşterisiz'} - {jobStatusLabels[item.status]}
               </Text>
             </AppCard>
           )}
           ListEmptyComponent={
             <EmptyState
-              title="Is yok"
-              description="Bir ev veya oda icin once is olusturun, sonra tasarimlari bu ise baglayin."
+              title="İş yok"
+              description="Bir ev veya oda için önce iş oluşturun, sonra tasarımları bu işe bağlayın."
             />
           }
         />

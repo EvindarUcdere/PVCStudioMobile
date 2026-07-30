@@ -41,7 +41,7 @@ export function RecycleBinScreen() {
       setDesigns(allDesigns.filter((design) => design.deletedAt));
     } catch (loadError) {
       logger.error('Recycle bin load failed', loadError);
-      setError('Silinen kayitlar yuklenemedi.');
+      setError('Silinen kayıtlar yüklenemedi.');
     } finally {
       setIsLoading(false);
     }
@@ -61,11 +61,11 @@ export function RecycleBinScreen() {
       const repository = await createCustomerRepository();
       const restored = await repository.restore(customer.id);
       void backupCustomerToCloud(restored);
-      setMessage(`${restored.fullName} geri yuklendi.`);
+      setMessage(`${restored.fullName} geri yüklendi.`);
       await load();
     } catch (restoreError) {
       logger.error('Customer restore failed', restoreError);
-      setError('Musteri geri yuklenemedi.');
+      setError('Müşteri geri yüklenemedi.');
     } finally {
       setRestoringId(null);
     }
@@ -82,11 +82,11 @@ export function RecycleBinScreen() {
       if (restored) {
         void backupDesignToCloud(restored);
       }
-      setMessage(`${design.name} geri yuklendi.`);
+      setMessage(`${design.name} geri yüklendi.`);
       await load();
     } catch (restoreError) {
       logger.error('Design restore failed', restoreError);
-      setError('Tasarim geri yuklenemedi.');
+      setError('Tasarım geri yüklenemedi.');
     } finally {
       setRestoringId(null);
     }
@@ -94,14 +94,14 @@ export function RecycleBinScreen() {
 
   return (
     <AppScreen>
-      <AppHeader title="Geri Donusum" subtitle="Yanlislikla silinen kayitlari geri alin." rightAction={<AppButton label="Geri" variant="ghost" onPress={() => router.back()} />} />
+      <AppHeader title="Geri Dönüşüm" subtitle="Yanlışlıkla silinen kayıtları geri alın." rightAction={<AppButton label="Geri" variant="ghost" onPress={() => router.back()} />} />
       {isLoading ? <ActivityIndicator color={colors.primary} /> : null}
       {message ? <Text style={styles.success}>{message}</Text> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Silinen musteriler</Text>
-        {customers.length === 0 ? <Text style={styles.caption}>Silinen musteri yok.</Text> : null}
+        <Text style={styles.sectionTitle}>Silinen müşteriler</Text>
+        {customers.length === 0 ? <Text style={styles.caption}>Silinen müşteri yok.</Text> : null}
         {customers.map((customer) => (
           <AppCard key={customer.id}>
             <View style={styles.row}>
@@ -122,8 +122,8 @@ export function RecycleBinScreen() {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Silinen tasarimlar</Text>
-        {designs.length === 0 ? <Text style={styles.caption}>Silinen tasarim yok.</Text> : null}
+        <Text style={styles.sectionTitle}>Silinen tasarımlar</Text>
+        {designs.length === 0 ? <Text style={styles.caption}>Silinen tasarım yok.</Text> : null}
         {designs.map((design) => (
           <AppCard key={design.id}>
             <View style={styles.row}>

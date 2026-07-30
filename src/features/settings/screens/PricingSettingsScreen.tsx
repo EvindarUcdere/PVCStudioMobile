@@ -52,7 +52,7 @@ export function PricingSettingsScreen() {
         setValues(toFormValues(loadedSettings));
       } catch (loadError) {
         logger.error('Pricing settings screen load failed', loadError);
-        setError('Fiyat ayarlari yuklenemedi.');
+        setError('Fiyat ayarları yüklenemedi.');
       } finally {
         setIsLoading(false);
       }
@@ -86,7 +86,7 @@ export function PricingSettingsScreen() {
   async function save() {
     const parsed = parseFormValues(settings, values);
     if (!parsed) {
-      setError('Tum alanlar 0 veya daha buyuk sayi olmali.');
+      setError('Tüm alanlar 0 veya daha büyük sayı olmalı.');
       return;
     }
 
@@ -98,10 +98,10 @@ export function PricingSettingsScreen() {
       setSettings(savedSettings);
       setValues(toFormValues(savedSettings));
       void backupPricingSettingsToCloud(savedSettings);
-      setMessage('Fiyat ayarlari kaydedildi.');
+      setMessage('Fiyat ayarları kaydedildi.');
     } catch (saveError) {
       logger.error('Pricing settings save failed', saveError);
-      setError('Fiyat ayarlari kaydedilemedi.');
+      setError('Fiyat ayarları kaydedilemedi.');
     } finally {
       setIsSaving(false);
     }
@@ -110,12 +110,12 @@ export function PricingSettingsScreen() {
   async function backupToCloud() {
     const parsed = parseFormValues(settings, values);
     if (!parsed) {
-      setError('Buluta yedeklemek icin once fiyat alanlarini duzeltin.');
+      setError('Buluta yedeklemek için önce fiyat alanlarını düzeltin.');
       return;
     }
 
     if (!isFirebaseConfigured()) {
-      setError('Firebase ayarlari eksik. .env dosyasina Firebase config degerleri girilmeli.');
+      setError('Firebase ayarları eksik. .env dosyasına Firebase config değerleri girilmeli.');
       return;
     }
 
@@ -127,10 +127,10 @@ export function PricingSettingsScreen() {
       setSettings(savedSettings);
       setValues(toFormValues(savedSettings));
       const backedUp = await backupPricingSettingsToCloud(savedSettings);
-      setMessage(backedUp ? 'Fiyat ayarlari buluta yedeklendi.' : 'Bulut yedegi yapilamadi.');
+      setMessage(backedUp ? 'Fiyat ayarları buluta yedeklendi.' : 'Bulut yedeği yapılamadı.');
     } catch (syncError) {
       logger.error('Pricing settings cloud backup failed', syncError);
-      setError('Buluta yedekleme basarisiz oldu.');
+      setError('Buluta yedekleme başarısız oldu.');
     } finally {
       setIsSyncing(false);
     }
@@ -138,7 +138,7 @@ export function PricingSettingsScreen() {
 
   async function restoreFromCloud() {
     if (!isFirebaseConfigured()) {
-      setError('Firebase ayarlari eksik. .env dosyasina Firebase config degerleri girilmeli.');
+      setError('Firebase ayarları eksik. .env dosyasına Firebase config değerleri girilmeli.');
       return;
     }
 
@@ -148,17 +148,17 @@ export function PricingSettingsScreen() {
     try {
       const cloudSettings = await restorePricingSettingsFromCloud();
       if (!cloudSettings) {
-        setError('Bulutta fiyat ayari bulunamadi.');
+        setError('Bulutta fiyat ayarı bulunamadı.');
         return;
       }
 
       const savedSettings = await savePricingSettings(cloudSettings);
       setSettings(savedSettings);
       setValues(toFormValues(savedSettings));
-      setMessage('Buluttaki fiyat ayarlari cihaza alindi.');
+      setMessage('Buluttaki fiyat ayarları cihaza alındı.');
     } catch (syncError) {
       logger.error('Pricing settings cloud restore failed', syncError);
-      setError('Buluttan alma basarisiz oldu.');
+      setError('Buluttan alma başarısız oldu.');
     } finally {
       setIsSyncing(false);
     }
@@ -186,7 +186,7 @@ export function PricingSettingsScreen() {
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboard}>
       <AppScreen scroll={false}>
-        <AppHeader title="Fiyat Ayarlari" subtitle="Usta, seri, renk ve cam fiyatlari." />
+        <AppHeader title="Fiyat Ayarları" subtitle="Usta, seri, renk ve cam fiyatları." />
         <ScrollView contentContainerStyle={styles.form} showsVerticalScrollIndicator={false}>
           <Section title="Profil kalitesi">
             {settings.profileSystems.map((option) => (
@@ -206,7 +206,7 @@ export function PricingSettingsScreen() {
               <PriceRow
                 key={option.id}
                 label={option.name}
-                detail={option.formula ?? 'Ozel cam'}
+                detail={option.formula ?? 'Özel cam'}
                 suffix="TL / m2"
                 value={values.glassTypes[option.id] ?? ''}
                 onChangeText={(value) => updateNestedValue('glassTypes', option.id, value)}
@@ -214,51 +214,51 @@ export function PricingSettingsScreen() {
             ))}
           </Section>
 
-          <Section title="Renk katsayilari">
+          <Section title="Renk katsayıları">
             {settings.colorMultipliers.map((option) => (
               <PriceRow
                 key={option.id}
                 label={option.name}
-                detail="Profil fiyat carpanidir"
+                detail="Profil fiyat çarpanıdır"
                 suffix="x"
                 value={values.colorMultipliers[option.id] ?? ''}
                 onChangeText={(value) => updateNestedValue('colorMultipliers', option.id, value)}
               />
             ))}
             <PriceRow
-              label="Ozel renk"
-              detail="Kullanici paletten yeni renk eklediginde kullanilir"
+              label="Özel renk"
+              detail="Kullanıcı paletten yeni renk eklediğinde kullanılır"
               suffix="x"
               value={values.customColorMultiplier}
               onChangeText={(value) => updateBaseValue('customColorMultiplier', value)}
             />
           </Section>
 
-          <Section title="Aksam ve ek isler">
+          <Section title="Aksam ve ek işler">
             <PriceRow
-              label="Acilir kanat/donanim"
-              detail="Acilan her panel icin"
+              label="Açılır kanat/donanım"
+              detail="Açılan her panel için"
               suffix="TL / adet"
               value={values.openingPanelPrice}
               onChangeText={(value) => updateBaseValue('openingPanelPrice', value)}
             />
             <PriceRow
-              label="Sabit panel payi"
-              detail="Sabit her panel icin"
+              label="Sabit panel payı"
+              detail="Sabit her panel için"
               suffix="TL / adet"
               value={values.fixedPanelPrice}
               onChangeText={(value) => updateBaseValue('fixedPanelPrice', value)}
             />
             <PriceRow
-              label="Kemer farki"
-              detail="Kemerli tasarimlarda eklenir"
+              label="Kemer farkı"
+              detail="Kemerli tasarımlarda eklenir"
               suffix="TL"
               value={values.archSurcharge}
               onChangeText={(value) => updateBaseValue('archSurcharge', value)}
             />
             <PriceRow
-              label="Hizmet payi"
-              detail="Malzeme karsiligi uzerine eklenecek yuzde; gider degildir"
+              label="Hizmet payı"
+              detail="Malzeme karşılığı üzerine eklenecek yüzde; gider değildir"
               suffix="%"
               value={values.serviceLaborRate}
               onChangeText={(value) => updateBaseValue('serviceLaborRate', value)}
@@ -285,7 +285,7 @@ export function PricingSettingsScreen() {
               style={styles.cloudButton}
             />
           </View>
-          <AppButton label="Varsayilana Don" variant="secondary" disabled={isSaving} onPress={resetDefaults} />
+          <AppButton label="Varsayılana Dön" variant="secondary" disabled={isSaving} onPress={resetDefaults} />
           <AppButton label="Geri" variant="ghost" disabled={isSaving} onPress={() => router.back()} />
         </ScrollView>
       </AppScreen>

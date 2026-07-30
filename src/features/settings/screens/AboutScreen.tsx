@@ -14,7 +14,7 @@ export function AboutScreen() {
   return (
     <AppScreen>
       <AppHeader
-        title="Hakkinda"
+        title="Hakkında"
         subtitle="PVC Studio Mobile"
         rightAction={<AppButton label="Geri" variant="ghost" onPress={() => router.back()} />}
       />
@@ -23,18 +23,18 @@ export function AboutScreen() {
           <Ionicons name="grid-outline" size={30} color={colors.surface} />
         </View>
         <Text style={styles.appName}>PVC Studio</Text>
-        <Text style={styles.caption}>PVC isleri icin tasarim, teklif, atolye, stok ve odeme takibi.</Text>
+        <Text style={styles.caption}>PVC işleri için tasarım, teklif, atölye, stok ve ödeme takibi.</Text>
       </AppCard>
       <View style={styles.list}>
-        <Info label="Surum" value={appVersion} />
+        <Info label="Sürüm" value={appVersion} />
         <Info label="Platform" value="React Native + Expo" />
         <Info label="Yerel veri" value="Expo SQLite" />
         <Info label="Bulut senkron" value="Firebase" />
         <Info label="PDF" value="Expo Print / Sharing" />
       </View>
       <Text style={styles.note}>
-        Bu uygulama PVC ustalarinin musteri, tasarim, teklif, uretim ve stok akislarini tek yerden takip etmesi
-        icin hazirlaniyor.
+        Bu uygulama PVC ustalarının müşteri, tasarım, teklif, üretim ve stok akışlarını tek yerden takip etmesi
+        için hazırlanıyor.
       </Text>
     </AppScreen>
   );

@@ -128,6 +128,10 @@ export class SqliteDesignRepository implements DesignRepository {
     }
   }
 
+  async getByIdIncludingDeleted(id: string): Promise<DesignProject | null> {
+    return this.getRawById(id);
+  }
+
   private async getRawById(id: string): Promise<DesignProject | null> {
     try {
       const row = await this.database.getFirstAsync<DesignProjectRow>(

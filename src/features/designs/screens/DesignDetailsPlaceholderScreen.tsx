@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
 
 import { AppButton } from '../../../components/ui/AppButton';
 import { AppHeader } from '../../../components/ui/AppHeader';
@@ -17,6 +17,7 @@ import { DesignProject } from '../../../domain/designs/entities/DesignProject';
 import { jobStatusLabels } from '../../../domain/designs/enums/JobStatus';
 import { getDesignProfileColor } from '../../../domain/designs/colors/profileColorOptions';
 import { DesignTemplate } from '../../../domain/templates/entities/DesignTemplate';
+import { backupDesignToCloud } from '../../../services/firebase/fullSyncService';
 import { logger } from '../../../services/logger';
 import { colors, spacing, typography } from '../../../theme';
 import { DesignStockNeedsCard } from '../../design-editor/components/DesignStockNeedsCard';
@@ -55,7 +56,7 @@ export function DesignDetailsPlaceholderScreen() {
         }
       } catch (loadError) {
         logger.error('Design details load failed', loadError);
-        setError('Tasarim yuklenemedi. Lutfen tekrar deneyin.');
+        setError('Tasarım yüklenemedi. Lütfen tekrar deneyin.');
       } finally {
         setIsLoading(false);
       }
@@ -76,17 +77,53 @@ export function DesignDetailsPlaceholderScreen() {
     return (
       <AppScreen centered>
         <EmptyState
-          title="Tasarim bulunamadi"
-          description={error ?? 'Secilen tasarim kaydi bulunamadi.'}
-          action={<AppButton label="Tasarimlara Don" onPress={() => router.replace(routes.designs)} />}
+          title="Tasarım bulunamadı"
+          description={error ?? 'Seçilen tasarım kaydı bulunamadı.'}
+          action={<AppButton label="Tasarımlara Dön" onPress={() => router.replace(routes.designs)} />}
         />
       </AppScreen>
     );
   }
 
+  function confirmDelete() {
+    Alert.alert(
+      'Tasarımı sil',
+      'Bu tasarım arşive alınacak. Geri Dönüşüm ekranından tekrar geri getirebilirsiniz.',
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: 'Sil',
+          style: 'destructive',
+          onPress: () => {
+            void softDeleteDesign();
+          },
+        },
+      ],
+    );
+  }
+
+  async function softDeleteDesign() {
+    if (!project) {
+      return;
+    }
+
+    try {
+      const designRepository = await createDesignRepository();
+      await designRepository.softDelete(project.id);
+      const deleted = await designRepository.getByIdIncludingDeleted(project.id);
+      if (deleted) {
+        void backupDesignToCloud(deleted);
+      }
+      router.replace(routes.designs);
+    } catch (deleteError) {
+      logger.error('Design delete failed', deleteError);
+      setError('Tasarım silinemedi. Lütfen tekrar deneyin.');
+    }
+  }
+
   return (
     <AppScreen>
-      <AppHeader title={project.name} subtitle="Tasarim detaylari" />
+      <AppHeader title={project.name} subtitle="Tasarım detayları" />
       <View style={styles.preview}>
         <TemplatePreview
           rootNode={project.rootNode}
@@ -96,21 +133,24 @@ export function DesignDetailsPlaceholderScreen() {
         />
       </View>
       <View style={styles.info}>
-        <Info label="Kaynak sablon" value={template?.name ?? 'Ozel tasarim'} />
-        <Info label="Musteri" value={customer?.fullName ?? 'Musterisiz'} />
-        <Info label="Is adi" value={project.jobName ?? project.name} />
-        <Info label="Is durumu" value={jobStatusLabels[project.jobStatus]} />
-        <Info label="Genislik" value={`${project.width} mm`} />
-        <Info label="Yukseklik" value={`${project.height} mm`} />
+        <Info label="Kaynak şablon" value={template?.name ?? 'Özel tasarım'} />
+        <Info label="Müşteri" value={customer?.fullName ?? 'Müşterisiz'} />
+        <Info label="İş adı" value={project.jobName ?? project.name} />
+        <Info label="İş durumu" value={jobStatusLabels[project.jobStatus]} />
+        <Info label="Genişlik" value={`${project.width} mm`} />
+        <Info label="Yükseklik" value={`${project.height} mm`} />
         <Info label="Adet" value={String(project.quantity)} />
-        <Info label="Olusturulma" value={new Date(project.createdAt).toLocaleDateString('tr-TR')} />
+        <Info label="Oluşturulma" value={new Date(project.createdAt).toLocaleDateString('tr-TR')} />
       </View>
-      <AppButton label="Tasarimi Ac" onPress={() => router.push(routes.designEditor(project.id))} />
-      <AppButton label="Teklif Olustur" variant="secondary" onPress={() => router.push(routes.designQuote(project.id))} />
+      <AppButton label="Tasarımı Aç" onPress={() => router.push(routes.designEditor(project.id))} />
+      <AppButton label="Teklif Oluştur" variant="secondary" onPress={() => router.push(routes.designQuote(project.id))} />
       <View style={styles.stockNeeds}>
         <DesignStockNeedsCard design={project} />
       </View>
-      <AppButton label="Tasarimlara Don" variant="ghost" onPress={() => router.replace(routes.designs)} />
+      <View style={styles.actions}>
+        <AppButton label="Tasarımlara Dön" variant="ghost" onPress={() => router.replace(routes.designs)} style={styles.actionButton} />
+        <AppButton label="Sil" variant="secondary" onPress={confirmDelete} style={styles.actionButton} />
+      </View>
     </AppScreen>
   );
 }
@@ -140,6 +180,14 @@ const styles = StyleSheet.create({
   },
   stockNeeds: {
     marginTop: spacing.sm,
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  actionButton: {
+    flex: 1,
   },
   infoRow: {
     flexDirection: 'row',

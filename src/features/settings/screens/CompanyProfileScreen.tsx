@@ -104,7 +104,7 @@ export function CompanyProfileScreen() {
         void loadLicenseSummary(normalizedCompanyId);
       } catch (loadError) {
         logger.error('Company profile load failed', loadError);
-        setError('Firma bilgileri yuklenemedi.');
+        setError('Firma bilgileri yüklenemedi.');
       } finally {
         setIsLoading(false);
       }
@@ -122,7 +122,7 @@ export function CompanyProfileScreen() {
   async function save() {
     const parsed = parseProfile(values);
     if (!parsed) {
-      setError('Teklif gecerlilik gunu 0 veya daha buyuk sayi olmali.');
+      setError('Teklif geçerlilik günü 0 veya daha büyük sayı olmalı.');
       return;
     }
 
@@ -131,13 +131,13 @@ export function CompanyProfileScreen() {
     }
 
     if (!parsed.companyId) {
-      setError('Uygulamayi kullanmak icin firma kodu girilmeli.');
+      setError('Uygulamayı kullanmak için firma kodu girilmeli.');
       return;
     }
 
     if (!savedCompanyId) {
       if (!firebaseReady) {
-        setError('Firma kodunu dogrulamak icin Firebase config girilmeli.');
+        setError('Firma kodunu doğrulamak için Firebase config girilmeli.');
         return;
       }
 
@@ -172,7 +172,7 @@ export function CompanyProfileScreen() {
   async function register() {
     await runAuthAction(async () => {
       if (!hasCompanyCode()) {
-        setError('Ortak kullanim icin once firma kodu girilmeli veya olusturulmali.');
+        setError('Ortak kullanım için önce firma kodu girilmeli.');
         return;
       }
 
@@ -191,14 +191,14 @@ export function CompanyProfileScreen() {
       await registerWithEmail(email, password);
       setPassword('');
       await backupAllLocalDataToCloud();
-      setMessage('Hesap olusturuldu ve veriler buluta yedeklendi.');
+      setMessage('Hesap oluşturuldu ve veriler buluta yedeklendi.');
     });
   }
 
   async function signIn() {
     await runAuthAction(async () => {
       if (!hasCompanyCode()) {
-        setError('Buluttaki firma verilerini almak icin firma kodu girilmeli.');
+        setError('Buluttaki firma verilerini almak için firma kodu girilmeli.');
         return;
       }
 
@@ -220,7 +220,7 @@ export function CompanyProfileScreen() {
       const restoredProfile = await getCompanyProfile();
       setValues(toFormValues(restoredProfile));
       void loadLicenseSummary(normalizeCompanyId(restoredProfile.companyId));
-      setMessage('Giris yapildi. Buluttaki veriler cihaza alindi.');
+      setMessage('Giriş yapıldı. Buluttaki veriler cihaza alındı.');
       router.replace(routes.home);
     });
   }
@@ -229,7 +229,7 @@ export function CompanyProfileScreen() {
     await runAuthAction(async () => {
       await signOutFirebaseUser();
       setPassword('');
-      setMessage('Cikis yapildi.');
+      setMessage('Çıkış yapıldı.');
     });
   }
 
@@ -240,7 +240,7 @@ export function CompanyProfileScreen() {
     }
 
     if (!email.trim()) {
-      setError('Sifre sifirlama icin e-posta girilmeli.');
+      setError('Şifre sıfırlama için e-posta girilmeli.');
       return;
     }
 
@@ -249,10 +249,10 @@ export function CompanyProfileScreen() {
     setMessage(null);
     try {
       await sendPasswordReset(email);
-      setMessage('Sifre sifirlama baglantisi e-posta adresine gonderildi.');
+      setMessage('Şifre sıfırlama bağlantısı e-posta adresine gönderildi.');
     } catch (resetError) {
       logger.error('Firebase password reset failed', resetError);
-      setError('Sifre sifirlama e-postasi gonderilemedi. E-posta adresini kontrol edin.');
+      setError('Şifre sıfırlama e-postası gönderilemedi. E-posta adresini kontrol edin.');
     } finally {
       setIsAuthBusy(false);
     }
@@ -261,7 +261,7 @@ export function CompanyProfileScreen() {
   async function releaseThisDeviceSeat() {
     const companyId = normalizeCompanyId(values.companyId);
     if (!firebaseReady || !companyId) {
-      setError('Cihaz lisansini bosaltmak icin firma kodu ve Firebase gerekli.');
+      setError('Cihaz lisansını boşaltmak için firma kodu ve Firebase gerekli.');
       return;
     }
 
@@ -271,12 +271,12 @@ export function CompanyProfileScreen() {
     try {
       const released = await releaseCurrentLicenseSeat(companyId);
       if (!released) {
-        setError('Bu cihaz lisans koltugundan cikarilamadi.');
+        setError('Bu cihaz lisans koltuğundan çıkarılamadı.');
         return;
       }
 
       await loadLicenseSummary(companyId);
-      setMessage('Bu cihaz lisans koltugundan cikarildi. Firma verileri silinmedi.');
+      setMessage('Bu cihaz lisans koltuğundan çıkarıldı. Firma verileri silinmedi.');
     } finally {
       setIsLicenseBusy(false);
     }
@@ -289,7 +289,7 @@ export function CompanyProfileScreen() {
     }
 
     if (!hasCompanyCode()) {
-      setError('Ortak veriye baglanmak icin firma kodu girilmeli.');
+      setError('Ortak veriye bağlanmak için firma kodu girilmeli.');
       return;
     }
 
@@ -299,7 +299,7 @@ export function CompanyProfileScreen() {
     try {
       const parsed = parseProfile(values);
       if (!parsed) {
-        setError('Firma koduyla katilmak icin firma alanlarini duzeltin.');
+        setError('Firma koduyla katılmak için firma alanlarını düzeltin.');
         return;
       }
 
@@ -317,7 +317,7 @@ export function CompanyProfileScreen() {
 
       const result = await restoreAllCloudDataToLocal();
       if (!result) {
-        setError('Firma kodu ile bulut verisine baglanilamadi. Kod ve internet baglantisini kontrol edin.');
+        setError('Firma kodu ile bulut verisine bağlanılamadı. Kod ve internet bağlantısını kontrol edin.');
         return;
       }
 
@@ -327,8 +327,8 @@ export function CompanyProfileScreen() {
       setSavedCompanyId(normalizedCompanyId);
       void loadLicenseSummary(normalizedCompanyId);
       setMessage(
-        `Lisans dogrulandi. Artik ${result.companyId} kodlu ortak alandasiniz.${
-          license.maxUsers ? ` Kullanici: ${license.activeUserCount}/${license.maxUsers}` : ''
+        `Lisans doğrulandı. Artık ${result.companyId} kodlu ortak alandasınız.${
+          license.maxUsers ? ` Kullanıcı: ${license.activeUserCount}/${license.maxUsers}` : ''
         }`,
       );
       router.replace(routes.home);
@@ -340,7 +340,7 @@ export function CompanyProfileScreen() {
   async function backupProfile() {
     const parsed = parseProfile(values);
     if (!parsed) {
-      setError('Buluta yedeklemek icin firma alanlarini duzeltin.');
+      setError('Buluta yedeklemek için firma alanlarını düzeltin.');
       return;
     }
 
@@ -359,7 +359,7 @@ export function CompanyProfileScreen() {
       const normalizedCompanyId = normalizeCompanyId(savedProfile.companyId);
       setSavedCompanyId(normalizedCompanyId);
       void loadLicenseSummary(normalizedCompanyId);
-      setMessage(backedUp ? 'Firma bilgileri buluta yedeklendi.' : 'Bulut yedegi yapilamadi.');
+      setMessage(backedUp ? 'Firma bilgileri buluta yedeklendi.' : 'Bulut yedeği yapılamadı.');
     } finally {
       setIsSaving(false);
     }
@@ -367,7 +367,7 @@ export function CompanyProfileScreen() {
 
   async function restoreProfile() {
     if (!hasCompanyCode()) {
-      setError('Buluttan almak icin firma kodu girilmeli.');
+      setError('Buluttan almak için firma kodu girilmeli.');
       return;
     }
 
@@ -381,7 +381,7 @@ export function CompanyProfileScreen() {
     try {
       const cloudProfile = await restoreCompanyProfileFromCloud();
       if (!cloudProfile) {
-        setError('Bulutta firma bilgisi bulunamadi.');
+        setError('Bulutta firma bilgisi bulunamadı.');
         return;
       }
 
@@ -390,7 +390,7 @@ export function CompanyProfileScreen() {
       const normalizedCompanyId = normalizeCompanyId(savedProfile.companyId);
       setSavedCompanyId(normalizedCompanyId);
       void loadLicenseSummary(normalizedCompanyId);
-      setMessage('Buluttaki firma bilgileri cihaza alindi.');
+      setMessage('Buluttaki firma bilgileri cihaza alındı.');
     } finally {
       setIsSaving(false);
     }
@@ -403,7 +403,7 @@ export function CompanyProfileScreen() {
     }
 
     if (!email.trim() || password.length < 6) {
-      setError('E-posta ve en az 6 karakter sifre girilmeli.');
+      setError('E-posta ve en az 6 karakter şifre girilmeli.');
       return;
     }
 
@@ -414,7 +414,7 @@ export function CompanyProfileScreen() {
       await action();
     } catch (authError) {
       logger.error('Firebase auth action failed', authError);
-      setError('Hesap islemi basarisiz oldu. E-posta/sifre ve Firebase ayarlarini kontrol edin.');
+      setError('Hesap işlemi başarısız oldu. E-posta/şifre ve Firebase ayarlarını kontrol edin.');
     } finally {
       setIsAuthBusy(false);
     }
@@ -437,7 +437,7 @@ export function CompanyProfileScreen() {
     }
 
     setError(
-      `Bu cihaz ${savedCompanyId} firmasina bagli. Farkli firmaya gecis normal kullanimda kapali. Test icin uygulamayi kaldirip temiz kurulum yapin.`,
+      `Bu cihaz ${savedCompanyId} firmasına bağlı. Farklı firmaya geçiş normal kullanımda kapalı. Test için uygulamayı kaldırıp temiz kurulum yapın.`,
     );
     return false;
   }
@@ -455,7 +455,7 @@ export function CompanyProfileScreen() {
       <AppScreen scroll={false}>
         <AppHeader
           title="Firma Bilgileri"
-          subtitle="Firma kodu, ortak kullanim ve PDF bilgileri"
+          subtitle="Firma kodu, ortak kullanım ve PDF bilgileri"
           rightAction={
             savedCompanyId ? <AppButton label="Geri" variant="ghost" onPress={() => router.back()} /> : null
           }
@@ -465,19 +465,19 @@ export function CompanyProfileScreen() {
             <Text style={styles.statusTitle}>Hesap</Text>
             <Text style={styles.statusCaption}>
               {firebaseReady
-                ? user?.email ?? (user?.isAnonymous ? 'Anonim Firebase kullanicisi' : 'Giris yapilmadi')
+                ? user?.email ?? (user?.isAnonymous ? 'Anonim Firebase kullanıcısı' : 'Giriş yapılmadı')
                 : 'Firebase config girilmedi'}
             </Text>
             <Text style={styles.statusCaption}>
               Firma kodu: {hasCompanyCode() ? normalizeCompanyId(values.companyId) : 'Girilmedi'}
             </Text>
             <Text style={styles.statusCaption}>
-              Kullanici: {operatorName.trim() || user?.email || 'Belirtilmedi'}
+              Kullanıcı: {operatorName.trim() || user?.email || 'Belirtilmedi'}
             </Text>
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Giris / Kayit</Text>
+            <Text style={styles.sectionTitle}>Giriş / Kayıt</Text>
             <TextInput
               accessibilityLabel="E-posta"
               autoCapitalize="none"
@@ -489,9 +489,9 @@ export function CompanyProfileScreen() {
               value={email}
             />
             <TextInput
-              accessibilityLabel="Sifre"
+              accessibilityLabel="Şifre"
               onChangeText={setPassword}
-              placeholder="Sifre"
+              placeholder="Şifre"
               placeholderTextColor={colors.textSecondary}
               secureTextEntry
               style={styles.input}
@@ -499,7 +499,7 @@ export function CompanyProfileScreen() {
             />
             <View style={styles.row}>
               <AppButton
-                label="Giris"
+                label="Giriş"
                 variant="secondary"
                 loading={isAuthBusy}
                 disabled={isAuthBusy}
@@ -507,7 +507,7 @@ export function CompanyProfileScreen() {
                 style={styles.flexButton}
               />
               <AppButton
-                label="Kayit Ol"
+                label="Kayıt Ol"
                 variant="secondary"
                 disabled={isAuthBusy}
                 onPress={() => void register()}
@@ -515,29 +515,29 @@ export function CompanyProfileScreen() {
               />
             </View>
             <AppButton
-              label="Sifremi Unuttum"
+              label="Şifremi Unuttum"
               variant="ghost"
               disabled={isAuthBusy}
               onPress={() => void resetPassword()}
             />
-            <AppButton label="Cikis Yap" variant="ghost" disabled={isAuthBusy} onPress={() => void signOut()} />
+            <AppButton label="Çıkış Yap" variant="ghost" disabled={isAuthBusy} onPress={() => void signOut()} />
           </View>
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Firma profili</Text>
             <Text style={styles.statusCaption}>
-              Ayni firma kodunu giren cihazlar ayni bulut verilerine baglanir. Kullanici adi hareket kayitlarinda
-              islemi yapan kisi olarak gorunur. Firma kodunun Firebase lisans kaydinda aktif olmasi gerekir.
+              Aynı firma kodunu giren cihazlar aynı bulut verilerine bağlanır. Kullanıcı adı hareket kayıtlarında
+              işlemi yapan kişi olarak görünür. Firma kodunun Firebase lisans kaydında aktif olması gerekir.
             </Text>
             <View style={styles.field}>
-              <Text style={styles.label}>Bu cihazdaki kullanici adi</Text>
+              <Text style={styles.label}>Bu cihazdaki kullanıcı adı</Text>
               <TextInput
-                accessibilityLabel="Bu cihazdaki kullanici adi"
+                accessibilityLabel="Bu cihazdaki kullanıcı adı"
                 onChangeText={(value) => {
                   setOperatorName(value);
                   clearStatus();
                 }}
-                placeholder="Orn: Ali Usta, Mehmet Cirak"
+                placeholder="Örn: Ali Usta, Mehmet Çırak"
                 placeholderTextColor={colors.textSecondary}
                 style={styles.input}
                 value={operatorName}
@@ -597,7 +597,7 @@ export function CompanyProfileScreen() {
                 style={styles.flexButton}
               />
               <AppButton
-                label="Bu Cihazi Cikar"
+                label="Bu Cihazı Çıkar"
                 variant="secondary"
                 loading={isLicenseBusy}
                 disabled={isLicenseBusy}

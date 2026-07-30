@@ -264,9 +264,9 @@ function confirmBack(hasUnsavedInput: boolean) {
     return;
   }
 
-  Alert.alert('Degisiklikler kaybolacak', 'Bu tasarim henuz olusturulmadi. Cikmak istiyor musunuz?', [
-    { text: 'Vazgec', style: 'cancel' },
-    { text: 'Cik', style: 'destructive', onPress: () => router.back() },
+  Alert.alert('Değişiklikler kaybolacak', 'Bu tasarım henüz oluşturulmadı. Çıkmak istiyor musunuz?', [
+    { text: 'Vazgeç', style: 'cancel' },
+    { text: 'Çık', style: 'destructive', onPress: () => router.back() },
   ]);
 }
 

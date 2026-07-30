@@ -89,7 +89,7 @@ export function JobDetailsScreen() {
         } catch (loadError) {
           logger.error('Job details load failed', loadError);
           if (isActive) {
-            setError('Is detaylari yuklenemedi.');
+            setError('İş detayları yüklenemedi.');
           }
         } finally {
           if (isActive) {
@@ -117,7 +117,7 @@ export function JobDetailsScreen() {
 
   async function shareJobPdf() {
     if (!job || !rates || designs.length === 0 || isSharingPdf) {
-      setError('Toplu imalat PDF icin bu ise bagli en az bir tasarim olmali.');
+      setError('Toplu imalat PDF için bu işe bağlı en az bir tasarım olmalı.');
       return;
     }
 
@@ -134,7 +134,7 @@ export function JobDetailsScreen() {
       });
     } catch (pdfError) {
       logger.error('Job production PDF share failed', pdfError);
-      setError('Toplu imalat PDF paylasilamadi.');
+      setError('Toplu imalat PDF paylaşılamadı.');
     } finally {
       setIsSharingPdf(false);
     }
@@ -152,9 +152,9 @@ export function JobDetailsScreen() {
     return (
       <AppScreen centered>
         <EmptyState
-          title="Is bulunamadi"
-          description={error ?? 'Secilen is kaydi bulunamadi.'}
-          action={<AppButton label="Islere Don" onPress={() => router.replace(routes.jobs)} />}
+          title="İş bulunamadı"
+          description={error ?? 'Seçilen iş kaydı bulunamadı.'}
+          action={<AppButton label="İşlere Dön" onPress={() => router.replace(routes.jobs)} />}
         />
       </AppScreen>
     );
@@ -162,14 +162,14 @@ export function JobDetailsScreen() {
 
   return (
     <AppScreen>
-      <AppHeader title={job.name} subtitle="Coklu tasarim isi" rightAction={<AppButton label="Geri" variant="ghost" onPress={() => router.back()} />} />
+      <AppHeader title={job.name} subtitle="Çoklu tasarım işi" rightAction={<AppButton label="Geri" variant="ghost" onPress={() => router.back()} />} />
       <AppCard style={styles.summaryCard}>
-        <Info label="Musteri" value={customer?.fullName ?? 'Musterisiz'} />
+        <Info label="Müşteri" value={customer?.fullName ?? 'Müşterisiz'} />
         <Info label="Durum" value={jobStatusLabels[job.status]} />
-        <Info label="Tasarim sayisi" value={String(designs.length)} />
+        <Info label="Tasarım sayısı" value={String(designs.length)} />
         <Info label="Toplam tahmini teklif" value={formatCurrency(total)} />
         <AppButton
-          label="Toplu Imalat PDF"
+          label="Toplu İmalat PDF"
           loading={isSharingPdf}
           disabled={isSharingPdf || designs.length === 0}
           onPress={() => void shareJobPdf()}
@@ -177,9 +177,9 @@ export function JobDetailsScreen() {
       </AppCard>
 
       <AppCard style={styles.summaryCard}>
-        <Text style={styles.sectionTitle}>Toplu malzeme ihtiyaci</Text>
+        <Text style={styles.sectionTitle}>Toplu malzeme ihtiyacı</Text>
         {materialTotals.length === 0 ? (
-          <Text style={styles.caption}>Bu ise bagli tasarim yok.</Text>
+          <Text style={styles.caption}>Bu işe bağlı tasarım yok.</Text>
         ) : (
           materialTotals.map((item) => (
             <View key={item.key} style={styles.materialRow}>
@@ -194,9 +194,9 @@ export function JobDetailsScreen() {
       </AppCard>
 
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Bagli tasarimlar</Text>
+        <Text style={styles.sectionTitle}>Bağlı tasarımlar</Text>
         <AppButton
-          label="Yeni Tasarim"
+          label="Yeni Tasarım"
           variant="secondary"
           onPress={() => router.push(routes.newDesignForJob(job.id, job.customerId))}
           style={styles.smallButton}
@@ -204,8 +204,8 @@ export function JobDetailsScreen() {
       </View>
       {designs.length === 0 ? (
         <EmptyState
-          title="Tasarim bagli degil"
-          description="Bir tasarimi editor ekranindan bu ise baglayabilirsiniz."
+          title="Tasarım bağlı değil"
+          description="Bir tasarımı editör ekranından bu işe bağlayabilirsiniz."
         />
       ) : (
         designs.map((design) => (

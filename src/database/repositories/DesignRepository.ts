@@ -13,6 +13,7 @@ export type ListDesignsOptions = {
 export interface DesignRepository {
   create(project: DesignProject): Promise<DesignProject>;
   getById(id: string): Promise<DesignProject | null>;
+  getByIdIncludingDeleted(id: string): Promise<DesignProject | null>;
   list(options?: ListDesignsOptions): Promise<DesignProject[]>;
   update(project: DesignProject): Promise<DesignProject>;
   softDelete(id: string): Promise<void>;

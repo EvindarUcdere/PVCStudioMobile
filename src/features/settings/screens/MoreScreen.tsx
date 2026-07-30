@@ -26,77 +26,77 @@ const options: MoreOption[] = [
   {
     title: 'Teklifler',
     icon: 'document-text-outline',
-    state: 'Ac',
+    state: 'Aç',
     onPress: () => router.push(routes.quotes),
   },
   {
-    title: 'Atolye',
+    title: 'Atölye',
     icon: 'construct-outline',
-    state: 'Ac',
+    state: 'Aç',
     onPress: () => router.push(routes.workshop),
   },
   {
     title: 'Gelir / Gider',
     icon: 'cash-outline',
-    state: 'Ac',
+    state: 'Aç',
     onPress: () => router.push(routes.finance),
   },
   {
-    title: 'Isler',
+    title: 'İşler',
     icon: 'briefcase-outline',
-    state: 'Ac',
+    state: 'Aç',
     onPress: () => router.push(routes.jobs),
   },
   {
     title: 'Stok',
     icon: 'cube-outline',
-    state: 'Ac',
+    state: 'Aç',
     onPress: () => router.push(routes.stock),
   },
   {
     title: 'Hareketler',
     icon: 'time-outline',
-    state: 'Ac',
+    state: 'Aç',
     onPress: () => router.push(routes.activity),
   },
   {
-    title: 'Geri Donusum',
+    title: 'Geri Dönüşüm',
     icon: 'refresh-circle-outline',
     state: 'Geri al',
     onPress: () => router.push(routes.recycleBin),
   },
   {
-    title: 'Fiyat Ayarlari',
+    title: 'Fiyat Ayarları',
     icon: 'calculator-outline',
-    state: 'Ac',
+    state: 'Aç',
     onPress: () => router.push(routes.pricingSettings),
   },
   {
     title: 'Firma Bilgileri',
     icon: 'business-outline',
-    state: 'Ac',
+    state: 'Aç',
     onPress: () => router.push(routes.companyProfile),
   },
   {
-    title: 'Profil Kutuphanesi',
+    title: 'Profil Kütüphanesi',
     icon: 'layers-outline',
-    state: 'Duzenle',
+    state: 'Düzenle',
     onPress: () => router.push(routes.pricingSettings),
   },
   {
-    title: 'Cam Kutuphanesi',
+    title: 'Cam Kütüphanesi',
     icon: 'grid-outline',
-    state: 'Duzenle',
+    state: 'Düzenle',
     onPress: () => router.push(routes.pricingSettings),
   },
   {
-    title: 'Uygulama Ayarlari',
+    title: 'Uygulama Ayarları',
     icon: 'settings-outline',
-    state: 'Acik',
+    state: 'Açık',
     onPress: () => router.push(routes.appSettings),
   },
   {
-    title: 'Hakkinda',
+    title: 'Hakkında',
     icon: 'information-circle-outline',
     state: 'PVC Studio',
     onPress: () => router.push(routes.about),
@@ -111,7 +111,7 @@ export function MoreScreen() {
 
   async function backupAll() {
     if (!firebaseReady) {
-      setSyncError('Firebase config girilmedi. Once .env dosyasini doldurun.');
+      setSyncError('Firebase config girilmedi. Önce .env dosyasını doldurun.');
       setSyncMessage(null);
       return;
     }
@@ -122,12 +122,12 @@ export function MoreScreen() {
     try {
       const result = await backupAllLocalDataToCloud();
       if (!result) {
-        setSyncError('Bulut yedegi basarisiz oldu.');
+        setSyncError('Bulut yedeği başarısız oldu.');
         return;
       }
 
       setSyncMessage(
-        `${result.customers} musteri, ${result.jobs} is, ${result.designs} tasarim, ${result.quotes} teklif, ${result.cashTransactions} kasa kaydi, ${result.stockItems} stok urunu buluta yedeklendi. Firma kodu: ${result.companyId}`,
+        `${result.customers} müşteri, ${result.jobs} iş, ${result.designs} tasarım, ${result.quotes} teklif, ${result.cashTransactions} kasa kaydı, ${result.stockItems} stok ürünü buluta yedeklendi. Firma kodu: ${result.companyId}`,
       );
     } finally {
       setIsSyncing(false);
@@ -136,7 +136,7 @@ export function MoreScreen() {
 
   async function restoreAll() {
     if (!firebaseReady) {
-      setSyncError('Firebase config girilmedi. Once .env dosyasini doldurun.');
+      setSyncError('Firebase config girilmedi. Önce .env dosyasını doldurun.');
       setSyncMessage(null);
       return;
     }
@@ -147,12 +147,12 @@ export function MoreScreen() {
     try {
       const result = await restoreAllCloudDataToLocal();
       if (!result) {
-        setSyncError('Buluttan geri yukleme basarisiz oldu.');
+        setSyncError('Buluttan geri yükleme başarısız oldu.');
         return;
       }
 
       setSyncMessage(
-        `${result.customers} musteri, ${result.jobs} is, ${result.designs} tasarim, ${result.quotes} teklif, ${result.cashTransactions} kasa kaydi, ${result.stockItems} stok urunu cihaza alindi. Firma kodu: ${result.companyId}`,
+        `${result.customers} müşteri, ${result.jobs} iş, ${result.designs} tasarım, ${result.quotes} teklif, ${result.cashTransactions} kasa kaydı, ${result.stockItems} stok ürünü bu telefona alındı. Firma kodu: ${result.companyId}`,
       );
     } finally {
       setIsSyncing(false);
@@ -161,7 +161,7 @@ export function MoreScreen() {
 
   return (
     <AppScreen>
-      <AppHeader title="Diger" subtitle="Fiyat, kutuphane, yedekleme ve firma ayarlari." />
+      <AppHeader title="Diğer" subtitle="Fiyat, kütüphane, yedekleme ve firma ayarları." />
       <View style={styles.statusCard}>
         <Ionicons
           name={firebaseReady ? 'cloud-done-outline' : 'cloud-offline-outline'}
@@ -171,27 +171,34 @@ export function MoreScreen() {
         <View style={styles.statusText}>
           <Text style={styles.statusTitle}>Firebase</Text>
           <Text style={styles.statusCaption}>
-            {firebaseReady ? 'Bulut yedekleme hazir' : 'Config girilmedi, lokal mod aktif'}
+            {firebaseReady ? 'Bulut yedekleme hazır' : 'Config girilmedi, lokal mod aktif'}
           </Text>
         </View>
       </View>
-      <View style={styles.syncActions}>
-        <AppButton
-          label="Tam Bulut Yedegi"
-          variant="secondary"
-          loading={isSyncing}
-          disabled={isSyncing}
-          onPress={() => void backupAll()}
-          style={styles.syncButton}
-        />
-        <AppButton
-          label="Buluttan Geri Yukle"
-          variant="secondary"
-          disabled={isSyncing}
-          onPress={() => void restoreAll()}
-          style={styles.syncButton}
-        />
-      </View>
+      <AppCard style={styles.backupCard}>
+        <Text style={styles.backupTitle}>Yedekleme / Kurtarma</Text>
+        <Text style={styles.backupCaption}>
+          Normal kullanımda veriler internet varken otomatik senkronlanır. Bu butonları telefon
+          değişimi, sorun sonrası kurtarma veya elle güvenlik yedeği almak için kullanın.
+        </Text>
+        <View style={styles.syncActions}>
+          <AppButton
+            label="Tüm Verileri Buluta Yedekle"
+            variant="secondary"
+            loading={isSyncing}
+            disabled={isSyncing}
+            onPress={() => void backupAll()}
+            style={styles.syncButton}
+          />
+          <AppButton
+            label="Buluttaki Verileri Bu Telefona Al"
+            variant="secondary"
+            disabled={isSyncing}
+            onPress={() => void restoreAll()}
+            style={styles.syncButton}
+          />
+        </View>
+      </AppCard>
       {syncMessage ? <Text style={styles.success}>{syncMessage}</Text> : null}
       {syncError ? <Text style={styles.error}>{syncError}</Text> : null}
       <View style={styles.list}>
@@ -200,7 +207,7 @@ export function MoreScreen() {
             <View style={styles.optionRow}>
               <Ionicons name={option.icon} size={23} color={colors.primary} />
               <Text style={styles.optionTitle}>{option.title}</Text>
-              <Text style={styles.optionState}>{option.state ?? 'Ac'}</Text>
+              <Text style={styles.optionState}>{option.state ?? 'Aç'}</Text>
             </View>
           </AppCard>
         ))}
@@ -236,10 +243,21 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textSecondary,
   },
-  syncActions: {
-    flexDirection: 'row',
+  backupCard: {
     gap: spacing.sm,
     marginBottom: spacing.sm,
+  },
+  backupTitle: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontWeight: '700',
+  },
+  backupCaption: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  syncActions: {
+    gap: spacing.sm,
   },
   syncButton: {
     flex: 1,

@@ -1,6 +1,6 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { AppButton } from '../../../components/ui/AppButton';
 import { AppHeader } from '../../../components/ui/AppHeader';
@@ -15,6 +15,7 @@ import { DesignProject } from '../../../domain/designs/entities/DesignProject';
 import { getDesignProfileColor } from '../../../domain/designs/colors/profileColorOptions';
 import { JobStatus, jobStatusLabels, jobStatuses } from '../../../domain/designs/enums/JobStatus';
 import { DesignTemplate } from '../../../domain/templates/entities/DesignTemplate';
+import { backupDesignToCloud } from '../../../services/firebase/fullSyncService';
 import { logger } from '../../../services/logger';
 import { colors, radius, spacing, typography } from '../../../theme';
 import { TemplatePreview } from '../../templates/components/TemplatePreview';
@@ -53,11 +54,43 @@ export function DesignsScreen() {
       setItems(nextItems);
     } catch (loadError) {
       logger.error('Design list load failed', loadError);
-      setError('Tasarimlar yuklenemedi. Lutfen tekrar deneyin.');
+      setError('Tasarımlar yüklenemedi. Lütfen tekrar deneyin.');
     } finally {
       setIsLoading(false);
     }
   }, [search, statusFilter]);
+
+  function confirmDelete(project: DesignProject) {
+    Alert.alert(
+      'Tasarımı sil',
+      'Bu tasarım arşive alınacak. Geri Dönüşüm ekranından tekrar geri getirebilirsiniz.',
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: 'Sil',
+          style: 'destructive',
+          onPress: () => {
+            void deleteDesign(project.id);
+          },
+        },
+      ],
+    );
+  }
+
+  async function deleteDesign(id: string) {
+    try {
+      const designRepository = await createDesignRepository();
+      await designRepository.softDelete(id);
+      const deleted = await designRepository.getByIdIncludingDeleted(id);
+      if (deleted) {
+        void backupDesignToCloud(deleted);
+      }
+      await loadDesigns();
+    } catch (deleteError) {
+      logger.error('Design delete failed', deleteError);
+      setError('Tasarım silinemedi. Lütfen tekrar deneyin.');
+    }
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -67,11 +100,11 @@ export function DesignsScreen() {
 
   return (
     <AppScreen scroll={false}>
-      <AppHeader title="Tasarimlar" subtitle="Kaydettiginiz PVC isleri" />
+      <AppHeader title="Tasarımlar" subtitle="Kaydettiğiniz PVC işleri" />
       <TextInput
-        accessibilityLabel="Tasarim ara"
+        accessibilityLabel="Tasarım ara"
         onChangeText={setSearch}
-        placeholder="Tasarim veya is adi ara"
+        placeholder="Tasarım veya iş adı ara"
         placeholderTextColor={colors.textSecondary}
         style={styles.searchInput}
         value={search}
@@ -97,7 +130,7 @@ export function DesignsScreen() {
         </View>
       ) : error ? (
         <EmptyState
-          title="Tasarimlar yuklenemedi."
+          title="Tasarımlar yüklenemedi."
           description={error}
           action={<AppButton label="Tekrar Dene" onPress={() => void loadDesigns()} />}
         />
@@ -110,13 +143,14 @@ export function DesignsScreen() {
             <DesignCard
               item={item}
               onPress={() => router.push(routes.designDetails(item.project.id))}
+              onDelete={() => confirmDelete(item.project)}
             />
           )}
           ListEmptyComponent={
             <EmptyState
-              title="Henuz tasarim bulunmuyor."
-              description="Yeni bir tasarim olusturarak baslayin."
-              action={<AppButton label="Yeni Tasarim" onPress={() => router.push(routes.newDesign)} />}
+              title="Henüz tasarım bulunmuyor."
+              description="Yeni bir tasarım oluşturarak başlayın."
+              action={<AppButton label="Yeni Tasarım" onPress={() => router.push(routes.newDesign)} />}
             />
           }
         />
@@ -125,40 +159,54 @@ export function DesignsScreen() {
   );
 }
 
-function DesignCard({ item, onPress }: { item: DesignListItem; onPress: () => void }) {
+function DesignCard({
+  item,
+  onPress,
+  onDelete,
+}: {
+  item: DesignListItem;
+  onPress: () => void;
+  onDelete: () => void;
+}) {
   const { project, template } = item;
   const profileColor = getDesignProfileColor(project.profileSystem);
   return (
-    <Pressable
-      accessibilityLabel={`${project.name} tasarimini ac`}
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => [styles.card, pressed ? styles.pressed : null]}
-    >
-      <View style={styles.preview}>
-        <TemplatePreview
-          rootNode={project.rootNode}
-          aspectRatio={project.width / project.height}
-          designHeight={project.height}
-          profileColorHex={profileColor.hexValue}
-          compact
-        />
-      </View>
-      <View style={styles.cardBody}>
-        <Text style={styles.title}>{project.name}</Text>
-        {project.jobName ? <Text style={styles.caption}>Is: {project.jobName}</Text> : null}
-        <View style={[styles.badge, { backgroundColor: getJobStatusColor(project.jobStatus) }]}>
-          <Text style={styles.badgeText}>{jobStatusLabels[project.jobStatus]}</Text>
+    <View style={styles.card}>
+      <View style={styles.cardContent}>
+        <View style={styles.preview}>
+          <TemplatePreview
+            rootNode={project.rootNode}
+            aspectRatio={project.width / project.height}
+            designHeight={project.height}
+            profileColorHex={profileColor.hexValue}
+            compact
+          />
         </View>
-        <Text style={styles.meta}>
-          {project.width} x {project.height} mm - {project.quantity} adet
-        </Text>
-        <Text style={styles.caption}>{template?.name ?? 'Ozel tasarim'}</Text>
-        <Text style={styles.caption}>
-          Guncellendi: {new Date(project.updatedAt).toLocaleDateString('tr-TR')}
-        </Text>
+        <Pressable
+          accessibilityLabel={`${project.name} tasarımını aç`}
+          accessibilityRole="button"
+          onPress={onPress}
+          style={({ pressed }) => [styles.cardBody, pressed ? styles.pressed : null]}
+        >
+          <Text style={styles.title}>{project.name}</Text>
+          {project.jobName ? <Text style={styles.caption}>İş: {project.jobName}</Text> : null}
+          <View style={[styles.badge, { backgroundColor: getJobStatusColor(project.jobStatus) }]}>
+            <Text style={styles.badgeText}>{jobStatusLabels[project.jobStatus]}</Text>
+          </View>
+          <Text style={styles.meta}>
+            {project.width} x {project.height} mm - {project.quantity} adet
+          </Text>
+          <Text style={styles.caption}>{template?.name ?? 'Özel tasarım'}</Text>
+          <Text style={styles.caption}>
+            Güncellendi: {new Date(project.updatedAt).toLocaleDateString('tr-TR')}
+          </Text>
+        </Pressable>
       </View>
-    </Pressable>
+      <View style={styles.cardActions}>
+        <AppButton label="Aç" variant="secondary" onPress={onPress} style={styles.actionButton} />
+        <AppButton label="Sil" variant="ghost" onPress={onDelete} style={styles.actionButton} />
+      </View>
+    </View>
   );
 }
 
@@ -242,7 +290,6 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: radius.md,
     borderWidth: 1,
-    flexDirection: 'row',
     gap: spacing.md,
     padding: spacing.sm,
   },
@@ -256,9 +303,21 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     width: 104,
   },
+  cardContent: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
   cardBody: {
     flex: 1,
     gap: spacing.xs,
+  },
+  cardActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  actionButton: {
+    flex: 1,
+    minHeight: 42,
   },
   title: {
     ...typography.body,
