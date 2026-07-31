@@ -17,11 +17,13 @@ import {
 import { getPricingSettings } from '../../../database/repositories/PricingSettingsRepository';
 import { Customer } from '../../../domain/customers/entities/Customer';
 import { DesignProject } from '../../../domain/designs/entities/DesignProject';
-import { jobStatusLabels } from '../../../domain/designs/enums/JobStatus';
+import { JobStatus, jobStatusLabels } from '../../../domain/designs/enums/JobStatus';
 import { calculateDesignPriceEstimate, PriceEstimateRates } from '../../../domain/designs/pricing/calculateDesignPriceEstimate';
 import { calculateDesignStockNeeds } from '../../../domain/inventory/calculateDesignStockNeeds';
 import { StockItem, stockUnitLabels } from '../../../domain/inventory/entities/StockItem';
 import { JobProject } from '../../../domain/jobs/entities/JobProject';
+import { recordActivity } from '../../../services/activityLogService';
+import { backupDesignToCloud, backupJobToCloud } from '../../../services/firebase/fullSyncService';
 import { logger } from '../../../services/logger';
 import { colors, spacing, typography } from '../../../theme';
 import { shareJobProductionPdf } from '../../quotes/services/pdfService';
@@ -43,6 +45,7 @@ export function JobDetailsScreen() {
   const [rates, setRates] = useState<PriceEstimateRates | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSharingPdf, setIsSharingPdf] = useState(false);
+  const [isSendingWorkshop, setIsSendingWorkshop] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useFocusEffect(
@@ -140,6 +143,53 @@ export function JobDetailsScreen() {
     }
   }
 
+  async function sendJobToWorkshop() {
+    if (!job || designs.length === 0 || isSendingWorkshop) {
+      setError('Atolyeye gondermek icin bu ise bagli en az bir tasarim olmali.');
+      return;
+    }
+
+    setIsSendingWorkshop(true);
+    setError(null);
+    try {
+      const designRepository = await createDesignRepository();
+      const jobRepository = await createJobRepository();
+      const nextDesigns: DesignProject[] = [];
+
+      for (const design of designs) {
+        const nextStatus = getWorkshopReadyStatus(design.jobStatus);
+        const updatedDesign =
+          nextStatus === design.jobStatus
+            ? design
+            : await designRepository.update({ ...design, jobStatus: nextStatus });
+        nextDesigns.push(updatedDesign);
+
+        if (updatedDesign !== design) {
+          void backupDesignToCloud(updatedDesign);
+        }
+      }
+
+      const updatedJob = await jobRepository.updateStatus(job.id, 'approved');
+      void backupJobToCloud(updatedJob);
+      void recordActivity({
+        type: 'workshop_status_changed',
+        title: `${job.name} toplu olarak atolyeye gonderildi`,
+        description: `${nextDesigns.length} tasarim tek is olarak Onay adimina alindi.`,
+        entityType: 'job',
+        entityId: job.id,
+        customerName: customer?.fullName ?? null,
+      });
+
+      setDesigns(nextDesigns);
+      setJob(updatedJob);
+    } catch (sendError) {
+      logger.error('Job send to workshop failed', sendError);
+      setError('Is toplu olarak atolyeye gonderilemedi.');
+    } finally {
+      setIsSendingWorkshop(false);
+    }
+  }
+
   if (isLoading) {
     return (
       <AppScreen centered>
@@ -168,6 +218,12 @@ export function JobDetailsScreen() {
         <Info label="Durum" value={jobStatusLabels[job.status]} />
         <Info label="Tasarım sayısı" value={String(designs.length)} />
         <Info label="Toplam tahmini teklif" value={formatCurrency(total)} />
+        <AppButton
+          label="İşi Atölyeye Gönder"
+          loading={isSendingWorkshop}
+          disabled={isSendingWorkshop || designs.length === 0 || job.status === 'approved' || job.status === 'production'}
+          onPress={() => void sendJobToWorkshop()}
+        />
         <AppButton
           label="Toplu İmalat PDF"
           loading={isSharingPdf}
@@ -214,7 +270,12 @@ export function JobDetailsScreen() {
             <Text style={styles.caption}>
               {design.width} x {design.height} mm - {design.quantity} adet
             </Text>
-            <Text style={styles.caption}>{formatCurrency(rates ? calculateDesignPriceEstimate(design, rates).total : 0)}</Text>
+            <View style={styles.designFooter}>
+              <Text style={styles.caption}>{jobStatusLabels[design.jobStatus]}</Text>
+              <Text style={styles.designPrice}>
+                {formatCurrency(rates ? calculateDesignPriceEstimate(design, rates).total : 0)}
+              </Text>
+            </View>
           </AppCard>
         ))
       )}
@@ -253,6 +314,14 @@ function calculateJobMaterialTotals(
     ...item,
     requiredQuantity: roundQuantity(item.requiredQuantity),
   }));
+}
+
+function getWorkshopReadyStatus(status: JobStatus): JobStatus {
+  if (status === 'production' || status === 'installation' || status === 'done' || status === 'canceled') {
+    return status;
+  }
+
+  return 'approved';
 }
 
 function Info({ label, value }: { label: string; value: string }) {
@@ -339,6 +408,18 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.textPrimary,
     fontWeight: '700',
+  },
+  designFooter: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.sm,
+    justifyContent: 'space-between',
+  },
+  designPrice: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontWeight: '700',
+    textAlign: 'right',
   },
   caption: {
     ...typography.caption,

@@ -357,6 +357,9 @@ function WorkshopJobCard({
   onDone: (design: DesignProject) => void;
 }) {
   const totalQuantity = group.designs.reduce((sum, design) => sum + design.quantity, 0);
+  const totalPrice = rates
+    ? group.designs.reduce((sum, design) => sum + calculateDesignPriceEstimate(design, rates).total, 0)
+    : 0;
   const missingNeedCount = rates
     ? group.designs.flatMap((design) =>
         calculateDesignStockNeeds(design, stockItems, rates).filter((need) => need.status === 'missing'),
@@ -377,6 +380,7 @@ function WorkshopJobCard({
         label="Toplu stok"
         value={missingNeedCount > 0 ? `${missingNeedCount} eksik kalem` : 'Yeterli gorunuyor'}
       />
+      <Info label="Toplam ücret" value={formatCurrency(totalPrice)} />
       <View style={styles.actions}>
         <AppButton
           label="Is Detayi"
@@ -436,6 +440,7 @@ function WorkshopDesignCard({
 }) {
   const needs = rates ? calculateDesignStockNeeds(design, stockItems, rates) : [];
   const missingNeeds = needs.filter((need) => need.status === 'missing');
+  const designPrice = rates ? calculateDesignPriceEstimate(design, rates).total : 0;
 
   return (
     <View style={styles.designSubCard}>
@@ -451,6 +456,7 @@ function WorkshopDesignCard({
         </View>
       </View>
       <Info label="Musteri/Is" value={design.jobName ?? 'Belirtilmedi'} />
+      <Info label="Tasarım tutarı" value={formatCurrency(designPrice)} />
       <Info
         label="Stok"
         value={missingNeeds.length > 0 ? `${missingNeeds.length} eksik kalem` : 'Yeterli gorunuyor'}
@@ -577,6 +583,10 @@ function Info({ label, value }: { label: string; value: string }) {
       <Text style={styles.infoValue}>{value}</Text>
     </View>
   );
+}
+
+function formatCurrency(value: number): string {
+  return `${Math.round(value).toLocaleString('tr-TR')} TL`;
 }
 
 function getStatusStyle(status: JobStatus) {
