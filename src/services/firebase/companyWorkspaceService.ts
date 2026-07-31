@@ -23,6 +23,14 @@ export async function getCloudWorkspacePath(): Promise<
     return null;
   }
 
+  const license = await validateAndJoinLicense(companyId);
+  if (!license.ok) {
+    logger.error('Company workspace license rejected', new Error(license.message), {
+      action: 'company_workspace_license_check',
+    });
+    return null;
+  }
+
   return {
     rootCollection: 'companies',
     rootId: companyId,

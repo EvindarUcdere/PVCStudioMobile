@@ -1,6 +1,6 @@
 import { router, Stack, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { AppButton } from '../src/components/ui/AppButton';
 import { AppScreen } from '../src/components/ui/AppScreen';
@@ -9,7 +9,7 @@ import { LoadingScreen } from '../src/components/ui/LoadingScreen';
 import { routes } from '../src/constants/routes';
 import { useAppInitialization } from '../src/hooks/useAppInitialization';
 import { installRemoteErrorReporting } from '../src/services/errorReportingService';
-import { getActiveCompanyId } from '../src/services/firebase/companyWorkspaceService';
+import { ensureCompanyWorkspace, getActiveCompanyId } from '../src/services/firebase/companyWorkspaceService';
 import { logger, setLoggerContext } from '../src/services/logger';
 
 type RouteErrorBoundaryProps = {
@@ -34,6 +34,7 @@ export function ErrorBoundary({ error, retry }: RouteErrorBoundaryProps) {
 export default function RootLayout() {
   const { isInitialized, initializationError, retryInitialization } = useAppInitialization();
   const pathname = usePathname();
+  const [isCheckingCompanyAccess, setIsCheckingCompanyAccess] = useState(true);
 
   useEffect(() => {
     installRemoteErrorReporting();
@@ -48,19 +49,32 @@ export default function RootLayout() {
       return;
     }
 
+    if (pathname === routes.companyProfile) {
+      setIsCheckingCompanyAccess(false);
+      return;
+    }
+
+    setIsCheckingCompanyAccess(true);
     try {
       const companyId = await getActiveCompanyId();
-      if (!companyId && pathname !== routes.companyProfile) {
+      if (!companyId) {
         router.replace(routes.companyProfile);
+        return;
+      }
+
+      const workspaceCompanyId = await ensureCompanyWorkspace();
+      if (!workspaceCompanyId) {
+        router.replace(routes.companyProfile);
+        return;
       }
     } catch (error) {
       logger.error('Firma erisim kontrolu basarisiz oldu', error, {
         action: 'company_access_check',
         screen: pathname,
       });
-      if (pathname !== routes.companyProfile) {
-        router.replace(routes.companyProfile);
-      }
+      router.replace(routes.companyProfile);
+    } finally {
+      setIsCheckingCompanyAccess(false);
     }
   }, [initializationError, isInitialized, pathname]);
 
@@ -82,6 +96,10 @@ export default function RootLayout() {
         />
       </AppScreen>
     );
+  }
+
+  if (isCheckingCompanyAccess && pathname !== routes.companyProfile) {
+    return <LoadingScreen message="Firma lisansı doğrulanıyor..." />;
   }
 
   return (
