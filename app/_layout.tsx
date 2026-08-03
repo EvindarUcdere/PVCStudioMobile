@@ -1,6 +1,7 @@
 import { router, Stack, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 
 import { AppButton } from '../src/components/ui/AppButton';
 import { AppScreen } from '../src/components/ui/AppScreen';
@@ -82,12 +83,10 @@ export default function RootLayout() {
     void checkCompanyAccess();
   }, [checkCompanyAccess]);
 
-  if (!isInitialized && !initializationError) {
-    return <LoadingScreen message="Uygulama hazırlanıyor..." />;
-  }
-
-  if (initializationError) {
-    return (
+  const blockingContent =
+    !isInitialized && !initializationError ? (
+      <LoadingScreen message="Uygulama hazırlanıyor..." />
+    ) : initializationError ? (
       <AppScreen centered>
         <EmptyState
           title="Uygulama başlatılamadı"
@@ -95,12 +94,9 @@ export default function RootLayout() {
           action={<AppButton label="Tekrar Dene" onPress={retryInitialization} />}
         />
       </AppScreen>
-    );
-  }
-
-  if (isCheckingCompanyAccess && pathname !== routes.companyProfile) {
-    return <LoadingScreen message="Firma lisansı doğrulanıyor..." />;
-  }
+    ) : isCheckingCompanyAccess && pathname !== routes.companyProfile ? (
+      <LoadingScreen message="Firma lisansı doğrulanıyor..." />
+    ) : null;
 
   return (
     <>
@@ -109,6 +105,15 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="company-profile" />
       </Stack>
+      {blockingContent ? <View style={styles.overlay}>{blockingContent}</View> : null}
     </>
   );
 }
+
+const styles = StyleSheet.create({
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'transparent',
+    zIndex: 10,
+  },
+});
