@@ -7,6 +7,7 @@ import { SqliteCustomerRepository } from './SqliteCustomerRepository';
 import { SqliteDesignRepository } from './SqliteDesignRepository';
 import { SqliteJobRepository } from './SqliteJobRepository';
 import { SqlitePaymentRepository } from './SqlitePaymentRepository';
+import { SqliteProductionProfileSystemRepository } from './SqliteProductionProfileSystemRepository';
 import { SqliteQuoteRepository } from './SqliteQuoteRepository';
 import { SqliteStockRepository } from './SqliteStockRepository';
 import { SqliteTemplateRepository } from './SqliteTemplateRepository';
@@ -62,4 +63,8 @@ export async function createQuoteRepository() {
 
 export async function createPaymentRepository() {
   return new SqlitePaymentRepository(createDatabaseAdapter(await getDatabase()));
+}
+
+export async function createProductionProfileSystemRepository() {
+  return new SqliteProductionProfileSystemRepository(createDatabaseAdapter(await getDatabase()));
 }

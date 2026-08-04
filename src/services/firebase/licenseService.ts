@@ -12,6 +12,8 @@ export type LicenseValidationResult =
       companyName: string | null;
       maxUsers: number | null;
       activeUserCount: number;
+      offlineEnabled: boolean;
+      offlineGraceDays: number;
     }
   | {
       ok: false;
@@ -39,6 +41,8 @@ type LicenseDocument = {
   maxUsers?: number;
   expiresAt?: string | null;
   activeUserIds?: Record<string, boolean>;
+  offlineEnabled?: boolean;
+  offlineGraceDays?: number;
 };
 
 export async function validateAndJoinLicense(companyId: string): Promise<LicenseValidationResult> {
@@ -85,6 +89,19 @@ export async function validateAndJoinLicense(companyId: string): Promise<License
     const alreadyJoined = activeUserIds[user.uid] === true;
     const activeUserCount = Object.values(activeUserIds).filter(Boolean).length;
     const maxUsers = typeof license.maxUsers === 'number' && license.maxUsers > 0 ? Math.floor(license.maxUsers) : null;
+    if (alreadyJoined) {
+      const offlinePolicy = getOfflinePolicy(license);
+
+      return {
+        ok: true,
+        companyId,
+        companyName: license.companyName?.trim() || null,
+        maxUsers,
+        activeUserCount,
+        offlineEnabled: offlinePolicy.offlineEnabled,
+        offlineGraceDays: offlinePolicy.offlineGraceDays,
+      };
+    }
 
     if (!alreadyJoined && maxUsers !== null && activeUserCount >= maxUsers) {
       return {
@@ -138,6 +155,7 @@ export async function validateAndJoinLicense(companyId: string): Promise<License
         companyName: latestLicense.companyName?.trim() || null,
         maxUsers: latestMaxUsers,
         activeUserCount: latestAlreadyJoined ? latestActiveUserCount : latestActiveUserCount + 1,
+        ...getOfflinePolicy(latestLicense),
       };
     });
 
@@ -159,6 +177,8 @@ export async function validateAndJoinLicense(companyId: string): Promise<License
       companyName: joined.companyName,
       maxUsers: joined.maxUsers,
       activeUserCount: joined.activeUserCount,
+      offlineEnabled: joined.offlineEnabled,
+      offlineGraceDays: joined.offlineGraceDays,
     };
   } catch (error) {
     logger.error('License validation failed', error);
@@ -256,6 +276,19 @@ function isExpired(expiresAt: string | null | undefined): boolean {
 
   const time = new Date(expiresAt).getTime();
   return Number.isFinite(time) && time < Date.now();
+}
+
+function getOfflinePolicy(license: LicenseDocument): {
+  offlineEnabled: boolean;
+  offlineGraceDays: number;
+} {
+  return {
+    offlineEnabled: license.offlineEnabled === true,
+    offlineGraceDays:
+      typeof license.offlineGraceDays === 'number' && license.offlineGraceDays > 0
+        ? Math.floor(license.offlineGraceDays)
+        : 0,
+  };
 }
 
 async function getLicenseSnapshot(companyId: string): Promise<{

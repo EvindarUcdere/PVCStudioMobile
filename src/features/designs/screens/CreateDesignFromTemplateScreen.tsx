@@ -6,6 +6,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -22,10 +23,16 @@ import {
   createDesignRepository,
   createTemplateRepository,
 } from '../../../database/repositories/createRepositories';
+import { getCompanyProfile } from '../../../database/repositories/CompanyProfileRepository';
 import { Customer } from '../../../domain/customers/entities/Customer';
+import { defaultProfileColorId } from '../../../domain/designs/colors/profileColorOptions';
+import { ProfileSystemSelection } from '../../../domain/designs/entities/ProfileSystemSelection';
+import { getDefaultProfileSystemPriceOption } from '../../../domain/designs/pricing/calculateDesignPriceEstimate';
+import { ProductionProfileSystem } from '../../../domain/production-calculation/types';
 import { createDesignFromTemplateInputSchema } from '../../../domain/templates/factories/createDesignFromTemplate';
 import { DesignTemplate } from '../../../domain/templates/entities/DesignTemplate';
 import { backupDesignToCloud } from '../../../services/firebase/fullSyncService';
+import { listProductionProfileSystemsFromCloud } from '../../../services/firebase/productionProfileSystemCloudService';
 import { logger } from '../../../services/logger';
 import { colors, radius, spacing, typography } from '../../../theme';
 import { sanitizeIntegerInput } from '../../../utils/inputValidation';
@@ -48,6 +55,8 @@ export function CreateDesignFromTemplateScreen() {
   }>();
   const [template, setTemplate] = useState<DesignTemplate | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [profileSystems, setProfileSystems] = useState<ProductionProfileSystem[]>([]);
+  const [selectedProfileSystemId, setSelectedProfileSystemId] = useState<string | null>(null);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -79,8 +88,15 @@ export function CreateDesignFromTemplateScreen() {
       try {
         const repository = await createTemplateRepository();
         const customerRepository = await createCustomerRepository();
+        const companyProfile = await getCompanyProfile();
         const selectedTemplate = await repository.getById(templateId);
+        const savedProfileSystems = companyProfile.companyId.trim()
+          ? await listProductionProfileSystemsFromCloud(companyProfile.companyId.trim())
+          : [];
+        const activeProfileSystems = savedProfileSystems.filter((profileSystem) => profileSystem.status !== 'ARCHIVED');
         setCustomers(await customerRepository.list({ limit: 100 }));
+        setProfileSystems(activeProfileSystems);
+        setSelectedProfileSystemId(activeProfileSystems[0]?.id ?? null);
         setSelectedCustomerId(customerId ?? null);
         setTemplate(selectedTemplate);
         if (selectedTemplate) {
@@ -140,9 +156,15 @@ export function CreateDesignFromTemplateScreen() {
       const templateRepository = await createTemplateRepository();
       const designRepository = await createDesignRepository();
       const service = createTemplateService(templateRepository, designRepository);
-      const project = await service.createDesign({ templateId: template.id, ...parsed.data });
+      const selectedProfileSystem =
+        profileSystems.find((profileSystem) => profileSystem.id === selectedProfileSystemId) ?? null;
+      const project = await service.createDesign({
+        templateId: template.id,
+        ...parsed.data,
+        profileSystem: toDesignProfileSystemSelection(selectedProfileSystem),
+      });
       void backupDesignToCloud(project);
-      router.replace(routes.designDetails(project.id));
+      router.replace(routes.designEditor(project.id));
     } catch (saveError) {
       logger.error('Create design from template failed', saveError);
       setError('Tasarım oluşturulurken bir sorun oluştu. Lütfen tekrar deneyin.');
@@ -212,6 +234,11 @@ export function CreateDesignFromTemplateScreen() {
             selectedCustomerId={selectedCustomerId}
             onSelectCustomer={setSelectedCustomerId}
           />
+          <ProfileSystemSelector
+            profileSystems={profileSystems}
+            selectedProfileSystemId={selectedProfileSystemId}
+            onSelectProfileSystem={setSelectedProfileSystemId}
+          />
           {error ? <Text style={styles.error}>{error}</Text> : null}
           <AppButton
             label="Tasarımı Oluştur"
@@ -256,6 +283,95 @@ function FormField({ control, name, label, keyboardType, sanitize }: FormFieldPr
       )}
     />
   );
+}
+
+function ProfileSystemSelector({
+  profileSystems,
+  selectedProfileSystemId,
+  onSelectProfileSystem,
+}: {
+  profileSystems: ProductionProfileSystem[];
+  selectedProfileSystemId: string | null;
+  onSelectProfileSystem: (profileSystemId: string | null) => void;
+}) {
+  if (profileSystems.length === 0) {
+    return (
+      <View style={styles.selectorPanel}>
+        <Text style={styles.selectorTitle}>Profil sistemi</Text>
+        <Text style={styles.selectorCaption}>
+          Firma icin kayitli aktif profil sistemi yok. Tasarim teknik profil sistemi secilmeden olusturulur.
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.selectorPanel}>
+      <View style={styles.selectorHeader}>
+        <Text style={styles.selectorTitle}>Profil sistemi</Text>
+        <Pressable accessibilityRole="button" onPress={() => onSelectProfileSystem(null)}>
+          <Text style={styles.clearSelection}>Secme</Text>
+        </Pressable>
+      </View>
+      <View style={styles.optionGrid}>
+        {profileSystems.map((profileSystem) => {
+          const selected = selectedProfileSystemId === profileSystem.id;
+          return (
+            <Pressable
+              key={profileSystem.id}
+              accessibilityRole="button"
+              onPress={() => onSelectProfileSystem(profileSystem.id)}
+              style={[styles.profileOption, selected ? styles.profileOptionSelected : null]}
+            >
+              <Text numberOfLines={1} style={[styles.profileOptionTitle, selected ? styles.profileOptionTitleSelected : null]}>
+                {profileSystem.displayName}
+              </Text>
+              <Text numberOfLines={1} style={styles.selectorCaption}>
+                {profileSystem.brand} / {profileSystem.seriesName} - v{profileSystem.version}
+              </Text>
+              <Text style={profileSystem.status === 'VERIFIED' ? styles.verifiedText : styles.draftText}>
+                {profileSystem.status === 'VERIFIED' ? 'VERIFIED' : 'DRAFT'}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+function toDesignProfileSystemSelection(
+  profileSystem: ProductionProfileSystem | null,
+): ProfileSystemSelection | null {
+  if (!profileSystem) {
+    return null;
+  }
+
+  const estimateDefault = getDefaultProfileSystemPriceOption();
+
+  return {
+    brandId: estimateDefault.id,
+    seriesId: estimateDefault.id,
+    profileWidth: estimateDefault.profileWidth,
+    chamberCount: estimateDefault.chamberCount,
+    wallClass: estimateDefault.wallClass,
+    gasketCount: null,
+    gasketColor: null,
+    steelThickness: null,
+    interiorColorId: defaultProfileColorId,
+    exteriorColorId: defaultProfileColorId,
+    productionProfileSystemId: profileSystem.id,
+    productionProfileSystemName: profileSystem.displayName,
+    productionProfileSystemVersion: profileSystem.version,
+    productionProfileSystemStatus: profileSystem.status,
+    productionFrameProfileCode: profileSystem.frameProfileCode,
+    productionSashProfileCode: profileSystem.sashProfileCode,
+    productionMullionProfileCode: profileSystem.mullionProfileCode,
+    productionTransomProfileCode: profileSystem.transomProfileCode,
+    productionGlazingBeadProfileCode: profileSystem.glazingBeadProfileCode,
+    productionGasketCode: profileSystem.gasketCode,
+    productionHardwareSetCode: profileSystem.hardwareSetCode,
+  };
 }
 
 function confirmBack(hasUnsavedInput: boolean) {
@@ -305,5 +421,70 @@ const styles = StyleSheet.create({
   error: {
     ...typography.caption,
     color: colors.error,
+  },
+  selectorPanel: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    gap: spacing.sm,
+    padding: spacing.md,
+  },
+  selectorHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  selectorTitle: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontWeight: '800',
+  },
+  selectorCaption: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  clearSelection: {
+    ...typography.caption,
+    color: colors.primary,
+    fontWeight: '800',
+  },
+  optionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  profileOption: {
+    backgroundColor: colors.background,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    gap: 2,
+    minHeight: 82,
+    padding: spacing.sm,
+    width: '47.5%',
+  },
+  profileOptionSelected: {
+    borderColor: colors.primary,
+    borderWidth: 2,
+  },
+  profileOptionTitle: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  profileOptionTitleSelected: {
+    color: colors.primary,
+  },
+  verifiedText: {
+    ...typography.caption,
+    color: colors.success,
+    fontWeight: '800',
+  },
+  draftText: {
+    ...typography.caption,
+    color: colors.warning,
+    fontWeight: '800',
   },
 });

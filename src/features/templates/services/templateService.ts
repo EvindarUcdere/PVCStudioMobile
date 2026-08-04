@@ -1,6 +1,7 @@
 import { createDesignFromTemplate } from '../../../domain/templates/factories/createDesignFromTemplate';
 import { DesignRepository } from '../../../database/repositories/DesignRepository';
 import { TemplateRepository } from '../../../database/repositories/TemplateRepository';
+import { ProfileSystemSelection } from '../../../domain/designs/entities/ProfileSystemSelection';
 
 export type CreateDesignFromTemplateFormInput = {
   templateId: string;
@@ -11,6 +12,7 @@ export type CreateDesignFromTemplateFormInput = {
   customerId?: string | null | undefined;
   jobName?: string | null | undefined;
   jobId?: string | null | undefined;
+  profileSystem?: ProfileSystemSelection | null | undefined;
 };
 
 export function createTemplateService(

@@ -12,6 +12,7 @@ export const routes = {
   recycleBin: '/recycle-bin',
   jobs: '/jobs',
   pricingSettings: '/pricing-settings',
+  productionProfileSettings: '/production-profile-settings',
   companyProfile: '/company-profile',
   appSettings: '/app-settings',
   about: '/about',

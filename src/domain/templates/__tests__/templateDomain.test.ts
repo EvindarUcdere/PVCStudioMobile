@@ -92,4 +92,35 @@ describe('createDesignFromTemplate', () => {
     expect(() => designProjectSchema.parse(project)).not.toThrow();
     expect(collectNodeIds(template.rootNode)).toEqual(templateNodeIds);
   });
+
+  it('keeps selected production profile system metadata on the created design', () => {
+    const template = systemTemplates[0]!;
+    const project = createDesignFromTemplate({
+      template,
+      name: 'Mutfak Penceresi',
+      width: 1200,
+      height: 1400,
+      quantity: 1,
+      profileSystem: {
+        brandId: 'standard-70',
+        seriesId: 'standard-70',
+        profileWidth: 70,
+        chamberCount: 5,
+        wallClass: 'B',
+        gasketCount: null,
+        gasketColor: null,
+        steelThickness: null,
+        interiorColorId: 'white',
+        exteriorColorId: 'white',
+        productionProfileSystemId: 'profile-system-1',
+        productionProfileSystemName: 'TEST-BRAND TEST-SERIES',
+        productionProfileSystemVersion: '1.0.0',
+        productionProfileSystemStatus: 'VERIFIED',
+      },
+    });
+
+    expect(project.profileSystem?.productionProfileSystemId).toBe('profile-system-1');
+    expect(project.profileSystem?.productionProfileSystemVersion).toBe('1.0.0');
+    expect(() => designProjectSchema.parse(project)).not.toThrow();
+  });
 });

@@ -6,7 +6,7 @@ import { CompanyProfile, defaultCompanyProfile } from '../../../domain/company/e
 import { DesignProject } from '../../../domain/designs/entities/DesignProject';
 import { getDesignProfileColor } from '../../../domain/designs/colors/profileColorOptions';
 import { calculateDesignLayout } from '../../../domain/designs/layout/calculateDesignLayout';
-import { PanelBounds } from '../../../domain/designs/layout/layoutTypes';
+import { NodeBounds, PanelBounds, SplitBounds } from '../../../domain/designs/layout/layoutTypes';
 import { calculateDesignMaterialSummary } from '../../../domain/designs/measurement/calculateDesignMaterialSummary';
 import {
   calculateDesignPriceEstimate,
@@ -163,12 +163,14 @@ function buildProductionHtml(
     )
     .join('');
   const screenCount = summary.panels.filter((panel) => panel.insectScreen).length;
+  const profileParts = productionPartSummary(design, summary);
 
   return pageTemplate({
     title: 'PVC Imalat Formu',
     subtitle: design.name,
     companyProfile,
     body: `
+      ${profileBanner(profileParts)}
       <div class="production-grid">
         <div class="production-drawing">
           ${buildDesignSvg(design)}
@@ -179,7 +181,11 @@ function buildProductionHtml(
           <div class="kv"><span>Musteri</span><strong>${escapeHtml(customerName.trim() || '-')}</strong></div>
           <div class="kv"><span>Telefon</span><strong>${escapeHtml(customerPhone.trim() || '-')}</strong></div>
           <div class="kv"><span>Dis olcu</span><strong>${design.width} x ${design.height} mm</strong></div>
-          <div class="kv"><span>Profil</span><strong>${escapeHtml(estimate.selectedProfileSystem.name)}</strong></div>
+          <div class="kv"><span>Profil sistemi</span><strong>${escapeHtml(profileParts.system)}</strong></div>
+          <div class="kv"><span>Fiyat profili</span><strong>${escapeHtml(estimate.selectedProfileSystem.name)}</strong></div>
+          <div class="kv"><span>Ana kasa</span><strong>${escapeHtml(profileParts.frame)}</strong></div>
+          <div class="kv"><span>Kanat</span><strong>${escapeHtml(profileParts.sash)}</strong></div>
+          <div class="kv"><span>Kayit</span><strong>${escapeHtml(profileParts.mullion)}</strong></div>
           <div class="kv"><span>Renk</span><strong>${escapeHtml(estimate.selectedColor.name)}</strong></div>
           <div class="kv"><span>Cam</span><strong>${escapeHtml(estimate.selectedGlassType.name)}</strong></div>
           <div class="kv"><span>Acilim</span><strong>${summary.openingPanelCount} acilir / ${summary.fixedPanelCount} sabit</strong></div>
@@ -196,7 +202,8 @@ function buildProductionHtml(
       ${section('Genel Tasarim Ozeti', [
         ['Dis olcu', `${design.width} x ${design.height} mm`],
         ['Adet', String(design.quantity)],
-        ['Profil kalitesi', estimate.selectedProfileSystem.name],
+        ['Profil sistemi', profileParts.system],
+        ['Fiyat profili', estimate.selectedProfileSystem.name],
         ['Profil rengi', `${estimate.selectedColor.name} (${summary.profileColorHex})`],
         ['Cam tipi', `${estimate.selectedGlassType.name} - ${estimate.selectedGlassType.formula}`],
         ['Kasa/kanat payi', `Kasa ${summary.frameWidth} mm, kanat ${summary.sashWidth} mm`],
@@ -204,6 +211,7 @@ function buildProductionHtml(
         ['Panjur alani', summary.rollerShutterHeight ? `${summary.rollerShutterHeight} mm` : 'Yok'],
         ['Kemer yuksekligi', summary.archHeight ? `${summary.archHeight} mm` : 'Yok'],
       ])}
+      ${section('Profil ve Kasa Bilgisi', productionProfileRows(design, summary))}
       <h2>Panel ve Cam Kesim Listesi</h2>
       <table>
         <thead>
@@ -244,6 +252,7 @@ function buildJobProductionHtml(
     .map((design, index) => {
       const estimate = calculateDesignPriceEstimate(design, rates);
       const summary = calculateDesignMaterialSummary(design);
+      const profileParts = productionPartSummary(design, summary);
       const screenCount = summary.panels.filter((panel) => panel.insectScreen).length;
       const panelRows = summary.panels
         .map(
@@ -264,6 +273,7 @@ function buildJobProductionHtml(
       return `
         <div class="job-design-block">
           <h2>${index + 1}. ${escapeHtml(design.name)}</h2>
+          ${profileBanner(profileParts)}
           <div class="production-grid">
             <div class="production-drawing">
               ${buildDesignSvg(design)}
@@ -271,7 +281,11 @@ function buildJobProductionHtml(
             <div class="production-summary">
               <div class="kv"><span>Adet</span><strong>${design.quantity}</strong></div>
               <div class="kv"><span>Dis olcu</span><strong>${design.width} x ${design.height} mm</strong></div>
-              <div class="kv"><span>Profil</span><strong>${escapeHtml(estimate.selectedProfileSystem.name)}</strong></div>
+              <div class="kv"><span>Profil sistemi</span><strong>${escapeHtml(profileParts.system)}</strong></div>
+              <div class="kv"><span>Fiyat profili</span><strong>${escapeHtml(estimate.selectedProfileSystem.name)}</strong></div>
+              <div class="kv"><span>Ana kasa</span><strong>${escapeHtml(profileParts.frame)}</strong></div>
+              <div class="kv"><span>Kanat</span><strong>${escapeHtml(profileParts.sash)}</strong></div>
+              <div class="kv"><span>Kayit</span><strong>${escapeHtml(profileParts.mullion)}</strong></div>
               <div class="kv"><span>Renk</span><strong>${escapeHtml(estimate.selectedColor.name)}</strong></div>
               <div class="kv"><span>Cam</span><strong>${escapeHtml(estimate.selectedGlassType.name)} - ${escapeHtml(estimate.selectedGlassType.formula ?? '-')}</strong></div>
               <div class="kv"><span>Acilim</span><strong>${summary.openingPanelCount} acilir / ${summary.fixedPanelCount} sabit</strong></div>
@@ -283,6 +297,7 @@ function buildJobProductionHtml(
           <div class="visual-preview compact-preview">
             ${buildDesignPreviewSvg(design)}
           </div>
+          ${section('Profil ve Kasa Bilgisi', productionProfileRows(design, summary))}
           <table>
             <thead>
               <tr>
@@ -388,6 +403,10 @@ function pageTemplate({
           th, td { border: 1px solid #d9e2dc; font-size: 12px; padding: 8px; text-align: left; }
           th { background: #f6faf7; color: #60716a; }
           .production-grid { align-items: flex-start; display: flex; gap: 14px; margin-top: 16px; }
+          .profile-banner { background: #f6faf7; border: 1px solid #b8d5cb; border-radius: 8px; display: flex; gap: 8px; margin-top: 12px; padding: 10px; }
+          .profile-pill { flex: 1; }
+          .profile-pill span { color: #60716a; display: block; font-size: 10px; }
+          .profile-pill strong { color: #16211d; display: block; font-size: 12px; margin-top: 3px; }
           .production-drawing { background: #ffffff; border: 1px solid #d9e2dc; border-radius: 8px; flex: 1.8; padding: 10px; text-align: center; }
           .production-summary { border: 1px solid #d9e2dc; border-radius: 8px; flex: 1; overflow: hidden; }
           .visual-preview { background: #eef3f0; border: 1px solid #d9e2dc; border-radius: 8px; padding: 10px; text-align: center; }
@@ -451,7 +470,8 @@ function buildDesignSvg(design: DesignProject): string {
   const framePath = isArch ? buildArchFramePath(frame.x, frame.y, frame.width, frame.height, archHeight) : '';
   const frameStroke = 8;
   const glassInset = 12;
-  const splitStroke = 8;
+  const frameProfileThickness = Math.max(10, Math.min(24, summary.frameWidth * layout.scale * 0.82));
+  const splitProfileThickness = Math.max(9, Math.min(24, summary.mullionWidth * layout.scale * 0.86));
   const panelNodes = new Map(collectPanels(design.rootNode).map((panel) => [panel.id, panel]));
   const panelMeasurements = new Map(summary.panels.map((panel) => [panel.panelId, panel]));
   const shutterHeight =
@@ -461,19 +481,32 @@ function buildDesignSvg(design: DesignProject): string {
 
   const panels = layout.panelBounds
     .map((panel, index) => {
+      const drawablePanel = getDrawablePanelBoundsForPdf(panel, frame, frameProfileThickness, splitProfileThickness);
       const panelNode = panelNodes.get(panel.nodeId);
       const measurement = panelMeasurements.get(panel.nodeId);
-      const x = round(panel.x + glassInset);
-      const y = round(panel.y + glassInset);
-      const width = round(Math.max(8, panel.width - glassInset * 2));
-      const height = round(Math.max(8, panel.height - glassInset * 2));
-      const opening = buildOpeningSymbol(panel.openingType, x, y, width, height);
-      const insectScreen = panelNode?.insectScreen ? buildInsectScreenSymbol(panel, glassInset) : '';
+      const hasSash = drawablePanel.openingType !== 'fixed';
+      const sashInset = Math.max(7, Math.min(17, Math.min(drawablePanel.width, drawablePanel.height) * 0.09));
+      const effectiveInset = hasSash ? sashInset + 6 : glassInset;
+      const x = round(drawablePanel.x + effectiveInset);
+      const y = round(drawablePanel.y + effectiveInset);
+      const width = round(Math.max(8, drawablePanel.width - effectiveInset * 2));
+      const height = round(Math.max(8, drawablePanel.height - effectiveInset * 2));
+      const openingBounds = getOpeningSymbolBoundsForPdf(drawablePanel);
+      const opening = buildOpeningSymbol(
+        drawablePanel.openingType,
+        openingBounds.x,
+        openingBounds.y,
+        openingBounds.width,
+        openingBounds.height,
+      );
+      const insectScreen = panelNode?.insectScreen ? buildInsectScreenSymbol(drawablePanel, effectiveInset) : '';
       const glassLabel = measurement ? `${measurement.glassWidth} * ${measurement.glassHeight}` : '';
       const panelLabel = `${index + 1}`;
 
       return `
-        <rect x="${x}" y="${y}" width="${width}" height="${height}" fill="#d7e8f8" stroke="#879a93" stroke-width="2" />
+        ${hasSash ? buildProfiledPanelSvg(drawablePanel.x + 4, drawablePanel.y + 4, drawablePanel.width - 8, drawablePanel.height - 8, sashInset, profileColor) : ''}
+        <rect x="${round(x - 3)}" y="${round(y - 3)}" width="${round(width + 6)}" height="${round(height + 6)}" fill="none" stroke="${mixHexForPdf('#17211e', profileColor, 0.18)}" stroke-width="1.4" />
+        <rect x="${x}" y="${y}" width="${width}" height="${height}" fill="url(#pdfGlassGradient)" stroke="#aebbb7" stroke-width="1.2" />
         ${insectScreen}
         ${opening}
         <circle cx="${round(x + width / 2)}" cy="${round(y + height / 2)}" r="2.5" fill="#16211d" />
@@ -485,14 +518,7 @@ function buildDesignSvg(design: DesignProject): string {
     .join('');
 
   const splits = layout.splitBounds
-    .map((split) => {
-      const x1 = round(split.dividerX1);
-      const y1 = round(split.dividerY1);
-      const x2 = round(split.dividerX2);
-      const y2 = round(split.dividerY2);
-
-      return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${profileColor}" stroke-width="${splitStroke}" stroke-linecap="square" />`;
-    })
+    .map((split) => buildSplitProfileSvg(split, splitProfileThickness, profileColor))
     .join('');
 
   return `
@@ -513,6 +539,7 @@ function buildDesignSvg(design: DesignProject): string {
       ${shutterHeight > 0 ? buildRollerShutterSvg(frame.x, frame.y, frame.width, shutterHeight) : ''}
       ${panels}
       ${splits}
+      ${buildFrameProfileSvg(frame.x, frame.y, frame.width, frame.height, frameProfileThickness, profileColor, isArch ? framePath : null, isArch ? buildArchFramePath(frame.x + frameProfileThickness, frame.y + frameProfileThickness, frame.width - frameProfileThickness * 2, frame.height - frameProfileThickness * 2, Math.max(20, archHeight - frameProfileThickness)) : null)}
       ${
         isArch
           ? `<path d="${framePath}" fill="none" stroke="#24302c" stroke-width="2" />`
@@ -541,11 +568,14 @@ function buildDesignPreviewSvg(design: DesignProject): string {
     padding: 40,
   });
   const profileColor = getDesignProfileColor(design.profileSystem).hexValue;
+  const summary = calculateDesignMaterialSummary(design);
   const frame = layout.frameBounds;
   const rootFrame = design.rootNode.type === 'frame' ? design.rootNode : null;
   const isArch = rootFrame ? isArchTopFrame(rootFrame) : false;
   const archHeight = isArch && rootFrame ? getArchHeight(rootFrame, design.height) * layout.scale : 0;
   const framePath = isArch ? buildArchFramePath(frame.x, frame.y, frame.width, frame.height, archHeight) : '';
+  const frameProfileThickness = Math.max(9, Math.min(22, summary.frameWidth * layout.scale * 0.82));
+  const splitProfileThickness = Math.max(8, Math.min(22, summary.mullionWidth * layout.scale * 0.86));
   const panelNodes = new Map(collectPanels(design.rootNode).map((panel) => [panel.id, panel]));
   const shutterHeight =
     rootFrame?.rollerShutter?.enabled
@@ -554,28 +584,31 @@ function buildDesignPreviewSvg(design: DesignProject): string {
 
   const panels = layout.panelBounds
     .map((panel) => {
+      const drawablePanel = getDrawablePanelBoundsForPdf(panel, frame, frameProfileThickness, splitProfileThickness);
       const panelNode = panelNodes.get(panel.nodeId);
-      const profileInset = Math.max(4, Math.min(10, Math.min(panel.width, panel.height) * 0.08));
-      const glassInset = profileInset + Math.max(3, Math.min(7, Math.min(panel.width, panel.height) * 0.04));
-      const glassX = round(panel.x + glassInset);
-      const glassY = round(panel.y + glassInset);
-      const glassWidth = round(Math.max(0, panel.width - glassInset * 2));
-      const glassHeight = round(Math.max(0, panel.height - glassInset * 2));
+      const hasSash = drawablePanel.openingType !== 'fixed';
+      const profileInset = Math.max(5, Math.min(13, Math.min(drawablePanel.width, drawablePanel.height) * 0.08));
+      const glassInset = hasSash
+        ? profileInset + Math.max(3, Math.min(7, Math.min(drawablePanel.width, drawablePanel.height) * 0.04))
+        : Math.max(7, Math.min(12, Math.min(drawablePanel.width, drawablePanel.height) * 0.06));
+      const glassX = round(drawablePanel.x + glassInset);
+      const glassY = round(drawablePanel.y + glassInset);
+      const glassWidth = round(Math.max(0, drawablePanel.width - glassInset * 2));
+      const glassHeight = round(Math.max(0, drawablePanel.height - glassInset * 2));
+      const openingBounds = getOpeningSymbolBoundsForPdf(drawablePanel);
 
       return `
-        ${buildProfiledPanelSvg(panel.x, panel.y, panel.width, panel.height, profileInset, profileColor)}
+        ${hasSash ? buildProfiledPanelSvg(drawablePanel.x + 3, drawablePanel.y + 3, drawablePanel.width - 6, drawablePanel.height - 6, profileInset, profileColor) : ''}
+        <rect x="${round(glassX - 3)}" y="${round(glassY - 3)}" width="${round(glassWidth + 6)}" height="${round(glassHeight + 6)}" fill="none" stroke="${mixHexForPdf('#17211e', profileColor, 0.18)}" stroke-width="1.3" />
         <rect x="${glassX}" y="${glassY}" width="${glassWidth}" height="${glassHeight}" fill="url(#pdfGlassGradient)" stroke="#aebbb7" stroke-width="1.2" />
-        ${panelNode?.insectScreen ? buildInsectScreenSymbol(panel, glassInset) : ''}
-        ${buildOpeningSymbol(panel.openingType, glassX, glassY, glassWidth, glassHeight)}
+        ${panelNode?.insectScreen ? buildInsectScreenSymbol(drawablePanel, glassInset) : ''}
+        ${buildOpeningSymbol(drawablePanel.openingType, openingBounds.x, openingBounds.y, openingBounds.width, openingBounds.height)}
       `;
     })
     .join('');
 
   const splits = layout.splitBounds
-    .map(
-      (split) =>
-        `<line x1="${round(split.dividerX1)}" y1="${round(split.dividerY1)}" x2="${round(split.dividerX2)}" y2="${round(split.dividerY2)}" stroke="${profileColor}" stroke-width="7" stroke-linecap="square" />`,
-    )
+    .map((split) => buildSplitProfileSvg(split, splitProfileThickness, profileColor))
     .join('');
 
   return `
@@ -589,6 +622,7 @@ function buildDesignPreviewSvg(design: DesignProject): string {
       ${shutterHeight > 0 ? buildRollerShutterSvg(frame.x, frame.y, frame.width, shutterHeight) : ''}
       ${panels}
       ${splits}
+      ${buildFrameProfileSvg(frame.x, frame.y, frame.width, frame.height, frameProfileThickness, profileColor, isArch ? framePath : null, isArch ? buildArchFramePath(frame.x + frameProfileThickness, frame.y + frameProfileThickness, frame.width - frameProfileThickness * 2, frame.height - frameProfileThickness * 2, Math.max(20, archHeight - frameProfileThickness)) : null)}
       ${
         isArch
           ? `<path d="${framePath}" fill="none" stroke="#24302c" stroke-width="2" />`
@@ -639,6 +673,44 @@ function buildInsectScreenSymbol(panel: PanelBounds, inset: number): string {
   `;
 }
 
+function getDrawablePanelBoundsForPdf(
+  panel: PanelBounds,
+  frame: NodeBounds,
+  frameThickness: number,
+  splitThickness: number,
+): PanelBounds {
+  const tolerance = 0.8;
+  const frameRight = frame.x + frame.width;
+  const frameBottom = frame.y + frame.height;
+  const panelRight = panel.x + panel.width;
+  const panelBottom = panel.y + panel.height;
+  const halfSplit = Math.max(4, splitThickness / 2);
+  const leftTrim = Math.abs(panel.x - frame.x) <= tolerance ? frameThickness : halfSplit;
+  const rightTrim = Math.abs(panelRight - frameRight) <= tolerance ? frameThickness : halfSplit;
+  const topTrim = Math.abs(panel.y - frame.y) <= tolerance ? frameThickness : halfSplit;
+  const bottomTrim = Math.abs(panelBottom - frameBottom) <= tolerance ? frameThickness : halfSplit;
+
+  return {
+    ...panel,
+    x: panel.x + leftTrim,
+    y: panel.y + topTrim,
+    width: Math.max(1, panel.width - leftTrim - rightTrim),
+    height: Math.max(1, panel.height - topTrim - bottomTrim),
+  };
+}
+
+function getOpeningSymbolBoundsForPdf(panel: PanelBounds): PanelBounds {
+  const inset = Math.max(8, Math.min(18, Math.min(panel.width, panel.height) * 0.08));
+
+  return {
+    ...panel,
+    x: round(panel.x + inset),
+    y: round(panel.y + inset),
+    width: round(Math.max(1, panel.width - inset * 2)),
+    height: round(Math.max(1, panel.height - inset * 2)),
+  };
+}
+
 function buildProfiledPanelSvg(
   x: number,
   y: number,
@@ -670,6 +742,90 @@ function buildProfiledPanelSvg(
     <line x1="${round(x + width - 4)}" y1="${round(y + 4)}" x2="${innerRight}" y2="${innerTop}" stroke="#4c5753" stroke-width="0.8" />
     <line x1="${round(x + 4)}" y1="${round(y + height - 4)}" x2="${innerLeft}" y2="${innerBottom}" stroke="#4c5753" stroke-width="0.8" />
     <line x1="${round(x + width - 4)}" y1="${round(y + height - 4)}" x2="${innerRight}" y2="${innerBottom}" stroke="#4c5753" stroke-width="0.8" />
+  `;
+}
+
+function buildFrameProfileSvg(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  thickness: number,
+  profileColor: string,
+  archPath: string | null,
+  innerArchPath: string | null,
+): string {
+  const base = mixHexForPdf(profileColor, '#ffffff', 0.24);
+  const light = mixHexForPdf(base, '#ffffff', 0.72);
+  const mid = mixHexForPdf(base, '#d9dedc', 0.38);
+  const shadow = mixHexForPdf(base, '#7f8985', 0.28);
+  const stroke = mixHexForPdf(profileColor, '#17211e', 0.35);
+
+  if (archPath) {
+    return `
+      <path d="${archPath}" fill="none" stroke="${base}" stroke-width="${round(thickness)}" stroke-linejoin="round" />
+      <path d="${archPath}" fill="none" stroke="${stroke}" stroke-width="2.4" stroke-linejoin="round" />
+      ${innerArchPath ? `<path d="${innerArchPath}" fill="none" stroke="${light}" stroke-width="1.8" stroke-linejoin="round" />` : ''}
+    `;
+  }
+
+  return buildBeveledFrameSvg(x, y, width, height, thickness, light, mid, shadow, stroke);
+}
+
+function buildBeveledFrameSvg(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  thickness: number,
+  light: string,
+  mid: string,
+  shadow: string,
+  stroke: string,
+): string {
+  const inset = Math.min(thickness, Math.min(width, height) * 0.18);
+  const left = round(x);
+  const top = round(y);
+  const right = round(x + width);
+  const bottom = round(y + height);
+  const innerLeft = round(x + inset);
+  const innerTop = round(y + inset);
+  const innerRight = round(x + width - inset);
+  const innerBottom = round(y + height - inset);
+
+  return `
+    <polygon points="${left},${top} ${right},${top} ${innerRight},${innerTop} ${innerLeft},${innerTop}" fill="${light}" stroke="${stroke}" stroke-width="1.2" />
+    <polygon points="${right},${top} ${right},${bottom} ${innerRight},${innerBottom} ${innerRight},${innerTop}" fill="${mid}" stroke="${stroke}" stroke-width="1.2" />
+    <polygon points="${left},${bottom} ${right},${bottom} ${innerRight},${innerBottom} ${innerLeft},${innerBottom}" fill="${shadow}" stroke="${stroke}" stroke-width="1.2" />
+    <polygon points="${left},${top} ${innerLeft},${innerTop} ${innerLeft},${innerBottom} ${left},${bottom}" fill="${mid}" stroke="${stroke}" stroke-width="1.2" />
+    <rect x="${innerLeft}" y="${innerTop}" width="${round(Math.max(0, innerRight - innerLeft))}" height="${round(Math.max(0, innerBottom - innerTop))}" fill="none" stroke="${light}" stroke-width="1.1" />
+  `;
+}
+
+function buildSplitProfileSvg(split: SplitBounds, thickness: number, profileColor: string): string {
+  const base = mixHexForPdf(profileColor, '#ffffff', 0.24);
+  const light = mixHexForPdf(base, '#ffffff', 0.72);
+  const mid = mixHexForPdf(base, '#d9dedc', 0.38);
+  const shadow = mixHexForPdf(base, '#7f8985', 0.28);
+  const stroke = mixHexForPdf(profileColor, '#17211e', 0.35);
+  const half = thickness / 2;
+
+  if (split.direction === 'vertical') {
+    const x = split.dividerX1 - half;
+
+    return `
+      <rect x="${round(x)}" y="${round(split.dividerY1)}" width="${round(thickness)}" height="${round(split.dividerY2 - split.dividerY1)}" fill="${mid}" stroke="${stroke}" stroke-width="1.2" />
+      <line x1="${round(x + 3)}" y1="${round(split.dividerY1 + 4)}" x2="${round(x + 3)}" y2="${round(split.dividerY2 - 4)}" stroke="${light}" stroke-width="1.1" />
+      <line x1="${round(x + thickness - 3)}" y1="${round(split.dividerY1 + 4)}" x2="${round(x + thickness - 3)}" y2="${round(split.dividerY2 - 4)}" stroke="${shadow}" stroke-width="1.1" />
+    `;
+  }
+
+  const y = split.dividerY1 - half;
+
+  return `
+    <rect x="${round(split.dividerX1)}" y="${round(y)}" width="${round(split.dividerX2 - split.dividerX1)}" height="${round(thickness)}" fill="${mid}" stroke="${stroke}" stroke-width="1.2" />
+    <line x1="${round(split.dividerX1 + 4)}" y1="${round(y + 3)}" x2="${round(split.dividerX2 - 4)}" y2="${round(y + 3)}" stroke="${light}" stroke-width="1.1" />
+    <line x1="${round(split.dividerX1 + 4)}" y1="${round(y + thickness - 3)}" x2="${round(split.dividerX2 - 4)}" y2="${round(y + thickness - 3)}" stroke="${shadow}" stroke-width="1.1" />
   `;
 }
 
@@ -788,6 +944,92 @@ function section(title: string, rows: [string, string][]): string {
         .join('')}
     </div>
   `;
+}
+
+type PdfMaterialSummary = ReturnType<typeof calculateDesignMaterialSummary>;
+
+function productionProfileRows(
+  design: DesignProject,
+  summary: PdfMaterialSummary = calculateDesignMaterialSummary(design),
+): [string, string][] {
+  const parts = productionPartSummary(design, summary);
+  const profileSystem = design.profileSystem;
+
+  if (!profileSystem?.productionProfileSystemId) {
+    return [
+      ['Profil sistemi', parts.system],
+      ['Teknik durum', 'Profil Kutuphanesi secilmedi; mevcut tasarim olculerinden yaklasik bilgi gosteriliyor'],
+      ['Ana kasa', parts.frame],
+      ['Kanat', parts.sash],
+      ['Orta kayit', parts.mullion],
+      ['Yatay / T kayit', parts.transom],
+      ['Cam citasi', parts.glazingBead],
+      ['Conta', parts.gasket],
+      ['Aksesuar seti', parts.hardwareSet],
+    ];
+  }
+
+  return [
+    [
+      'Profil sistemi',
+      parts.system,
+    ],
+    ['Durum', profileSystem.productionProfileSystemStatus ?? '-'],
+    ['Ana kasa', parts.frame],
+    ['Kanat', parts.sash],
+    ['Orta kayit', parts.mullion],
+    ['Yatay / T kayit', parts.transom],
+    ['Cam citasi', parts.glazingBead],
+    ['Conta', parts.gasket],
+    ['Aksesuar seti', parts.hardwareSet],
+  ];
+}
+
+function profileBanner(parts: ReturnType<typeof productionPartSummary>): string {
+  return `
+    <div class="profile-banner">
+      <div class="profile-pill">
+        <span>Profil sistemi</span>
+        <strong>${escapeHtml(parts.system)}</strong>
+      </div>
+      <div class="profile-pill">
+        <span>Ana kasa</span>
+        <strong>${escapeHtml(parts.frame)}</strong>
+      </div>
+      <div class="profile-pill">
+        <span>Kanat / kayit</span>
+        <strong>${escapeHtml(`${parts.sash} | ${parts.mullion}`)}</strong>
+      </div>
+    </div>
+  `;
+}
+
+function productionPartSummary(design: DesignProject, summary: PdfMaterialSummary) {
+  const profileSystem = design.profileSystem;
+  const hasOpeningPanel = summary.openingPanelCount > 0;
+  const systemName = profileSystem?.productionProfileSystemId
+    ? `${profileSystem.productionProfileSystemName ?? profileSystem.productionProfileSystemId} v${
+        profileSystem.productionProfileSystemVersion ?? '-'
+      }`
+    : `${summary.profileName} (yaklasik)`;
+
+  return {
+    system: systemName,
+    frame: partValue(profileSystem?.productionFrameProfileCode, `Kasa ${summary.frameWidth} mm; kod secilmedi`),
+    sash: hasOpeningPanel
+      ? partValue(profileSystem?.productionSashProfileCode, `Kanat ${summary.sashWidth} mm; kod secilmedi`)
+      : partValue(profileSystem?.productionSashProfileCode, 'Bu tasarimda acilir kanat yok'),
+    mullion: partValue(profileSystem?.productionMullionProfileCode, `Orta kayit ${summary.mullionWidth} mm; kod secilmedi`),
+    transom: partValue(profileSystem?.productionTransomProfileCode, `Yatay/T kayit ${summary.mullionWidth} mm; kod secilmedi`),
+    glazingBead: partValue(profileSystem?.productionGlazingBeadProfileCode, `Cam payi ${summary.glassRebate} mm; citasi kodu secilmedi`),
+    gasket: partValue(profileSystem?.productionGasketCode, 'Kod secilmedi'),
+    hardwareSet: partValue(profileSystem?.productionHardwareSetCode, 'Kod secilmedi'),
+  };
+}
+
+function partValue(value: string | undefined, fallback: string): string {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : fallback;
 }
 
 function openingLabel(value: string): string {

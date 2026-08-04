@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { AppButton } from '../../../components/ui/AppButton';
@@ -60,6 +60,7 @@ export function CompanyProfileScreen() {
   const [licenseSummary, setLicenseSummary] = useState<LicenseSeatSummary | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const submitLockRef = useRef(false);
   const firebaseReady = isFirebaseConfigured();
 
   const loadLicenseSummary = useCallback(
@@ -114,39 +115,52 @@ export function CompanyProfileScreen() {
     clearStatus();
   }
 
+  function unlockSubmit() {
+    submitLockRef.current = false;
+    setIsSaving(false);
+  }
+
   async function save() {
+    if (submitLockRef.current) {
+      return;
+    }
+
+    submitLockRef.current = true;
+    setIsSaving(true);
+    setError(null);
+    setMessage(null);
+
     const parsed = parseProfile(values, companyCodeInput);
     if (!parsed) {
-      setError('Teklif geçerlilik günü 0 veya daha büyük sayı olmalı.');
+      setError('Teklif gecerlilik gunu 0 veya daha buyuk sayi olmali.');
+      unlockSubmit();
       return;
     }
 
     if (!canUseCompanyCode(parsed.companyId)) {
+      unlockSubmit();
       return;
     }
 
     if (!parsed.companyId) {
-      setError('Uygulamayı kullanmak için firma kodu girilmeli.');
+      setError('Uygulamayi kullanmak icin firma kodu girilmeli.');
+      unlockSubmit();
       return;
     }
 
-    if (!savedCompanyId) {
-      if (!firebaseReady) {
-        setError('Firma kodunu doğrulamak için Firebase config girilmeli.');
-        return;
-      }
+    if (!firebaseReady) {
+      setError('Firma kodunu dogrulamak icin Firebase config girilmeli.');
+      unlockSubmit();
+      return;
+    }
 
+    try {
       const license = await validateAndJoinLicense(parsed.companyId);
       if (!license.ok) {
         setError(license.message);
         return;
       }
-    }
 
-    setIsSaving(true);
-    setError(null);
-    setMessage(null);
-    try {
       const savedProfile = await saveCompanyProfile(parsed);
       await saveLocalOperatorName(operatorName);
       setValues(toFormValues(savedProfile));
@@ -161,10 +175,9 @@ export function CompanyProfileScreen() {
       logger.error('Company profile save failed', saveError);
       setError('Firma bilgileri kaydedilemedi.');
     } finally {
-      setIsSaving(false);
+      unlockSubmit();
     }
   }
-
   async function releaseThisDeviceSeat() {
     const companyId = normalizeCompanyId(companyCodeInput);
     if (!firebaseReady || !companyId) {
@@ -235,23 +248,31 @@ export function CompanyProfileScreen() {
   }
 
   async function joinCompanyByCode() {
+    if (submitLockRef.current) {
+      return;
+    }
+
+    submitLockRef.current = true;
+    setIsSaving(true);
+    setError(null);
+    setMessage(null);
+
     if (!firebaseReady) {
       setError('Firebase config girilmedi.');
+      unlockSubmit();
       return;
     }
 
     if (!hasCompanyCode()) {
-      setError('Ortak veriye bağlanmak için firma kodu girilmeli.');
+      setError('Ortak veriye baglanmak icin firma kodu girilmeli.');
+      unlockSubmit();
       return;
     }
 
-    setIsSaving(true);
-    setError(null);
-    setMessage(null);
     try {
       const parsed = parseProfile(values, companyCodeInput);
       if (!parsed) {
-        setError('Firma koduyla katılmak için firma alanlarını düzeltin.');
+        setError('Firma koduyla katilmak icin firma alanlarini duzeltin.');
         return;
       }
 
@@ -259,17 +280,17 @@ export function CompanyProfileScreen() {
         return;
       }
 
-      await saveCompanyProfile(parsed);
-      await saveLocalOperatorName(operatorName);
       const license = await validateAndJoinLicense(parsed.companyId);
       if (!license.ok) {
         setError(license.message);
         return;
       }
 
+      await saveCompanyProfile(parsed);
+      await saveLocalOperatorName(operatorName);
       const result = await restoreAllCloudDataToLocal();
       if (!result) {
-        setError('Firma kodu ile bulut verisine bağlanılamadı. Kod ve internet bağlantısını kontrol edin.');
+        setError('Firma kodu ile bulut verisine baglanilamadi. Kod ve internet baglantisini kontrol edin.');
         return;
       }
 
@@ -280,16 +301,18 @@ export function CompanyProfileScreen() {
       setSavedCompanyId(normalizedCompanyId);
       void loadLicenseSummary(normalizedCompanyId);
       setMessage(
-        `Lisans doğrulandı. Artık ${result.companyId} kodlu ortak alandasınız.${
-          license.maxUsers ? ` Kullanıcı: ${license.activeUserCount}/${license.maxUsers}` : ''
+        `Lisans dogrulandi. Artik ${result.companyId} kodlu ortak alandasiniz.${
+          license.maxUsers ? ` Kullanici: ${license.activeUserCount}/${license.maxUsers}` : ''
         }`,
       );
       router.replace(routes.home);
+    } catch (joinError) {
+      logger.error('Company join failed', joinError);
+      setError('Firma kodu ile giris tamamlanamadi. Internet ve Firebase lisansini kontrol edin.');
     } finally {
-      setIsSaving(false);
+      unlockSubmit();
     }
   }
-
   async function backupProfile() {
     const parsed = parseProfile(values, companyCodeInput);
     if (!parsed) {

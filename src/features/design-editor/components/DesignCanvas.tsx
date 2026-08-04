@@ -21,7 +21,8 @@ import {
   DesignLayoutError,
 } from '../../../domain/designs/layout/calculateDesignLayout';
 import { DESIGN_FRAME_INSET, DESIGN_SPLIT_STROKE_WIDTH } from '../../../domain/designs/layout/layoutConstants';
-import { PanelBounds } from '../../../domain/designs/layout/layoutTypes';
+import { NodeBounds, PanelBounds, SplitBounds } from '../../../domain/designs/layout/layoutTypes';
+import { calculateDesignMaterialSummary } from '../../../domain/designs/measurement/calculateDesignMaterialSummary';
 import { getArchHeight, isArchTopFrame } from '../../../domain/designs/utils/frameShape';
 import { colors, radius, spacing, typography } from '../../../theme';
 import { OpeningSymbol } from './OpeningSymbol';
@@ -106,6 +107,15 @@ export const DesignCanvas = memo(function DesignCanvas({
   }, [canvasSize.height, canvasSize.width, design.height, design.rootNode, design.width]);
   const frameNode = design.rootNode.type === 'frame' ? design.rootNode : null;
   const frameIsArch = frameNode ? isArchTopFrame(frameNode) : false;
+  const profileColor = getDesignProfileColor(design.profileSystem);
+  const materialSummary = useMemo(() => calculateDesignMaterialSummary(design), [design]);
+  const profilePalette = getProfilePalette(profileColor.hexValue);
+  const profileThickness = layoutState.layout
+    ? Math.max(10, Math.min(22, materialSummary.frameWidth * layoutState.layout.scale * 0.82))
+    : DESIGN_FRAME_INSET;
+  const splitThickness = layoutState.layout
+    ? Math.max(9, Math.min(24, materialSummary.mullionWidth * layoutState.layout.scale * 0.86))
+    : DESIGN_SPLIT_STROKE_WIDTH;
   const archHeight = frameIsArch
     ? getArchHeight(frameNode!, design.height) * (layoutState.layout?.scale ?? 1)
     : 0;
@@ -125,12 +135,10 @@ export const DesignCanvas = memo(function DesignCanvas({
         layoutState.layout.frameBounds.width,
         layoutState.layout.frameBounds.height,
         archHeight,
-        DESIGN_FRAME_INSET,
+        Math.max(DESIGN_FRAME_INSET, profileThickness),
       )
     : '';
   const selectedPanel = layoutState.layout?.panelBounds.find((panel) => panel.nodeId === selectedNodeId) ?? null;
-  const profileColor = getDesignProfileColor(design.profileSystem);
-  const profilePalette = getProfilePalette(profileColor.hexValue);
   const shutterHeight =
     layoutState.layout && frameNode?.rollerShutter?.enabled
       ? Math.min(
@@ -159,6 +167,20 @@ export const DesignCanvas = memo(function DesignCanvas({
               <Stop offset="0.5" stopColor="#F4FCFE" stopOpacity="0.98" />
               <Stop offset="1" stopColor="#C2EAF8" stopOpacity="0.9" />
             </LinearGradient>
+            {frameIsArch ? (
+              <ClipPath id="editorFrameClip">
+                <Path d={innerFramePath} />
+              </ClipPath>
+            ) : (
+              <ClipPath id="editorFrameClip">
+                <Rect
+                  x={layoutState.layout.frameBounds.x + profileThickness}
+                  y={layoutState.layout.frameBounds.y + profileThickness}
+                  width={Math.max(0, layoutState.layout.frameBounds.width - profileThickness * 2)}
+                  height={Math.max(0, layoutState.layout.frameBounds.height - profileThickness * 2)}
+                />
+              </ClipPath>
+            )}
           </Defs>
           <Rect
             x={0}
@@ -247,11 +269,6 @@ export const DesignCanvas = memo(function DesignCanvas({
           ) : null}
           {frameIsArch ? (
             <>
-              <Defs>
-                <ClipPath id="editorFrameClip">
-                  <Path d={innerFramePath} />
-                </ClipPath>
-              </Defs>
               <Path
                 d={framePath}
                 fill={profilePalette.outer}
@@ -302,31 +319,47 @@ export const DesignCanvas = memo(function DesignCanvas({
             />
           ) : null}
           {layoutState.layout.panelBounds.map((panel, index) => (
-            <G key={panel.nodeId} clipPath={frameIsArch ? 'url(#editorFrameClip)' : undefined}>
+            <G key={panel.nodeId} clipPath="url(#editorFrameClip)">
               <DesignPanel
-                panel={panel}
+                panel={getDrawablePanelBounds(
+                  panel,
+                  layoutState.layout.frameBounds,
+                  profileThickness,
+                  splitThickness,
+                )}
                 index={index}
                 selected={panel.nodeId === selectedNodeId}
                 profilePalette={profilePalette}
               />
             </G>
           ))}
-          <G clipPath={frameIsArch ? 'url(#editorFrameClip)' : undefined}>
+          <G clipPath="url(#editorFrameClip)">
             {layoutState.layout.splitBounds.map((split) => (
-              <Line
+              <SplitProfile
                 key={split.nodeId}
-                x1={split.dividerX1}
-                y1={split.dividerY1}
-                x2={split.dividerX2}
-                y2={split.dividerY2}
-                stroke={colors.border}
-                strokeWidth={DESIGN_SPLIT_STROKE_WIDTH}
+                split={split}
+                thickness={splitThickness}
+                profilePalette={profilePalette}
               />
             ))}
             {layoutState.layout.panelBounds.map((panel) => (
-              <OpeningSymbol key={`${panel.nodeId}-opening`} bounds={panel} openingType={panel.openingType} />
+              <OpeningSymbol
+                key={`${panel.nodeId}-opening`}
+                bounds={getOpeningSymbolBounds(
+                  getDrawablePanelBounds(panel, layoutState.layout.frameBounds, profileThickness, splitThickness),
+                )}
+                openingType={panel.openingType}
+              />
             ))}
           </G>
+          <FrameProfileOverlay
+            frame={layoutState.layout.frameBounds}
+            framePath={framePath}
+            innerFramePath={innerFramePath}
+            isArch={frameIsArch}
+            thickness={profileThickness}
+            profilePalette={profilePalette}
+          />
           {frameIsArch ? (
             <>
               <Path d={framePath} fill="none" stroke={colors.textPrimary} strokeWidth={2.4} />
@@ -362,65 +395,42 @@ function DesignPanel({
   selected: boolean;
   profilePalette: ProfilePalette;
 }) {
-  const profileInset = Math.max(6, Math.min(16, Math.min(panel.width, panel.height) * 0.1));
-  const glassInset = profileInset + Math.max(4, Math.min(8, Math.min(panel.width, panel.height) * 0.04));
-  const baseProfile = mixHex(profilePalette.outer, '#FFFFFF', 0.84);
-  const profileLight = mixHex(baseProfile, '#FFFFFF', 0.5);
-  const profileMid = mixHex(baseProfile, '#D9DEDC', 0.35);
-  const profileShadow = mixHex(baseProfile, '#7F8985', 0.18);
-  const outerX = panel.x;
-  const outerY = panel.y;
-  const outerRight = panel.x + panel.width;
-  const outerBottom = panel.y + panel.height;
-  const innerX = panel.x + profileInset;
-  const innerY = panel.y + profileInset;
-  const innerRight = panel.x + panel.width - profileInset;
-  const innerBottom = panel.y + panel.height - profileInset;
+  const hasSash = panel.openingType !== 'fixed';
+  const sashInset = Math.max(7, Math.min(17, Math.min(panel.width, panel.height) * 0.09));
+  const beadInset = Math.max(5, Math.min(9, Math.min(panel.width, panel.height) * 0.045));
+  const glassInset = hasSash ? sashInset + beadInset : beadInset + 4;
+  const glassX = panel.x + glassInset;
+  const glassY = panel.y + glassInset;
+  const glassWidth = Math.max(0, panel.width - glassInset * 2);
+  const glassHeight = Math.max(0, panel.height - glassInset * 2);
 
   return (
     <>
-      <Polygon
-        points={`${outerX},${outerY} ${outerRight},${outerY} ${innerRight},${innerY} ${innerX},${innerY}`}
-        fill={profileLight}
-        stroke={selected ? colors.primary : '#4B5551'}
-        strokeWidth={selected ? 2.4 : 1}
-      />
-      <Polygon
-        points={`${outerRight},${outerY} ${outerRight},${outerBottom} ${innerRight},${innerBottom} ${innerRight},${innerY}`}
-        fill={profileMid}
-        stroke="#4B5551"
-        strokeWidth={1}
-      />
-      <Polygon
-        points={`${outerX},${outerBottom} ${outerRight},${outerBottom} ${innerRight},${innerBottom} ${innerX},${innerBottom}`}
-        fill={profileShadow}
-        stroke="#4B5551"
-        strokeWidth={1}
-      />
-      <Polygon
-        points={`${outerX},${outerY} ${innerX},${innerY} ${innerX},${innerBottom} ${outerX},${outerBottom}`}
-        fill={profileMid}
-        stroke="#4B5551"
-        strokeWidth={1}
-      />
+      {hasSash ? (
+        <BeveledRect
+          x={panel.x + 4}
+          y={panel.y + 4}
+          width={Math.max(0, panel.width - 8)}
+          height={Math.max(0, panel.height - 8)}
+          inset={sashInset}
+          profilePalette={profilePalette}
+          selected={selected}
+        />
+      ) : null}
       <Rect
-        x={innerX}
-        y={innerY}
-        width={Math.max(0, innerRight - innerX)}
-        height={Math.max(0, innerBottom - innerY)}
+        x={glassX - 3}
+        y={glassY - 3}
+        width={glassWidth + 6}
+        height={glassHeight + 6}
         fill="none"
-        stroke="#A0AAA6"
-        strokeWidth={1}
+        stroke={profilePalette.gasket}
+        strokeWidth={1.4}
       />
-      <Line x1={outerX + 4} y1={outerY + 4} x2={innerX} y2={innerY} stroke="#4B5551" strokeWidth={0.8} />
-      <Line x1={outerRight - 4} y1={outerY + 4} x2={innerRight} y2={innerY} stroke="#4B5551" strokeWidth={0.8} />
-      <Line x1={outerX + 4} y1={outerBottom - 4} x2={innerX} y2={innerBottom} stroke="#4B5551" strokeWidth={0.8} />
-      <Line x1={outerRight - 4} y1={outerBottom - 4} x2={innerRight} y2={innerBottom} stroke="#4B5551" strokeWidth={0.8} />
       <Rect
-        x={panel.x + glassInset}
-        y={panel.y + glassInset}
-        width={Math.max(0, panel.width - glassInset * 2)}
-        height={Math.max(0, panel.height - glassInset * 2)}
+        x={glassX}
+        y={glassY}
+        width={glassWidth}
+        height={glassHeight}
         fill="url(#glassGradient)"
         stroke="#AEBBB7"
         strokeWidth={1.2}
@@ -441,6 +451,44 @@ function DesignPanel({
       ) : null}
     </>
   );
+}
+
+function getDrawablePanelBounds(
+  panel: PanelBounds,
+  frame: NodeBounds,
+  frameThickness: number,
+  splitThickness: number,
+): PanelBounds {
+  const tolerance = 0.8;
+  const frameRight = frame.x + frame.width;
+  const frameBottom = frame.y + frame.height;
+  const panelRight = panel.x + panel.width;
+  const panelBottom = panel.y + panel.height;
+  const halfSplit = Math.max(4, splitThickness / 2);
+  const leftTrim = Math.abs(panel.x - frame.x) <= tolerance ? frameThickness : halfSplit;
+  const rightTrim = Math.abs(panelRight - frameRight) <= tolerance ? frameThickness : halfSplit;
+  const topTrim = Math.abs(panel.y - frame.y) <= tolerance ? frameThickness : halfSplit;
+  const bottomTrim = Math.abs(panelBottom - frameBottom) <= tolerance ? frameThickness : halfSplit;
+
+  return {
+    ...panel,
+    x: panel.x + leftTrim,
+    y: panel.y + topTrim,
+    width: Math.max(1, panel.width - leftTrim - rightTrim),
+    height: Math.max(1, panel.height - topTrim - bottomTrim),
+  };
+}
+
+function getOpeningSymbolBounds(panel: PanelBounds): PanelBounds {
+  const inset = Math.max(8, Math.min(18, Math.min(panel.width, panel.height) * 0.08));
+
+  return {
+    ...panel,
+    x: panel.x + inset,
+    y: panel.y + inset,
+    width: Math.max(1, panel.width - inset * 2),
+    height: Math.max(1, panel.height - inset * 2),
+  };
 }
 
 function RollerShutterBox({
@@ -479,6 +527,71 @@ function RollerShutterBox({
           strokeWidth={1}
         />
       ))}
+    </G>
+  );
+}
+
+function BeveledRect({
+  x,
+  y,
+  width,
+  height,
+  inset,
+  profilePalette,
+  selected,
+}: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  inset: number;
+  profilePalette: ProfilePalette;
+  selected: boolean;
+}) {
+  const left = x;
+  const top = y;
+  const right = x + width;
+  const bottom = y + height;
+  const innerLeft = x + inset;
+  const innerTop = y + inset;
+  const innerRight = x + width - inset;
+  const innerBottom = y + height - inset;
+
+  return (
+    <G>
+      <Polygon
+        points={`${left},${top} ${right},${top} ${innerRight},${innerTop} ${innerLeft},${innerTop}`}
+        fill={profilePalette.highlight}
+        stroke={selected ? colors.primary : profilePalette.stroke}
+        strokeWidth={selected ? 2.2 : 1}
+      />
+      <Polygon
+        points={`${right},${top} ${right},${bottom} ${innerRight},${innerBottom} ${innerRight},${innerTop}`}
+        fill={profilePalette.mid}
+        stroke={profilePalette.stroke}
+        strokeWidth={1}
+      />
+      <Polygon
+        points={`${left},${bottom} ${right},${bottom} ${innerRight},${innerBottom} ${innerLeft},${innerBottom}`}
+        fill={profilePalette.shadow}
+        stroke={profilePalette.stroke}
+        strokeWidth={1}
+      />
+      <Polygon
+        points={`${left},${top} ${innerLeft},${innerTop} ${innerLeft},${innerBottom} ${left},${bottom}`}
+        fill={profilePalette.mid}
+        stroke={profilePalette.stroke}
+        strokeWidth={1}
+      />
+      <Rect
+        x={innerLeft}
+        y={innerTop}
+        width={Math.max(0, innerRight - innerLeft)}
+        height={Math.max(0, innerBottom - innerTop)}
+        fill="none"
+        stroke={profilePalette.innerLine}
+        strokeWidth={1}
+      />
     </G>
   );
 }
@@ -540,13 +653,25 @@ function InsectScreenOverlay({ panel, inset }: { panel: PanelBounds; inset: numb
 type ProfilePalette = {
   outer: string;
   inner: string;
+  highlight: string;
+  innerLine: string;
+  gasket: string;
+  mid: string;
+  shadow: string;
   stroke: string;
 };
 
 function getProfilePalette(hexValue: string): ProfilePalette {
+  const inner = mixHex(hexValue, '#FFFFFF', 0.22);
+
   return {
     outer: hexValue,
-    inner: mixHex(hexValue, '#FFFFFF', 0.22),
+    inner,
+    highlight: mixHex(inner, '#FFFFFF', 0.72),
+    innerLine: mixHex(inner, '#8E9995', 0.2),
+    gasket: mixHex('#17211E', hexValue, 0.18),
+    mid: mixHex(inner, '#D9DEDC', 0.38),
+    shadow: mixHex(inner, '#7F8985', 0.28),
     stroke: mixHex(hexValue, '#17211E', 0.35),
   };
 }
@@ -620,6 +745,132 @@ function DimensionLine({
         {label}
       </SvgText>
     </>
+  );
+}
+
+function FrameProfileOverlay({
+  frame,
+  framePath,
+  innerFramePath,
+  isArch,
+  thickness,
+  profilePalette,
+}: {
+  frame: NodeBounds;
+  framePath: string;
+  innerFramePath: string;
+  isArch: boolean;
+  thickness: number;
+  profilePalette: ProfilePalette;
+}) {
+  if (isArch) {
+    return (
+      <>
+        <Path d={framePath} fill="none" stroke={profilePalette.outer} strokeWidth={thickness} strokeLinejoin="round" />
+        <Path d={framePath} fill="none" stroke={profilePalette.stroke} strokeWidth={2.6} strokeLinejoin="round" />
+        <Path d={innerFramePath} fill="none" stroke={profilePalette.highlight} strokeWidth={2} strokeLinejoin="round" />
+      </>
+    );
+  }
+
+  const inset = Math.min(thickness, Math.min(frame.width, frame.height) * 0.18);
+  const left = frame.x;
+  const top = frame.y;
+  const right = frame.x + frame.width;
+  const bottom = frame.y + frame.height;
+  const innerLeft = frame.x + inset;
+  const innerTop = frame.y + inset;
+  const innerRight = frame.x + frame.width - inset;
+  const innerBottom = frame.y + frame.height - inset;
+
+  return (
+    <>
+      <Polygon
+        points={`${left},${top} ${right},${top} ${innerRight},${innerTop} ${innerLeft},${innerTop}`}
+        fill={profilePalette.highlight}
+        stroke={profilePalette.stroke}
+        strokeWidth={1.2}
+      />
+      <Polygon
+        points={`${right},${top} ${right},${bottom} ${innerRight},${innerBottom} ${innerRight},${innerTop}`}
+        fill={profilePalette.mid}
+        stroke={profilePalette.stroke}
+        strokeWidth={1.2}
+      />
+      <Polygon
+        points={`${left},${bottom} ${right},${bottom} ${innerRight},${innerBottom} ${innerLeft},${innerBottom}`}
+        fill={profilePalette.shadow}
+        stroke={profilePalette.stroke}
+        strokeWidth={1.2}
+      />
+      <Polygon
+        points={`${left},${top} ${innerLeft},${innerTop} ${innerLeft},${innerBottom} ${left},${bottom}`}
+        fill={profilePalette.mid}
+        stroke={profilePalette.stroke}
+        strokeWidth={1.2}
+      />
+      <Rect
+        x={innerLeft}
+        y={innerTop}
+        width={Math.max(0, innerRight - innerLeft)}
+        height={Math.max(0, innerBottom - innerTop)}
+        fill="none"
+        stroke={profilePalette.highlight}
+        strokeWidth={1.2}
+      />
+    </>
+  );
+}
+
+function SplitProfile({
+  split,
+  thickness,
+  profilePalette,
+}: {
+  split: SplitBounds;
+  thickness: number;
+  profilePalette: ProfilePalette;
+}) {
+  const half = thickness / 2;
+
+  if (split.direction === 'vertical') {
+    const x = split.dividerX1 - half;
+    const y = split.dividerY1;
+
+    return (
+      <G>
+        <Rect
+          x={x}
+          y={y}
+          width={thickness}
+          height={split.dividerY2 - split.dividerY1}
+          fill={profilePalette.mid}
+          stroke={profilePalette.stroke}
+          strokeWidth={1.2}
+        />
+        <Line x1={x + 3} y1={y + 4} x2={x + 3} y2={split.dividerY2 - 4} stroke={profilePalette.highlight} strokeWidth={1.1} />
+        <Line x1={x + thickness - 3} y1={y + 4} x2={x + thickness - 3} y2={split.dividerY2 - 4} stroke={profilePalette.shadow} strokeWidth={1.1} />
+      </G>
+    );
+  }
+
+  const x = split.dividerX1;
+  const y = split.dividerY1 - half;
+
+  return (
+    <G>
+      <Rect
+        x={x}
+        y={y}
+        width={split.dividerX2 - split.dividerX1}
+        height={thickness}
+        fill={profilePalette.mid}
+        stroke={profilePalette.stroke}
+        strokeWidth={1.2}
+      />
+      <Line x1={x + 4} y1={y + 3} x2={split.dividerX2 - 4} y2={y + 3} stroke={profilePalette.highlight} strokeWidth={1.1} />
+      <Line x1={x + 4} y1={y + thickness - 3} x2={split.dividerX2 - 4} y2={y + thickness - 3} stroke={profilePalette.shadow} strokeWidth={1.1} />
+    </G>
   );
 }
 

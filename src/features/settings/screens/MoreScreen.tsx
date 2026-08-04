@@ -81,7 +81,7 @@ const options: MoreOption[] = [
     title: 'Profil Kütüphanesi',
     icon: 'layers-outline',
     state: 'Düzenle',
-    onPress: () => router.push(routes.pricingSettings),
+    onPress: () => router.push(routes.productionProfileSettings),
   },
   {
     title: 'Cam Kütüphanesi',

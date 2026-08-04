@@ -11,4 +11,15 @@ export type ProfileSystemSelection = {
   steelThickness: number | null;
   interiorColorId: string;
   exteriorColorId: string;
+  productionProfileSystemId?: string | undefined;
+  productionProfileSystemName?: string | undefined;
+  productionProfileSystemVersion?: string | undefined;
+  productionProfileSystemStatus?: 'DRAFT' | 'VERIFIED' | 'ARCHIVED' | undefined;
+  productionFrameProfileCode?: string | undefined;
+  productionSashProfileCode?: string | undefined;
+  productionMullionProfileCode?: string | undefined;
+  productionTransomProfileCode?: string | undefined;
+  productionGlazingBeadProfileCode?: string | undefined;
+  productionGasketCode?: string | undefined;
+  productionHardwareSetCode?: string | undefined;
 };

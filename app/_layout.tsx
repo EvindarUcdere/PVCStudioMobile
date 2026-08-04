@@ -1,6 +1,7 @@
 import { router, Stack, usePathname } from 'expo-router';
+import NetInfo from '@react-native-community/netinfo';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { AppButton } from '../src/components/ui/AppButton';
@@ -10,7 +11,9 @@ import { LoadingScreen } from '../src/components/ui/LoadingScreen';
 import { routes } from '../src/constants/routes';
 import { useAppInitialization } from '../src/hooks/useAppInitialization';
 import { installRemoteErrorReporting } from '../src/services/errorReportingService';
-import { ensureCompanyWorkspace, getActiveCompanyId } from '../src/services/firebase/companyWorkspaceService';
+import { ensureCompanyWorkspace } from '../src/services/firebase/companyWorkspaceService';
+import { restoreAllCloudDataToLocal } from '../src/services/firebase/fullSyncService';
+import { verifyActiveCompanyLicense } from '../src/services/firebase/licenseGuard';
 import { logger, setLoggerContext } from '../src/services/logger';
 
 type RouteErrorBoundaryProps = {
@@ -36,6 +39,9 @@ export default function RootLayout() {
   const { isInitialized, initializationError, retryInitialization } = useAppInitialization();
   const pathname = usePathname();
   const [isCheckingCompanyAccess, setIsCheckingCompanyAccess] = useState(true);
+  const verifiedCompanyIdRef = useRef<string | null>(null);
+  const reconnectSyncRef = useRef<Promise<void> | null>(null);
+  const lastReconnectSyncAtRef = useRef(0);
 
   useEffect(() => {
     installRemoteErrorReporting();
@@ -51,24 +57,36 @@ export default function RootLayout() {
     }
 
     if (pathname === routes.companyProfile) {
+      verifiedCompanyIdRef.current = null;
+      setIsCheckingCompanyAccess(false);
+      return;
+    }
+
+    if (verifiedCompanyIdRef.current) {
       setIsCheckingCompanyAccess(false);
       return;
     }
 
     setIsCheckingCompanyAccess(true);
     try {
-      const companyId = await getActiveCompanyId();
-      if (!companyId) {
+      const license = await verifyActiveCompanyLicense();
+      if (!license.ok) {
+        verifiedCompanyIdRef.current = null;
         router.replace(routes.companyProfile);
         return;
       }
 
-      const workspaceCompanyId = await ensureCompanyWorkspace();
-      if (!workspaceCompanyId) {
-        router.replace(routes.companyProfile);
-        return;
+      verifiedCompanyIdRef.current = license.companyId;
+
+      if (license.source === 'firebase') {
+        const workspaceCompanyId = await ensureCompanyWorkspace();
+        if (!workspaceCompanyId) {
+          verifiedCompanyIdRef.current = null;
+          router.replace(routes.companyProfile);
+        }
       }
     } catch (error) {
+      verifiedCompanyIdRef.current = null;
       logger.error('Firma erisim kontrolu basarisiz oldu', error, {
         action: 'company_access_check',
         screen: pathname,
@@ -82,6 +100,40 @@ export default function RootLayout() {
   useEffect(() => {
     void checkCompanyAccess();
   }, [checkCompanyAccess]);
+
+  useEffect(() => {
+    if (!isInitialized || initializationError) {
+      return undefined;
+    }
+
+    return NetInfo.addEventListener((state) => {
+      const isOnline = state.isConnected === true && state.isInternetReachable !== false;
+      const now = Date.now();
+      if (!isOnline || reconnectSyncRef.current || now - lastReconnectSyncAtRef.current < 60_000) {
+        return;
+      }
+
+      lastReconnectSyncAtRef.current = now;
+      reconnectSyncRef.current = (async () => {
+        const license = await verifyActiveCompanyLicense();
+        if (!license.ok || license.source !== 'firebase') {
+          return;
+        }
+
+        await ensureCompanyWorkspace();
+        await restoreAllCloudDataToLocal();
+      })()
+        .catch((error) => {
+          logger.error('Reconnect license sync failed', error, {
+            action: 'reconnect_license_sync',
+            screen: pathname,
+          });
+        })
+        .finally(() => {
+          reconnectSyncRef.current = null;
+        });
+    });
+  }, [initializationError, isInitialized, pathname]);
 
   const blockingContent =
     !isInitialized && !initializationError ? (

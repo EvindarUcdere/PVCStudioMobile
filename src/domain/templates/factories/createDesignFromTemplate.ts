@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { DesignProject } from '../../designs/entities/DesignProject';
+import { ProfileSystemSelection } from '../../designs/entities/ProfileSystemSelection';
 import { DomainValidationError } from '../../designs/errors';
 import { designProjectSchema } from '../../designs/schemas/designProjectSchema';
 import { createIsoTimestamp } from '../../designs/utils/date';
@@ -22,6 +23,7 @@ export type CreateDesignFromTemplateInput = {
   customerId?: string | null;
   jobName?: string | null;
   jobId?: string | null;
+  profileSystem?: ProfileSystemSelection | null;
 };
 
 export const createDesignFromTemplateInputSchema = z.object({
@@ -43,6 +45,7 @@ export function createDesignFromTemplate({
   customerId = null,
   jobName = null,
   jobId = null,
+  profileSystem = null,
 }: CreateDesignFromTemplateInput): DesignProject {
   const now = createIsoTimestamp();
   const project: DesignProject = {
@@ -58,7 +61,7 @@ export function createDesignFromTemplate({
     jobId,
     unit: 'mm',
     rootNode: cloneTemplateTree(template.rootNode),
-    profileSystem: null,
+    profileSystem,
     defaultGlass: null,
     accessories: [],
     notes: null,

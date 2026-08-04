@@ -33,6 +33,7 @@ import {
 } from '../../../domain/designs/colors/profileColorOptions';
 import { OpeningType } from '../../../domain/designs/enums/OpeningType';
 import { JobStatus } from '../../../domain/designs/enums/JobStatus';
+import { calculateDesignMaterialSummary } from '../../../domain/designs/measurement/calculateDesignMaterialSummary';
 import {
   defaultPriceEstimateRates,
   PriceEstimateRates,
@@ -240,6 +241,7 @@ export function DesignEditorScreen() {
   const selectedInsectScreen = selectedNode?.type === 'panel' ? (selectedNode.insectScreen ?? null) : null;
   const selectedPanelCanUseScreen = selectedOpeningType ? canUseInsectScreen(selectedOpeningType) : false;
   const hasRollerShutter = design.rootNode.type === 'frame' && Boolean(design.rootNode.rollerShutter?.enabled);
+  const profileInfo = getEditorProfileInfo(design);
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboard}>
@@ -268,6 +270,14 @@ export function DesignEditorScreen() {
             onPanelPress={selectPanelById}
             onClearSelection={clearEditorSelection}
           />
+          <View pointerEvents="none" style={styles.canvasProfileBadge}>
+            <Text numberOfLines={1} style={styles.canvasProfileTitle}>
+              {profileInfo.system}
+            </Text>
+            <Text numberOfLines={1} style={styles.canvasProfileSubtitle}>
+              Ana kasa: {profileInfo.frame}
+            </Text>
+          </View>
         </View>
         <ScrollView
           ref={sidePanelRef}
@@ -279,6 +289,20 @@ export function DesignEditorScreen() {
           <Text style={styles.meta}>
             Toplam olcu: {design.width} x {design.height} mm
           </Text>
+          <View style={styles.profileInfoCard}>
+            <View style={styles.profileInfoRow}>
+              <Text style={styles.profileInfoLabel}>Profil sistemi</Text>
+              <Text numberOfLines={1} style={styles.profileInfoValue}>
+                {profileInfo.system}
+              </Text>
+            </View>
+            <View style={styles.profileInfoRow}>
+              <Text style={styles.profileInfoLabel}>Ana kasa</Text>
+              <Text numberOfLines={1} style={styles.profileInfoValue}>
+                {profileInfo.frame}
+              </Text>
+            </View>
+          </View>
           <View style={styles.tools}>
             <ToolSection title="Is, musteri ve adet">
               <CustomerSelector
@@ -686,6 +710,22 @@ function shouldOfferStockConsumption(jobStatus: JobStatus): boolean {
   return jobStatus === 'production' || jobStatus === 'installation' || jobStatus === 'done';
 }
 
+function getEditorProfileInfo(design: NonNullable<ReturnType<typeof useDesignEditor>['design']>) {
+  const summary = calculateDesignMaterialSummary(design);
+  const profileSystem = design.profileSystem;
+  const system = profileSystem?.productionProfileSystemId
+    ? `${profileSystem.productionProfileSystemName ?? profileSystem.productionProfileSystemId} v${
+        profileSystem.productionProfileSystemVersion ?? '-'
+      }`
+    : `${summary.profileName} (yaklasik)`;
+  const frameCode = profileSystem?.productionFrameProfileCode?.trim();
+
+  return {
+    system,
+    frame: frameCode ? `${frameCode} / ${summary.frameWidth} mm` : `Kasa ${summary.frameWidth} mm; kod secilmedi`,
+  };
+}
+
 const styles = StyleSheet.create({
   keyboard: {
     flex: 1,
@@ -715,6 +755,7 @@ const styles = StyleSheet.create({
   canvasWrap: {
     flex: 1,
     minHeight: 280,
+    position: 'relative',
   },
   sidePanel: {
     maxHeight: 360,
@@ -856,6 +897,54 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textSecondary,
     textAlign: 'center',
+  },
+  profileInfoCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  profileInfoRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  profileInfoLabel: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  profileInfoValue: {
+    ...typography.caption,
+    color: colors.textPrimary,
+    flex: 1,
+    fontWeight: '800',
+    textAlign: 'right',
+  },
+  canvasProfileBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    bottom: spacing.sm,
+    left: spacing.sm,
+    maxWidth: '82%',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    position: 'absolute',
+  },
+  canvasProfileTitle: {
+    ...typography.caption,
+    color: colors.textPrimary,
+    fontWeight: '800',
+  },
+  canvasProfileSubtitle: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    fontSize: 11,
   },
   success: {
     ...typography.caption,

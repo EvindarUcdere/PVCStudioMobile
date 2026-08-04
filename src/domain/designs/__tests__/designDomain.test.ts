@@ -7,6 +7,7 @@ import { validateDesignTree } from '../rules/validateDesignTree';
 import { designProjectSchema } from '../schemas/designProjectSchema';
 import { designNodeSchema } from '../schemas/designNodeSchema';
 import { cloneDesignProject } from '../utils/cloneDesignProject';
+import { createDesignAutoName, withAutoDesignName } from '../utils/createDesignAutoName';
 import {
   addPanelToDesignEdge,
   adjustArchHeight,
@@ -152,6 +153,48 @@ describe('design project clone', () => {
 });
 
 describe('design tree editing', () => {
+  it('creates an automatic name from panel count and opening directions', () => {
+    const left = { ...createPanelNode(), openingType: 'fixed' as const };
+    const middle = { ...createPanelNode(), openingType: 'open-right' as const };
+    const right = { ...createPanelNode(), openingType: 'fixed' as const };
+    const project = {
+      ...createEmptyDesignProject({ name: 'Yan Sabit Orta Acilir' }),
+      rootNode: {
+        id: 'auto-name-frame',
+        type: 'frame' as const,
+        child: createSplitNode({
+          direction: 'vertical',
+          ratio: 1 / 3,
+          first: left,
+          second: createSplitNode({
+            direction: 'vertical',
+            ratio: 0.5,
+            first: middle,
+            second: right,
+          }),
+        }),
+      },
+    };
+
+    expect(createDesignAutoName(project)).toBe('Sol Sabit Orta Acilir Sag Sabit');
+  });
+
+  it('updates the design name after a structural edit', () => {
+    const project = createEmptyDesignProject({ name: 'Klasik Tek Sabit' });
+    const panel = collectPanels(project.rootNode)[0];
+
+    if (!panel) {
+      throw new Error('Expected a panel');
+    }
+
+    const splitProject = withAutoDesignName({
+      ...project,
+      rootNode: splitPanel(project.rootNode, panel.id, 'vertical'),
+    });
+
+    expect(splitProject.name).toBe('Sol Sabit Sag Sabit');
+  });
+
   it('splits a selected panel and keeps the tree valid', () => {
     const project = createEmptyDesignProject({ name: 'Editor' });
     const panel = collectPanels(project.rootNode)[0];

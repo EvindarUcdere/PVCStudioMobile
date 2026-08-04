@@ -64,10 +64,10 @@ export function TemplateCatalogScreen({ customerId = null, jobId = null }: Templ
                 onPress={() =>
                   router.push(
                     jobId
-                      ? routes.templateDetailsForJob(item.id, jobId, customerId)
+                      ? routes.createDesignFromTemplate(item.id, customerId ?? null, jobId)
                       : customerId
-                      ? routes.templateDetailsForCustomer(item.id, customerId)
-                      : routes.templateDetails(item.id),
+                        ? routes.createDesignFromTemplate(item.id, customerId)
+                        : routes.createDesignFromTemplate(item.id),
                   )
                 }
                 onToggleFavorite={() => void toggleFavorite(item)}

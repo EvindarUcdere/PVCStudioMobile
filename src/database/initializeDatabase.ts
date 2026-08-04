@@ -17,6 +17,8 @@ import { paymentPlansMigration } from './migrations/013_payment_plans';
 import { activityLogsMigration } from './migrations/014_activity_logs';
 import { activityLogActorMigration } from './migrations/015_activity_log_actor';
 import { reliabilityIndexesMigration } from './migrations/016_reliability_indexes';
+import { productionProfileSystemsMigration } from './migrations/017_production_profile_systems';
+import { productionProfileDisplayNameMigration } from './migrations/018_production_profile_display_name';
 import { DatabaseMigration, MigrationDatabase } from './migrations/types';
 import { seedReferenceData } from './seeds/seedReferenceData';
 import { seedProfileMeasurementSettings } from './seeds/seedProfileMeasurementSettings';
@@ -40,6 +42,8 @@ const migrations: DatabaseMigration[] = [
   activityLogsMigration,
   activityLogActorMigration,
   reliabilityIndexesMigration,
+  productionProfileSystemsMigration,
+  productionProfileDisplayNameMigration,
 ];
 
 type MetadataRow = {

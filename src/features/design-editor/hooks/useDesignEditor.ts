@@ -10,6 +10,7 @@ import { SplitDirection } from '../../../domain/designs/enums/SplitDirection';
 import { GlassPriceOption, ProfileSystemPriceOption } from '../../../domain/designs/pricing/calculateDesignPriceEstimate';
 import { validateDesignTree } from '../../../domain/designs/rules/validateDesignTree';
 import { designProjectSchema } from '../../../domain/designs/schemas/designProjectSchema';
+import { withAutoDesignName } from '../../../domain/designs/utils/createDesignAutoName';
 import { collectPanels } from '../../../domain/designs/utils/findNodeById';
 import {
   AddPanelSide,
@@ -69,7 +70,7 @@ function buildValidEditorState(
 
   return {
     ...current,
-    design: nextDesign,
+    design: withAutoDesignName(nextDesign),
     history: [...current.history, current.design!],
     future: [],
     selection,
@@ -265,14 +266,14 @@ export function useDesignEditor(designId: string | undefined) {
 
       return {
         ...current,
-        design: {
+        design: withAutoDesignName({
           ...current.design,
           rootNode: updatePanelOpening(
             current.design.rootNode,
             current.selection.nodeId,
             openingType,
           ),
-        },
+        }),
         history: [...current.history, current.design],
         future: [],
         isDirty: true,
@@ -290,10 +291,10 @@ export function useDesignEditor(designId: string | undefined) {
 
       return {
         ...current,
-        design: {
+        design: withAutoDesignName({
           ...current.design,
           rootNode: updatePanelInsectScreen(current.design.rootNode, current.selection.nodeId, insectScreen),
-        },
+        }),
         history: [...current.history, current.design],
         future: [],
         isDirty: true,
@@ -311,7 +312,7 @@ export function useDesignEditor(designId: string | undefined) {
 
       return {
         ...current,
-        design: toggleRollerShutter(current.design),
+        design: withAutoDesignName(toggleRollerShutter(current.design)),
         history: [...current.history, current.design],
         future: [],
         isDirty: true,
@@ -369,7 +370,7 @@ export function useDesignEditor(designId: string | undefined) {
 
       return {
         ...current,
-        design: adjustArchHeight(current.design, delta),
+        design: withAutoDesignName(adjustArchHeight(current.design, delta)),
         history: [...current.history, current.design],
         future: [],
         isDirty: true,
