@@ -547,6 +547,7 @@ function buildDesignSvg(design: DesignProject): string {
         </linearGradient>
       </defs>
       <rect x="0" y="0" width="${canvasWidth}" height="${canvasHeight}" rx="10" fill="#eef3f0" />
+      ${!isArch ? buildGenericMountingFrameSvg(frame.x, frame.y, frame.width, frame.height, frameProfileThickness, profileColor) : ''}
       ${
         isArch
           ? `<path d="${framePath}" fill="#f8fbf9" stroke="${profileColor}" stroke-width="${frameStroke}" />`
@@ -636,6 +637,7 @@ function buildDesignPreviewSvg(design: DesignProject): string {
   return `
     <svg class="design-svg" width="${canvasWidth}" height="${canvasHeight}" viewBox="0 0 ${canvasWidth} ${canvasHeight}" xmlns="http://www.w3.org/2000/svg">
       <rect x="0" y="0" width="${canvasWidth}" height="${canvasHeight}" rx="10" fill="#eef3f0" />
+      ${!isArch ? buildGenericMountingFrameSvg(frame.x, frame.y, frame.width, frame.height, frameProfileThickness, profileColor) : ''}
       ${
         isArch
           ? `<path d="${framePath}" fill="#f8fbf9" stroke="${profileColor}" stroke-width="9" />`
@@ -797,6 +799,25 @@ function buildReferenceMountingFrameSvg(wallOpening: RectMm, frameOuter: RectMm,
     <rect x="${wallOpening.x}" y="${wallOpening.y}" width="${wallOpening.width}" height="${wallOpening.height}" fill="#d8ddd9" stroke="#a8b0ac" stroke-width="1" />
     <rect x="${frameOuter.x - reveal}" y="${frameOuter.y - reveal}" width="${frameOuter.width + reveal * 2}" height="${frameOuter.height + reveal * 2}" fill="#303735" stroke="#111816" stroke-width="1.2" />
     <rect x="${frameOuter.x - tapeInset}" y="${frameOuter.y - tapeInset}" width="${frameOuter.width + tapeInset * 2}" height="${frameOuter.height + tapeInset * 2}" fill="#151c1a" stroke="#5b6460" stroke-width="0.8" />
+  `;
+}
+
+function buildGenericMountingFrameSvg(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  thickness: number,
+  profileColor: string,
+): string {
+  const reveal = Math.max(8, Math.min(18, thickness * 0.75));
+  const tapeInset = Math.max(3, Math.min(8, thickness * 0.32));
+  const wallColor = mixHexForPdf(profileColor, '#17211e', 0.58);
+  const seatColor = mixHexForPdf(profileColor, '#17211e', 0.74);
+
+  return `
+    <rect x="${round(x - reveal)}" y="${round(y - reveal)}" width="${round(width + reveal * 2)}" height="${round(height + reveal * 2)}" fill="${wallColor}" opacity="0.28" />
+    <rect x="${round(x - tapeInset)}" y="${round(y - tapeInset)}" width="${round(width + tapeInset * 2)}" height="${round(height + tapeInset * 2)}" fill="${seatColor}" opacity="0.42" />
   `;
 }
 

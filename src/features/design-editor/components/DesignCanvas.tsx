@@ -282,6 +282,13 @@ export const DesignCanvas = memo(function DesignCanvas({
               />
             </>
           ) : null}
+          {!frameIsArch ? (
+            <MountingFrameBackdrop
+              frame={layoutState.layout.frameBounds}
+              thickness={profileThickness}
+              profilePalette={profilePalette}
+            />
+          ) : null}
           {frameIsArch ? (
             <>
               <Path
@@ -772,6 +779,40 @@ function InsectScreenOverlay({ panel, inset }: { panel: PanelBounds; inset: numb
           fill="none"
         />
       ) : null}
+    </G>
+  );
+}
+
+function MountingFrameBackdrop({
+  frame,
+  thickness,
+  profilePalette,
+}: {
+  frame: NodeBounds;
+  thickness: number;
+  profilePalette: ProfilePalette;
+}) {
+  const reveal = Math.max(8, Math.min(18, thickness * 0.75));
+  const tapeInset = Math.max(3, Math.min(8, thickness * 0.32));
+
+  return (
+    <G>
+      <Rect
+        x={frame.x - reveal}
+        y={frame.y - reveal}
+        width={frame.width + reveal * 2}
+        height={frame.height + reveal * 2}
+        fill={profilePalette.gasket}
+        opacity={0.28}
+      />
+      <Rect
+        x={frame.x - tapeInset}
+        y={frame.y - tapeInset}
+        width={frame.width + tapeInset * 2}
+        height={frame.height + tapeInset * 2}
+        fill={profilePalette.stroke}
+        opacity={0.42}
+      />
     </G>
   );
 }
