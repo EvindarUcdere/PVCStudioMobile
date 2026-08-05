@@ -483,4 +483,14 @@ export const systemTemplates: DesignTemplate[] = [
     sortOrder: 121,
     child: panel('tpl-custom-empty-design-panel-1', 'fixed'),
   }),
+  template({
+    id: 'tpl-reference-1400-fixed-left-open-right',
+    name: 'Referans 1400x1400 Sol Sabit Sag Acilir',
+    description: 'Kasa, orta T kayit, sol sabit cam ve sag acilir kanat referans cizimi.',
+    category: 'window',
+    width: 1400,
+    height: 1400,
+    sortOrder: 122,
+    child: verticalPanels('tpl-reference-1400-fixed-left-open-right', ['fixed', 'open-right']),
+  }),
 ];

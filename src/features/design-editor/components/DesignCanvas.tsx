@@ -26,6 +26,7 @@ import { calculateDesignMaterialSummary } from '../../../domain/designs/measurem
 import { getArchHeight, isArchTopFrame } from '../../../domain/designs/utils/frameShape';
 import { colors, radius, spacing, typography } from '../../../theme';
 import { OpeningSymbol } from './OpeningSymbol';
+import { WindowDrawing } from './window-drawing/WindowDrawing';
 
 type DesignCanvasProps = {
   design: DesignProject;
@@ -146,6 +147,20 @@ export const DesignCanvas = memo(function DesignCanvas({
           Math.max(16, frameNode.rollerShutter.height * layoutState.layout.scale),
         )
       : 0;
+  const referenceWindow = getReferenceWindowPanels(design);
+
+  if (referenceWindow) {
+    return (
+      <WindowDrawing
+        leftPanelId={referenceWindow.leftPanelId}
+        rightPanelId={referenceWindow.rightPanelId}
+        selectedNodeId={selectedNodeId}
+        onPanelPress={onPanelPress}
+        onClearSelection={onClearSelection}
+        profileColor={profileColor.hexValue}
+      />
+    );
+  }
 
   return (
     <View onLayout={handleLayout} style={styles.container}>
@@ -384,6 +399,31 @@ export const DesignCanvas = memo(function DesignCanvas({
   );
 });
 
+function getReferenceWindowPanels(design: DesignProject): { leftPanelId: string; rightPanelId: string } | null {
+  const rootChild = design.rootNode.type === 'frame' ? design.rootNode.child : design.rootNode;
+
+  if (design.width !== 1400 || design.height !== 1400 || rootChild.type !== 'split') {
+    return null;
+  }
+
+  if (rootChild.direction !== 'vertical' || Math.abs(rootChild.ratio - 0.5) > 0.02) {
+    return null;
+  }
+
+  if (rootChild.first.type !== 'panel' || rootChild.second.type !== 'panel') {
+    return null;
+  }
+
+  if (rootChild.first.openingType !== 'fixed' || rootChild.second.openingType === 'fixed') {
+    return null;
+  }
+
+  return {
+    leftPanelId: rootChild.first.id,
+    rightPanelId: rootChild.second.id,
+  };
+}
+
 function DesignPanel({
   panel,
   index,
@@ -434,6 +474,13 @@ function DesignPanel({
         fill="url(#glassGradient)"
         stroke="#AEBBB7"
         strokeWidth={1.2}
+      />
+      <GlassUnitDetail
+        x={glassX}
+        y={glassY}
+        width={glassWidth}
+        height={glassHeight}
+        profilePalette={profilePalette}
       />
       {panel.insectScreen ? <InsectScreenOverlay panel={panel} inset={glassInset} /> : null}
       {selected ? (
@@ -592,7 +639,86 @@ function BeveledRect({
         stroke={profilePalette.innerLine}
         strokeWidth={1}
       />
+      <ProfileGrooveRect
+        x={innerLeft + inset * 0.18}
+        y={innerTop + inset * 0.18}
+        width={Math.max(0, innerRight - innerLeft - inset * 0.36)}
+        height={Math.max(0, innerBottom - innerTop - inset * 0.36)}
+        profilePalette={profilePalette}
+      />
     </G>
+  );
+}
+
+function GlassUnitDetail({
+  x,
+  y,
+  width,
+  height,
+  profilePalette,
+}: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  profilePalette: ProfilePalette;
+}) {
+  const edgeOffset = Math.max(3, Math.min(7, Math.min(width, height) * 0.045));
+  const shineOffset = Math.max(8, Math.min(18, Math.min(width, height) * 0.16));
+
+  return (
+    <G>
+      <Rect
+        x={x + edgeOffset}
+        y={y + edgeOffset}
+        width={Math.max(0, width - edgeOffset * 2)}
+        height={Math.max(0, height - edgeOffset * 2)}
+        fill="none"
+        stroke={profilePalette.gasket}
+        strokeOpacity={0.45}
+        strokeWidth={0.8}
+      />
+      <Line
+        x1={x + shineOffset}
+        y1={y + 4}
+        x2={x + width - 4}
+        y2={y + height - shineOffset}
+        stroke="#FFFFFF"
+        strokeOpacity={0.55}
+        strokeWidth={1.2}
+      />
+    </G>
+  );
+}
+
+function ProfileGrooveRect({
+  x,
+  y,
+  width,
+  height,
+  profilePalette,
+}: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  profilePalette: ProfilePalette;
+}) {
+  if (width <= 0 || height <= 0) {
+    return null;
+  }
+
+  return (
+    <Rect
+      x={x}
+      y={y}
+      width={width}
+      height={height}
+      fill="none"
+      stroke={profilePalette.profileLine}
+      strokeOpacity={0.7}
+      strokeWidth={0.8}
+    />
   );
 }
 
@@ -657,6 +783,8 @@ type ProfilePalette = {
   innerLine: string;
   gasket: string;
   mid: string;
+  profileLine: string;
+  reinforcement: string;
   shadow: string;
   stroke: string;
 };
@@ -671,6 +799,8 @@ function getProfilePalette(hexValue: string): ProfilePalette {
     innerLine: mixHex(inner, '#8E9995', 0.2),
     gasket: mixHex('#17211E', hexValue, 0.18),
     mid: mixHex(inner, '#D9DEDC', 0.38),
+    profileLine: mixHex(hexValue, '#24302C', 0.22),
+    reinforcement: '#B34032',
     shadow: mixHex(inner, '#7F8985', 0.28),
     stroke: mixHex(hexValue, '#17211E', 0.35),
   };
@@ -818,7 +948,63 @@ function FrameProfileOverlay({
         stroke={profilePalette.highlight}
         strokeWidth={1.2}
       />
+      <ProfileGrooveRect
+        x={innerLeft + inset * 0.22}
+        y={innerTop + inset * 0.22}
+        width={Math.max(0, innerRight - innerLeft - inset * 0.44)}
+        height={Math.max(0, innerBottom - innerTop - inset * 0.44)}
+        profilePalette={profilePalette}
+      />
+      <FrameReinforcementMarkers frame={frame} inset={inset} profilePalette={profilePalette} />
     </>
+  );
+}
+
+function FrameReinforcementMarkers({
+  frame,
+  inset,
+  profilePalette,
+}: {
+  frame: NodeBounds;
+  inset: number;
+  profilePalette: ProfilePalette;
+}) {
+  const markerLength = Math.max(12, Math.min(34, Math.min(frame.width, frame.height) * 0.16));
+  const markerWidth = Math.max(2, Math.min(4, inset * 0.22));
+  const cx = frame.x + frame.width / 2;
+  const cy = frame.y + frame.height / 2;
+
+  return (
+    <G opacity={0.72}>
+      <Rect
+        x={cx - markerLength / 2}
+        y={frame.y + inset * 0.38}
+        width={markerLength}
+        height={markerWidth}
+        fill={profilePalette.reinforcement}
+      />
+      <Rect
+        x={cx - markerLength / 2}
+        y={frame.y + frame.height - inset * 0.38 - markerWidth}
+        width={markerLength}
+        height={markerWidth}
+        fill={profilePalette.reinforcement}
+      />
+      <Rect
+        x={frame.x + inset * 0.38}
+        y={cy - markerLength / 2}
+        width={markerWidth}
+        height={markerLength}
+        fill={profilePalette.reinforcement}
+      />
+      <Rect
+        x={frame.x + frame.width - inset * 0.38 - markerWidth}
+        y={cy - markerLength / 2}
+        width={markerWidth}
+        height={markerLength}
+        fill={profilePalette.reinforcement}
+      />
+    </G>
   );
 }
 
@@ -850,6 +1036,7 @@ function SplitProfile({
         />
         <Line x1={x + 3} y1={y + 4} x2={x + 3} y2={split.dividerY2 - 4} stroke={profilePalette.highlight} strokeWidth={1.1} />
         <Line x1={x + thickness - 3} y1={y + 4} x2={x + thickness - 3} y2={split.dividerY2 - 4} stroke={profilePalette.shadow} strokeWidth={1.1} />
+        <Line x1={split.dividerX1} y1={y + 5} x2={split.dividerX1} y2={split.dividerY2 - 5} stroke={profilePalette.profileLine} strokeWidth={0.8} />
       </G>
     );
   }
@@ -870,6 +1057,7 @@ function SplitProfile({
       />
       <Line x1={x + 4} y1={y + 3} x2={split.dividerX2 - 4} y2={y + 3} stroke={profilePalette.highlight} strokeWidth={1.1} />
       <Line x1={x + 4} y1={y + thickness - 3} x2={split.dividerX2 - 4} y2={y + thickness - 3} stroke={profilePalette.shadow} strokeWidth={1.1} />
+      <Line x1={x + 5} y1={split.dividerY1} x2={split.dividerX2 - 5} y2={split.dividerY1} stroke={profilePalette.profileLine} strokeWidth={0.8} />
     </G>
   );
 }

@@ -239,7 +239,6 @@ export function DesignEditorScreen() {
   const selectedNode = selectedNodeId ? findNodeById(design.rootNode, selectedNodeId) : null;
   const selectedOpeningType = selectedNode?.type === 'panel' ? selectedNode.openingType : null;
   const selectedInsectScreen = selectedNode?.type === 'panel' ? (selectedNode.insectScreen ?? null) : null;
-  const selectedPanelCanUseScreen = selectedOpeningType ? canUseInsectScreen(selectedOpeningType) : false;
   const hasRollerShutter = design.rootNode.type === 'frame' && Boolean(design.rootNode.rollerShutter?.enabled);
   const profileInfo = getEditorProfileInfo(design);
 
@@ -503,7 +502,7 @@ export function DesignEditorScreen() {
             </ToolSection>
             <ToolSection title="Sineklik">
               <Text style={styles.caption}>
-                Sineklik sadece acilabilen paneller icin secilebilir.
+                Once cizimden bir panel secin. Sabit sineklik her panelde, surme sineklik acilir panellerde kullanilir.
               </Text>
               <View style={styles.optionGrid}>
                 {insectScreenOptions.map((option) => (
@@ -511,7 +510,7 @@ export function DesignEditorScreen() {
                     key={option.value ?? 'none'}
                     label={option.label}
                     variant={selectedInsectScreen === option.value ? 'primary' : 'secondary'}
-                    disabled={!selectedNodeId || !selectedPanelCanUseScreen}
+                    disabled={!selectedOpeningType || !canUseInsectScreenOption(selectedOpeningType, option.value)}
                     onPress={() => updateSelectedInsectScreen(option.value)}
                     style={styles.optionButton}
                   />
@@ -686,7 +685,11 @@ const insectScreenOptions: { label: string; value: InsectScreenType | null }[] =
   { label: 'Surme yukari', value: 'sliding-vertical' },
 ];
 
-function canUseInsectScreen(openingType: OpeningType): boolean {
+function canUseInsectScreenOption(openingType: OpeningType, insectScreen: InsectScreenType | null): boolean {
+  if (insectScreen === null || insectScreen === 'fixed') {
+    return true;
+  }
+
   return openingType !== 'fixed';
 }
 

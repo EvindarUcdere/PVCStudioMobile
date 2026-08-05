@@ -18,6 +18,14 @@ import { getArchHeight, isArchTopFrame } from '../../../domain/designs/utils/fra
 import { calculateDesignStockNeeds } from '../../../domain/inventory/calculateDesignStockNeeds';
 import { StockItem, stockUnitLabels } from '../../../domain/inventory/entities/StockItem';
 import { Quote } from '../../../domain/quotes/entities/Quote';
+import {
+  createReferenceWindowGeometry,
+  defaultFrameProfile,
+  defaultMullionProfile,
+  defaultSashProfile,
+  RectMm,
+  toPx,
+} from '../../design-editor/components/window-drawing/profileGeometry';
 
 export type QuotePdfInput = {
   design: DesignProject;
@@ -198,6 +206,7 @@ function buildProductionHtml(
       <div class="visual-preview">
         ${buildDesignPreviewSvg(design)}
       </div>
+      ${referenceWindowDetailsSection(design)}
       ${note.trim() ? `<div class="note-box"><strong>Not:</strong> ${escapeHtml(note.trim())}</div>` : ''}
       ${section('Genel Tasarim Ozeti', [
         ['Dis olcu', `${design.width} x ${design.height} mm`],
@@ -297,6 +306,7 @@ function buildJobProductionHtml(
           <div class="visual-preview compact-preview">
             ${buildDesignPreviewSvg(design)}
           </div>
+          ${referenceWindowDetailsSection(design)}
           ${section('Profil ve Kasa Bilgisi', productionProfileRows(design, summary))}
           <table>
             <thead>
@@ -451,6 +461,11 @@ function companyBlock(companyProfile: CompanyProfile): string {
 }
 
 function buildDesignSvg(design: DesignProject): string {
+  const referencePanels = getReferenceWindowPanelsForPdf(design);
+  if (referencePanels) {
+    return buildReferenceWindowSvg(620, 455, design, true);
+  }
+
   const canvasWidth = 620;
   const canvasHeight = 455;
   const summary = calculateDesignMaterialSummary(design);
@@ -507,6 +522,7 @@ function buildDesignSvg(design: DesignProject): string {
         ${hasSash ? buildProfiledPanelSvg(drawablePanel.x + 4, drawablePanel.y + 4, drawablePanel.width - 8, drawablePanel.height - 8, sashInset, profileColor) : ''}
         <rect x="${round(x - 3)}" y="${round(y - 3)}" width="${round(width + 6)}" height="${round(height + 6)}" fill="none" stroke="${mixHexForPdf('#17211e', profileColor, 0.18)}" stroke-width="1.4" />
         <rect x="${x}" y="${y}" width="${width}" height="${height}" fill="url(#pdfGlassGradient)" stroke="#aebbb7" stroke-width="1.2" />
+        ${buildGlassUnitDetailSvg(x, y, width, height, profileColor)}
         ${insectScreen}
         ${opening}
         <circle cx="${round(x + width / 2)}" cy="${round(y + height / 2)}" r="2.5" fill="#16211d" />
@@ -557,6 +573,11 @@ function buildDesignSvg(design: DesignProject): string {
 }
 
 function buildDesignPreviewSvg(design: DesignProject): string {
+  const referencePanels = getReferenceWindowPanelsForPdf(design);
+  if (referencePanels) {
+    return buildReferenceWindowSvg(520, 300, design, false);
+  }
+
   const canvasWidth = 520;
   const canvasHeight = 300;
   const layout = calculateDesignLayout({
@@ -601,6 +622,7 @@ function buildDesignPreviewSvg(design: DesignProject): string {
         ${hasSash ? buildProfiledPanelSvg(drawablePanel.x + 3, drawablePanel.y + 3, drawablePanel.width - 6, drawablePanel.height - 6, profileInset, profileColor) : ''}
         <rect x="${round(glassX - 3)}" y="${round(glassY - 3)}" width="${round(glassWidth + 6)}" height="${round(glassHeight + 6)}" fill="none" stroke="${mixHexForPdf('#17211e', profileColor, 0.18)}" stroke-width="1.3" />
         <rect x="${glassX}" y="${glassY}" width="${glassWidth}" height="${glassHeight}" fill="url(#pdfGlassGradient)" stroke="#aebbb7" stroke-width="1.2" />
+        ${buildGlassUnitDetailSvg(glassX, glassY, glassWidth, glassHeight, profileColor)}
         ${panelNode?.insectScreen ? buildInsectScreenSymbol(drawablePanel, glassInset) : ''}
         ${buildOpeningSymbol(drawablePanel.openingType, openingBounds.x, openingBounds.y, openingBounds.width, openingBounds.height)}
       `;
@@ -673,6 +695,214 @@ function buildInsectScreenSymbol(panel: PanelBounds, inset: number): string {
   `;
 }
 
+function getReferenceWindowPanelsForPdf(design: DesignProject): { leftPanelId: string; rightPanelId: string } | null {
+  const rootChild = design.rootNode.type === 'frame' ? design.rootNode.child : design.rootNode;
+
+  if (design.width !== 1400 || design.height !== 1400 || rootChild.type !== 'split') {
+    return null;
+  }
+
+  if (rootChild.direction !== 'vertical' || Math.abs(rootChild.ratio - 0.5) > 0.02) {
+    return null;
+  }
+
+  if (rootChild.first.type !== 'panel' || rootChild.second.type !== 'panel') {
+    return null;
+  }
+
+  if (rootChild.first.openingType !== 'fixed' || rootChild.second.openingType === 'fixed') {
+    return null;
+  }
+
+  return {
+    leftPanelId: rootChild.first.id,
+    rightPanelId: rootChild.second.id,
+  };
+}
+
+function referenceWindowDetailsSection(design: DesignProject): string {
+  if (!getReferenceWindowPanelsForPdf(design)) {
+    return '';
+  }
+
+  return section('Referans Kasa Detayi', [
+    [
+      'Montaj sirasi',
+      'Once duvara gomulu ana kasa, sonra orta T kayit, sabit cam ve acilir kanat yerlesir.',
+    ],
+    ['Ana kasa', `${defaultFrameProfile.faceWidthMm} mm; duvar acikliginin icinde dis cerceve`],
+    ['Orta T kayit', `${defaultMullionProfile.faceWidthMm} mm; modul alanindan gercek genisligi dusulur`],
+    ['Sol bolum', 'Sabit cam; kanat profili yok, cam citasi ve conta ile tutulur'],
+    ['Sag bolum', `${defaultSashProfile.faceWidthMm} mm kanat profili; hafif onde gosterilen acilir kanat`],
+    ['Cam yapisi', 'Isicam 4+16+4 referans gosterimi; kesin cam formulu profil sisteminden dogrulanmalidir'],
+  ]);
+}
+
+function buildReferenceWindowSvg(width: number, height: number, design: DesignProject, includeDimensions: boolean): string {
+  const geometry = createReferenceWindowGeometry(width, height);
+  const profileColor = getDesignProfileColor(design.profileSystem).hexValue;
+  const wallOpening = toPx(geometry.wallOpening, geometry);
+  const frameOuter = toPx(geometry.frameOuter, geometry);
+  const frameInner = toPx(geometry.frameInner, geometry);
+  const mullion = toPx(geometry.mullion, geometry);
+  const leftModule = toPx(geometry.leftModule, geometry);
+  const rightModule = toPx(geometry.rightModule, geometry);
+  const leftGlass = toPx(geometry.leftGlass, geometry);
+  const rightSashOuter = toPx(geometry.rightSashOuter, geometry);
+  const rightSashInner = toPx(geometry.rightSashInner, geometry);
+  const rightGlass = toPx(geometry.rightGlass, geometry);
+
+  return `
+    <svg class="design-svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="referencePdfGlassGradient" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#a7ddf2" stop-opacity="0.9" />
+          <stop offset="0.48" stop-color="#f6fcfe" stop-opacity="0.98" />
+          <stop offset="1" stop-color="#c2eaf8" stop-opacity="0.94" />
+        </linearGradient>
+      </defs>
+      <rect x="0" y="0" width="${width}" height="${height}" rx="10" fill="#eef2ef" />
+      ${buildReferenceMountingFrameSvg(wallOpening, frameOuter, geometry.scale)}
+      ${buildReferenceFrameSvg(frameOuter, frameInner, profileColor)}
+      ${buildReferenceMullionSvg(mullion, profileColor)}
+      ${buildReferenceFixedGlassSvg(leftGlass)}
+      ${buildReferenceSashSvg(rightSashOuter, rightSashInner, rightGlass, profileColor)}
+      ${buildReferenceOpeningSvg(rightSashOuter)}
+      ${
+        includeDimensions
+          ? `
+            ${buildHorizontalDimension(frameOuter.x, frameOuter.x + frameOuter.width, frameOuter.y + frameOuter.height + 22, '1400')}
+            ${buildVerticalDimension(frameOuter.x - 24, frameOuter.y, frameOuter.y + frameOuter.height, '1400')}
+            ${buildHorizontalDimension(mullion.x, mullion.x + mullion.width, frameOuter.y + frameOuter.height + 44, `${defaultMullionProfile.faceWidthMm}`)}
+            ${buildHorizontalDimension(leftModule.x, leftModule.x + leftModule.width, frameOuter.y + frameOuter.height + 66, `${Math.round(geometry.leftModule.width)}`)}
+            ${buildHorizontalDimension(rightModule.x, rightModule.x + rightModule.width, frameOuter.y + frameOuter.height + 66, `${Math.round(geometry.rightModule.width)}`)}
+          `
+          : ''
+      }
+      <text x="${round(frameOuter.x - 16)}" y="${round(frameOuter.y - 9)}" font-size="9" font-weight="700" fill="#16211d">Duvara gomulu montaj kasasi</text>
+      <text x="${round(frameOuter.x + 8)}" y="${round(frameOuter.y + 16)}" font-size="10" font-weight="700" fill="#16211d">Ana kasa ${defaultFrameProfile.faceWidthMm} mm</text>
+      <text x="${round(mullion.x - 8)}" y="${round(mullion.y + 18)}" text-anchor="end" font-size="9" fill="#16211d">Orta T kayit ${defaultMullionProfile.faceWidthMm} mm</text>
+      <text x="${round(leftGlass.x + leftGlass.width / 2)}" y="${round(leftGlass.y + leftGlass.height / 2)}" text-anchor="middle" font-size="10" font-weight="700" fill="#21413a">Sabit cam</text>
+      <text x="${round(rightSashOuter.x + 8)}" y="${round(rightSashOuter.y + 16)}" font-size="9" fill="#16211d">Acilir kanat ${defaultSashProfile.faceWidthMm} mm</text>
+      <text x="${round(rightGlass.x + rightGlass.width / 2)}" y="${round(rightGlass.y + rightGlass.height / 2 + 16)}" text-anchor="middle" font-size="9" fill="#21413a">Isicam 4+16+4</text>
+    </svg>
+  `;
+}
+
+function buildReferenceMountingFrameSvg(wallOpening: RectMm, frameOuter: RectMm, scale: number): string {
+  const reveal = 24 * scale;
+  const tapeInset = 10 * scale;
+
+  return `
+    <rect x="${wallOpening.x}" y="${wallOpening.y}" width="${wallOpening.width}" height="${wallOpening.height}" fill="#d8ddd9" stroke="#a8b0ac" stroke-width="1" />
+    <rect x="${frameOuter.x - reveal}" y="${frameOuter.y - reveal}" width="${frameOuter.width + reveal * 2}" height="${frameOuter.height + reveal * 2}" fill="#303735" stroke="#111816" stroke-width="1.2" />
+    <rect x="${frameOuter.x - tapeInset}" y="${frameOuter.y - tapeInset}" width="${frameOuter.width + tapeInset * 2}" height="${frameOuter.height + tapeInset * 2}" fill="#151c1a" stroke="#5b6460" stroke-width="0.8" />
+  `;
+}
+
+function buildReferenceFrameSvg(outer: RectMm, inner: RectMm, color: string): string {
+  return `
+    <polygon points="${outer.x},${outer.y} ${outer.x + outer.width},${outer.y} ${inner.x + inner.width},${inner.y} ${inner.x},${inner.y}" fill="#ffffff" stroke="#4d5753" stroke-width="1.1" />
+    <polygon points="${outer.x + outer.width},${outer.y} ${outer.x + outer.width},${outer.y + outer.height} ${inner.x + inner.width},${inner.y + inner.height} ${inner.x + inner.width},${inner.y}" fill="#b8c1bd" stroke="#4d5753" stroke-width="1.1" />
+    <polygon points="${outer.x},${outer.y + outer.height} ${outer.x + outer.width},${outer.y + outer.height} ${inner.x + inner.width},${inner.y + inner.height} ${inner.x},${inner.y + inner.height}" fill="#b8c1bd" stroke="#4d5753" stroke-width="1.1" />
+    <polygon points="${outer.x},${outer.y} ${inner.x},${inner.y} ${inner.x},${inner.y + inner.height} ${outer.x},${outer.y + outer.height}" fill="${color}" stroke="#4d5753" stroke-width="1.1" />
+    <rect x="${inner.x}" y="${inner.y}" width="${inner.width}" height="${inner.height}" fill="#f6faf7" stroke="#8d9894" stroke-width="1" />
+  `;
+}
+
+function buildReferenceMullionSvg(rect: RectMm, color: string): string {
+  return `
+    <rect x="${rect.x}" y="${rect.y}" width="${rect.width}" height="${rect.height}" fill="${color}" stroke="#4d5753" stroke-width="1.1" />
+    <rect x="${rect.x + rect.width * 0.18}" y="${rect.y + 6}" width="${rect.width * 0.64}" height="${rect.height - 12}" fill="#eef3f0" stroke="#8d9894" stroke-width="0.8" />
+    <line x1="${rect.x + rect.width / 2}" y1="${rect.y + 5}" x2="${rect.x + rect.width / 2}" y2="${rect.y + rect.height - 5}" stroke="#b34032" stroke-width="2" />
+  `;
+}
+
+function buildReferenceFixedGlassSvg(glass: RectMm): string {
+  return `
+    <rect x="${glass.x - 5}" y="${glass.y - 5}" width="${glass.width + 10}" height="${glass.height + 10}" fill="none" stroke="#dfe6e2" stroke-width="5" />
+    <rect x="${glass.x - 3}" y="${glass.y - 3}" width="${glass.width + 6}" height="${glass.height + 6}" fill="none" stroke="#1d2a26" stroke-opacity="0.6" stroke-width="1.2" />
+    <rect x="${glass.x}" y="${glass.y}" width="${glass.width}" height="${glass.height}" fill="url(#referencePdfGlassGradient)" stroke="#89a7af" stroke-width="1.2" />
+    <rect x="${glass.x + 5}" y="${glass.y + 5}" width="${glass.width - 10}" height="${glass.height - 10}" fill="none" stroke="#48635f" stroke-opacity="0.42" stroke-width="0.8" />
+  `;
+}
+
+function buildReferenceSashSvg(outer: RectMm, inner: RectMm, glass: RectMm, color: string): string {
+  const liftX = Math.max(2, Math.min(6, outer.width * 0.03));
+  const liftY = Math.max(1.5, Math.min(4, outer.height * 0.018));
+  const liftedOuter = offsetPdfRect(outer, liftX, liftY);
+  const liftedInner = offsetPdfRect(inner, liftX, liftY);
+  const liftedGlass = offsetPdfRect(glass, liftX, liftY);
+
+  return `
+    <rect x="${outer.x + liftX * 0.35}" y="${outer.y + liftY * 0.35}" width="${outer.width}" height="${outer.height}" fill="#101816" opacity="0.18" />
+    <polygon points="${outer.x},${outer.y} ${liftedOuter.x},${liftedOuter.y} ${liftedOuter.x},${
+      liftedOuter.y + liftedOuter.height
+    } ${outer.x},${outer.y + outer.height}" fill="#d9e0dc" stroke="#4d5753" stroke-width="0.8" />
+    <polygon points="${outer.x},${outer.y + outer.height} ${liftedOuter.x},${liftedOuter.y + liftedOuter.height} ${
+      liftedOuter.x + liftedOuter.width
+    },${liftedOuter.y + liftedOuter.height} ${outer.x + outer.width},${outer.y + outer.height}" fill="#aab4b0" stroke="#4d5753" stroke-width="0.8" />
+    <polygon points="${liftedOuter.x},${liftedOuter.y} ${liftedOuter.x + liftedOuter.width},${liftedOuter.y} ${
+      liftedInner.x + liftedInner.width
+    },${liftedInner.y} ${liftedInner.x},${liftedInner.y}" fill="#ffffff" stroke="#4d5753" stroke-width="1" />
+    <polygon points="${liftedOuter.x + liftedOuter.width},${liftedOuter.y} ${liftedOuter.x + liftedOuter.width},${
+      liftedOuter.y + liftedOuter.height
+    } ${liftedInner.x + liftedInner.width},${liftedInner.y + liftedInner.height} ${
+      liftedInner.x + liftedInner.width
+    },${liftedInner.y}" fill="#c8d0cc" stroke="#4d5753" stroke-width="1" />
+    <polygon points="${liftedOuter.x},${liftedOuter.y + liftedOuter.height} ${liftedOuter.x + liftedOuter.width},${
+      liftedOuter.y + liftedOuter.height
+    } ${liftedInner.x + liftedInner.width},${liftedInner.y + liftedInner.height} ${liftedInner.x},${
+      liftedInner.y + liftedInner.height
+    }" fill="#b9c2be" stroke="#4d5753" stroke-width="1" />
+    <polygon points="${liftedOuter.x},${liftedOuter.y} ${liftedInner.x},${liftedInner.y} ${liftedInner.x},${
+      liftedInner.y + liftedInner.height
+    } ${liftedOuter.x},${liftedOuter.y + liftedOuter.height}" fill="${color}" stroke="#4d5753" stroke-width="1" />
+    <rect x="${liftedGlass.x - 5}" y="${liftedGlass.y - 5}" width="${liftedGlass.width + 10}" height="${liftedGlass.height + 10}" fill="none" stroke="#dfe6e2" stroke-width="5" />
+    <rect x="${liftedGlass.x - 3}" y="${liftedGlass.y - 3}" width="${liftedGlass.width + 6}" height="${liftedGlass.height + 6}" fill="none" stroke="#1d2a26" stroke-opacity="0.6" stroke-width="1.2" />
+    <rect x="${liftedGlass.x}" y="${liftedGlass.y}" width="${liftedGlass.width}" height="${liftedGlass.height}" fill="url(#referencePdfGlassGradient)" stroke="#89a7af" stroke-width="1.2" />
+    <rect x="${liftedGlass.x + 5}" y="${liftedGlass.y + 5}" width="${liftedGlass.width - 10}" height="${liftedGlass.height - 10}" fill="none" stroke="#48635f" stroke-opacity="0.42" stroke-width="0.8" />
+  `;
+}
+
+function buildReferenceOpeningSvg(sash: RectMm): string {
+  const liftX = Math.max(2, Math.min(6, sash.width * 0.03));
+  const liftY = Math.max(1.5, Math.min(4, sash.height * 0.018));
+  const liftedSash = offsetPdfRect(sash, liftX, liftY);
+
+  return `
+    <path d="M ${liftedSash.x + liftedSash.width - 8} ${liftedSash.y + 8} L ${liftedSash.x + 10} ${
+      liftedSash.y + liftedSash.height / 2
+    } L ${liftedSash.x + liftedSash.width - 8} ${liftedSash.y + liftedSash.height - 8}" fill="none" stroke="#1747ff" stroke-width="1.8" />
+    <rect x="${liftedSash.x + 8}" y="${liftedSash.y + liftedSash.height / 2 - 18}" width="5" height="36" rx="2.5" fill="#6f7b78" stroke="#e6efeb" stroke-width="0.8" />
+  `;
+}
+
+function offsetPdfRect(rect: RectMm, x: number, y: number): RectMm {
+  return {
+    ...rect,
+    x: rect.x + x,
+    y: rect.y + y,
+  };
+}
+
+function buildGlassUnitDetailSvg(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  profileColor: string,
+): string {
+  const edgeOffset = Math.max(3, Math.min(7, Math.min(width, height) * 0.045));
+  const shineOffset = Math.max(8, Math.min(18, Math.min(width, height) * 0.16));
+  const gasket = mixHexForPdf('#17211e', profileColor, 0.18);
+
+  return `
+    <rect x="${round(x + edgeOffset)}" y="${round(y + edgeOffset)}" width="${round(Math.max(0, width - edgeOffset * 2))}" height="${round(Math.max(0, height - edgeOffset * 2))}" fill="none" stroke="${gasket}" stroke-opacity="0.45" stroke-width="0.8" />
+    <line x1="${round(x + shineOffset)}" y1="${round(y + 4)}" x2="${round(x + width - 4)}" y2="${round(y + height - shineOffset)}" stroke="#ffffff" stroke-opacity="0.55" stroke-width="1.2" />
+  `;
+}
+
 function getDrawablePanelBoundsForPdf(
   panel: PanelBounds,
   frame: NodeBounds,
@@ -738,6 +968,7 @@ function buildProfiledPanelSvg(
     <polygon points="${left},${bottom} ${right},${bottom} ${innerRight},${innerBottom} ${innerLeft},${innerBottom}" fill="${shadow}" stroke="#4c5753" stroke-width="1.1" />
     <polygon points="${left},${top} ${innerLeft},${innerTop} ${innerLeft},${innerBottom} ${left},${bottom}" fill="${mid}" stroke="#4c5753" stroke-width="1.1" />
     <rect x="${innerLeft}" y="${innerTop}" width="${round(Math.max(0, innerRight - innerLeft))}" height="${round(Math.max(0, innerBottom - innerTop))}" fill="none" stroke="#a0aaa6" stroke-width="1" />
+    <rect x="${round(innerLeft + inset * 0.18)}" y="${round(innerTop + inset * 0.18)}" width="${round(Math.max(0, innerRight - innerLeft - inset * 0.36))}" height="${round(Math.max(0, innerBottom - innerTop - inset * 0.36))}" fill="none" stroke="${mixHexForPdf(profileColor, '#24302c', 0.22)}" stroke-opacity="0.7" stroke-width="0.8" />
     <line x1="${round(x + 4)}" y1="${round(y + 4)}" x2="${innerLeft}" y2="${innerTop}" stroke="#4c5753" stroke-width="0.8" />
     <line x1="${round(x + width - 4)}" y1="${round(y + 4)}" x2="${innerRight}" y2="${innerTop}" stroke="#4c5753" stroke-width="0.8" />
     <line x1="${round(x + 4)}" y1="${round(y + height - 4)}" x2="${innerLeft}" y2="${innerBottom}" stroke="#4c5753" stroke-width="0.8" />
@@ -799,6 +1030,30 @@ function buildBeveledFrameSvg(
     <polygon points="${left},${bottom} ${right},${bottom} ${innerRight},${innerBottom} ${innerLeft},${innerBottom}" fill="${shadow}" stroke="${stroke}" stroke-width="1.2" />
     <polygon points="${left},${top} ${innerLeft},${innerTop} ${innerLeft},${innerBottom} ${left},${bottom}" fill="${mid}" stroke="${stroke}" stroke-width="1.2" />
     <rect x="${innerLeft}" y="${innerTop}" width="${round(Math.max(0, innerRight - innerLeft))}" height="${round(Math.max(0, innerBottom - innerTop))}" fill="none" stroke="${light}" stroke-width="1.1" />
+    <rect x="${round(innerLeft + inset * 0.22)}" y="${round(innerTop + inset * 0.22)}" width="${round(Math.max(0, innerRight - innerLeft - inset * 0.44))}" height="${round(Math.max(0, innerBottom - innerTop - inset * 0.44))}" fill="none" stroke="${mixHexForPdf(stroke, '#ffffff', 0.18)}" stroke-opacity="0.7" stroke-width="0.8" />
+    ${buildFrameReinforcementMarkersSvg(x, y, width, height, inset)}
+  `;
+}
+
+function buildFrameReinforcementMarkersSvg(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  inset: number,
+): string {
+  const markerLength = Math.max(12, Math.min(34, Math.min(width, height) * 0.16));
+  const markerWidth = Math.max(2, Math.min(4, inset * 0.22));
+  const cx = x + width / 2;
+  const cy = y + height / 2;
+
+  return `
+    <g opacity="0.72">
+      <rect x="${round(cx - markerLength / 2)}" y="${round(y + inset * 0.38)}" width="${round(markerLength)}" height="${round(markerWidth)}" fill="#b34032" />
+      <rect x="${round(cx - markerLength / 2)}" y="${round(y + height - inset * 0.38 - markerWidth)}" width="${round(markerLength)}" height="${round(markerWidth)}" fill="#b34032" />
+      <rect x="${round(x + inset * 0.38)}" y="${round(cy - markerLength / 2)}" width="${round(markerWidth)}" height="${round(markerLength)}" fill="#b34032" />
+      <rect x="${round(x + width - inset * 0.38 - markerWidth)}" y="${round(cy - markerLength / 2)}" width="${round(markerWidth)}" height="${round(markerLength)}" fill="#b34032" />
+    </g>
   `;
 }
 
@@ -817,6 +1072,7 @@ function buildSplitProfileSvg(split: SplitBounds, thickness: number, profileColo
       <rect x="${round(x)}" y="${round(split.dividerY1)}" width="${round(thickness)}" height="${round(split.dividerY2 - split.dividerY1)}" fill="${mid}" stroke="${stroke}" stroke-width="1.2" />
       <line x1="${round(x + 3)}" y1="${round(split.dividerY1 + 4)}" x2="${round(x + 3)}" y2="${round(split.dividerY2 - 4)}" stroke="${light}" stroke-width="1.1" />
       <line x1="${round(x + thickness - 3)}" y1="${round(split.dividerY1 + 4)}" x2="${round(x + thickness - 3)}" y2="${round(split.dividerY2 - 4)}" stroke="${shadow}" stroke-width="1.1" />
+      <line x1="${round(split.dividerX1)}" y1="${round(split.dividerY1 + 5)}" x2="${round(split.dividerX1)}" y2="${round(split.dividerY2 - 5)}" stroke="${mixHexForPdf(stroke, '#ffffff', 0.18)}" stroke-width="0.8" />
     `;
   }
 
@@ -826,6 +1082,7 @@ function buildSplitProfileSvg(split: SplitBounds, thickness: number, profileColo
     <rect x="${round(split.dividerX1)}" y="${round(y)}" width="${round(split.dividerX2 - split.dividerX1)}" height="${round(thickness)}" fill="${mid}" stroke="${stroke}" stroke-width="1.2" />
     <line x1="${round(split.dividerX1 + 4)}" y1="${round(y + 3)}" x2="${round(split.dividerX2 - 4)}" y2="${round(y + 3)}" stroke="${light}" stroke-width="1.1" />
     <line x1="${round(split.dividerX1 + 4)}" y1="${round(y + thickness - 3)}" x2="${round(split.dividerX2 - 4)}" y2="${round(y + thickness - 3)}" stroke="${shadow}" stroke-width="1.1" />
+    <line x1="${round(split.dividerX1 + 5)}" y1="${round(split.dividerY1)}" x2="${round(split.dividerX2 - 5)}" y2="${round(split.dividerY1)}" stroke="${mixHexForPdf(stroke, '#ffffff', 0.18)}" stroke-width="0.8" />
   `;
 }
 

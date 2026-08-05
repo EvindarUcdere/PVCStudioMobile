@@ -8,9 +8,9 @@ import { templateCategories } from '../enums/TemplateCategory';
 import { systemTemplates } from '../../../database/seeds/systemTemplates';
 
 describe('system templates', () => {
-  it('contains exactly 31 active system templates with unique ids', () => {
-    expect(systemTemplates).toHaveLength(31);
-    expect(new Set(systemTemplates.map((template) => template.id)).size).toBe(31);
+  it('contains exactly 32 active system templates with unique ids', () => {
+    expect(systemTemplates).toHaveLength(32);
+    expect(new Set(systemTemplates.map((template) => template.id)).size).toBe(32);
     expect(
       systemTemplates.every((template) => template.source === 'system' && template.isActive),
     ).toBe(true);
@@ -67,6 +67,19 @@ describe('system templates', () => {
     if (arched?.rootNode.type === 'frame') {
       expect(arched.rootNode.shape).toEqual({ type: 'arch-top', archHeight: 520 });
     }
+  });
+
+  it('contains the 1400x1400 fixed-left open-right reference template', () => {
+    const reference = systemTemplates.find(
+      (template) => template.id === 'tpl-reference-1400-fixed-left-open-right',
+    );
+
+    expect(reference?.defaultWidth).toBe(1400);
+    expect(reference?.defaultHeight).toBe(1400);
+    expect(collectPanels(reference!.rootNode).map((panel) => panel.openingType)).toEqual([
+      'fixed',
+      'open-right',
+    ]);
   });
 });
 
