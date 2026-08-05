@@ -48,6 +48,96 @@ import {
 
 const newProfileSystemId = () => `profile-system-${Date.now()}`;
 
+const profileExamples: { label: string; values: ProductionProfileFormValues }[] = [
+  {
+    label: 'Ekonomik 60',
+    values: {
+      ...emptyProductionProfileFormValues,
+      displayName: 'Ekonomik 60 mm Ornek',
+      brand: 'ORNEK',
+      seriesName: 'Ekonomik 60',
+      version: '1.0.0',
+      frameProfileCode: 'KASA-60',
+      sashProfileCode: 'KANAT-60',
+      mullionProfileCode: 'T-KAYIT-70',
+      transomProfileCode: 'Y-KAYIT-70',
+      glazingBeadProfileCode: 'CITA-24',
+      gasketCode: 'CONTA-60',
+      hardwareSetCode: 'AKSAM-STANDART',
+      stockLengthMm: '6000',
+      horizontalCutAngleDeg: '45',
+      verticalCutAngleDeg: '45',
+      sawKerfMm: '3',
+      startTrimMm: '20',
+      endTrimMm: '20',
+      fixedGlassDeductionLeftMm: '34',
+      fixedGlassDeductionRightMm: '34',
+      fixedGlassDeductionTopMm: '34',
+      fixedGlassDeductionBottomMm: '34',
+      source: 'Ornek teknik veri',
+      note: 'Kaydetmeden once kendi profil katalogunuzla dogrulayin.',
+    },
+  },
+  {
+    label: 'Standart 70',
+    values: {
+      ...emptyProductionProfileFormValues,
+      displayName: 'Standart 70 mm Ornek',
+      brand: 'ORNEK',
+      seriesName: 'Standart 70',
+      version: '1.0.0',
+      frameProfileCode: 'KASA-70',
+      sashProfileCode: 'KANAT-70',
+      mullionProfileCode: 'T-KAYIT-82',
+      transomProfileCode: 'Y-KAYIT-82',
+      glazingBeadProfileCode: 'CITA-24',
+      gasketCode: 'CONTA-70',
+      hardwareSetCode: 'AKSAM-STANDART',
+      stockLengthMm: '6000',
+      horizontalCutAngleDeg: '45',
+      verticalCutAngleDeg: '45',
+      sawKerfMm: '3',
+      startTrimMm: '20',
+      endTrimMm: '20',
+      fixedGlassDeductionLeftMm: '38',
+      fixedGlassDeductionRightMm: '38',
+      fixedGlassDeductionTopMm: '38',
+      fixedGlassDeductionBottomMm: '38',
+      source: 'Ornek teknik veri',
+      note: 'Kaydetmeden once kendi profil katalogunuzla dogrulayin.',
+    },
+  },
+  {
+    label: 'Premium 82',
+    values: {
+      ...emptyProductionProfileFormValues,
+      displayName: 'Premium 82 mm Ornek',
+      brand: 'ORNEK',
+      seriesName: 'Premium 82',
+      version: '1.0.0',
+      frameProfileCode: 'KASA-82',
+      sashProfileCode: 'KANAT-82',
+      mullionProfileCode: 'T-KAYIT-92',
+      transomProfileCode: 'Y-KAYIT-92',
+      glazingBeadProfileCode: 'CITA-32',
+      gasketCode: 'CONTA-82',
+      hardwareSetCode: 'AKSAM-PREMIUM',
+      stockLengthMm: '6000',
+      horizontalCutAngleDeg: '45',
+      verticalCutAngleDeg: '45',
+      sawKerfMm: '3',
+      startTrimMm: '20',
+      endTrimMm: '20',
+      fixedGlassDeductionLeftMm: '42',
+      fixedGlassDeductionRightMm: '42',
+      fixedGlassDeductionTopMm: '42',
+      fixedGlassDeductionBottomMm: '42',
+      source: 'Ornek teknik veri',
+      note: 'Kaydetmeden once kendi profil katalogunuzla dogrulayin.',
+    },
+  },
+];
+
 export function ProductionProfileSettingsScreen() {
   const [profiles, setProfiles] = useState<ProductionProfileSystem[]>([]);
   const [selectedProfile, setSelectedProfile] = useState<ProductionProfileSystem | null>(null);
@@ -117,6 +207,17 @@ export function ProductionProfileSettingsScreen() {
     setValues(emptyProductionProfileFormValues);
     setCalculationResult(null);
     setMessage(null);
+    setError(null);
+  }
+
+  function applyProfileExample(exampleValues: ProductionProfileFormValues) {
+    setSelectedProfile(null);
+    setValues({
+      ...exampleValues,
+      markVerified: false,
+    });
+    setCalculationResult(null);
+    setMessage('Ornek profil forma dolduruldu. Kendi profil katalogunuza gore kontrol edip Kaydet deyin.');
     setError(null);
   }
 
@@ -285,6 +386,7 @@ export function ProductionProfileSettingsScreen() {
         <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
           <ProfileList profiles={profiles} selectedId={selectedProfile?.id ?? null} onSelect={selectProfile} />
           <AppButton label="+ Yeni Profil Sistemi" variant="secondary" onPress={startNewProfile} />
+          <ProfileExamples onSelect={applyProfileExample} />
 
           <StatusCard completion={completion} isVerified={isVerified} archived={selectedProfile?.status === 'ARCHIVED'} />
 
@@ -571,6 +673,30 @@ function ProfileList({
           </View>
         </AppCard>
       ))}
+    </View>
+  );
+}
+
+function ProfileExamples({ onSelect }: { onSelect: (values: ProductionProfileFormValues) => void }) {
+  return (
+    <View style={styles.examplesCard}>
+      <Text style={styles.sectionTitle}>Hazir profil ornekleri</Text>
+      <Text style={styles.caption}>
+        Bunlar baslangic icindir. Kendi profil katalogunuzdaki olculerle kontrol edip kaydedin.
+      </Text>
+      <View style={styles.exampleGrid}>
+        {profileExamples.map((example) => (
+          <Pressable
+            key={example.label}
+            accessibilityRole="button"
+            onPress={() => onSelect(example.values)}
+            style={({ pressed }) => [styles.exampleButton, pressed ? styles.pressed : null]}
+          >
+            <Ionicons name="copy-outline" size={18} color={colors.primary} />
+            <Text style={styles.exampleText}>{example.label}</Text>
+          </Pressable>
+        ))}
+      </View>
     </View>
   );
 }
@@ -878,6 +1004,36 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontWeight: '800',
   },
+  examplesCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    gap: spacing.sm,
+    padding: spacing.md,
+  },
+  exampleGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  exampleButton: {
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: spacing.xs,
+    minHeight: 40,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  exampleText: {
+    ...typography.caption,
+    color: colors.primary,
+    fontWeight: '800',
+  },
   selectedCard: {
     borderColor: colors.primary,
   },
@@ -1026,6 +1182,9 @@ const styles = StyleSheet.create({
   },
   modeCaptionSelected: {
     color: colors.surface,
+  },
+  pressed: {
+    opacity: 0.86,
   },
   accordionHeader: {
     alignItems: 'center',

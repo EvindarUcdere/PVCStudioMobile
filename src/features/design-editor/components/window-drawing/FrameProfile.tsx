@@ -1,4 +1,4 @@
-import { G, Line, Polygon, Rect } from 'react-native-svg';
+import { G, Polygon, Rect } from 'react-native-svg';
 
 import { ReferenceWindowGeometry, mmToPx, toPx } from './profileGeometry';
 
@@ -11,7 +11,6 @@ export function FrameProfile({ geometry, color }: FrameProfileProps) {
   const outer = toPx(geometry.frameOuter, geometry);
   const inner = toPx(geometry.frameInner, geometry);
   const chamberInset = mmToPx(18, geometry);
-  const reinforcementWidth = mmToPx(18, geometry);
   const stroke = '#4d5753';
   const light = '#f8fbf9';
   const mid = color;
@@ -61,23 +60,6 @@ export function FrameProfile({ geometry, color }: FrameProfileProps) {
         stroke="#9aa5a1"
         strokeWidth={0.8}
       />
-      <Line
-        x1={outer.x + outer.width / 2 - reinforcementWidth}
-        y1={outer.y + chamberInset}
-        x2={outer.x + outer.width / 2 + reinforcementWidth}
-        y2={outer.y + chamberInset}
-        stroke="#b34032"
-        strokeWidth={2}
-      />
-      <Line
-        x1={outer.x + outer.width / 2 - reinforcementWidth}
-        y1={outer.y + outer.height - chamberInset}
-        x2={outer.x + outer.width / 2 + reinforcementWidth}
-        y2={outer.y + outer.height - chamberInset}
-        stroke="#b34032"
-        strokeWidth={2}
-      />
     </G>
   );
 }
-

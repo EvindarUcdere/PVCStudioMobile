@@ -32,6 +32,12 @@ export function DesignMaterialSummaryCard({ design }: DesignMaterialSummaryCardP
         </View>
       </View>
       {summary.archHeight ? <Info label="Kemer yuksekligi" value={`${summary.archHeight} mm`} /> : null}
+      {summary.rollerShutterHeight ? (
+        <Info
+          label="Panjur"
+          value={`${summary.rollerShutterHeight} mm, ${summary.rollerShutterAreaSquareMeters} m2`}
+        />
+      ) : null}
       <Info
         label="Kasa/kanat"
         value={`Kasa ${summary.frameWidth} mm, kanat ${summary.sashWidth} mm`}
@@ -45,7 +51,7 @@ export function DesignMaterialSummaryCard({ design }: DesignMaterialSummaryCardP
         {firstPanels.map((panel, index) => (
           <Info
             key={panel.panelId}
-            label={`Cam ${index + 1}`}
+            label={`${panel.infillLabel} ${index + 1}`}
             value={`${panel.glassWidth} x ${panel.glassHeight} mm`}
           />
         ))}

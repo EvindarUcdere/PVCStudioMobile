@@ -23,6 +23,28 @@ describe('calculateDesignStockNeeds', () => {
     expect(needs.find((need) => need.id === 'glass')?.status).toBe('missing');
     expect(needs.find((need) => need.id === 'glass')?.missingQuantity).toBeGreaterThan(0);
   });
+
+  it('calculates roller shutter stock need by square meter', () => {
+    const base = createEmptyDesignProject({ name: 'Panjurlu pencere', width: 1200, height: 1400 });
+    const design = {
+      ...base,
+      quantity: 2,
+      rootNode: {
+        ...base.rootNode,
+        rollerShutter: { enabled: true, height: 185 },
+      },
+    };
+    const stockItems: StockItem[] = [
+      createStockItem({ type: 'roller_shutter', quantity: 1, unit: 'square_meter' }),
+    ];
+
+    const needs = calculateDesignStockNeeds(design, stockItems);
+    const shutterNeed = needs.find((need) => need.id === 'roller-shutter');
+
+    expect(shutterNeed?.unit).toBe('square_meter');
+    expect(shutterNeed?.requiredQuantity).toBe(0.44);
+    expect(shutterNeed?.status).toBe('ok');
+  });
 });
 
 function createStockItem(input: Partial<StockItem>): StockItem {

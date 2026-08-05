@@ -2,6 +2,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -31,7 +32,7 @@ import {
   CashTransactionType,
   cashTransactionCategoryLabels,
 } from '../../../domain/finance/entities/CashTransaction';
-import { PaymentInstallment } from '../../../domain/payments/entities/PaymentPlan';
+import { PaymentInstallment, PaymentPlan } from '../../../domain/payments/entities/PaymentPlan';
 import { backupCashTransactionToCloud } from '../../../services/firebase/fullSyncService';
 import { logger } from '../../../services/logger';
 import { colors, radius, spacing, typography } from '../../../theme';
@@ -51,6 +52,18 @@ type FinanceForm = {
   customerId: string | null;
   designId: string | null;
   notes: string;
+};
+
+type PaymentTracker = {
+  plan: PaymentPlan;
+  installments: PaymentInstallment[];
+  paidAmount: number;
+  pendingAmount: number;
+  dueAmount: number;
+  paidInstallmentCount: number;
+  pendingInstallments: PaymentInstallment[];
+  dueInstallments: PaymentInstallment[];
+  nextInstallment: PaymentInstallment | null;
 };
 
 const defaultForm: FinanceForm = {
@@ -78,7 +91,7 @@ const expenseCategoryOptions: CashTransactionCategory[] = [
 
 export function FinanceScreen() {
   const [transactions, setTransactions] = useState<CashTransaction[]>([]);
-  const [dueInstallments, setDueInstallments] = useState<PaymentInstallment[]>([]);
+  const [paymentTrackers, setPaymentTrackers] = useState<PaymentTracker[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [designs, setDesigns] = useState<DesignProject[]>([]);
   const [form, setForm] = useState<FinanceForm>(defaultForm);
@@ -101,20 +114,23 @@ export function FinanceScreen() {
       const customerRepository = await createCustomerRepository();
       const designRepository = await createDesignRepository();
       const paymentRepository = await createPaymentRepository();
-      const [loadedTransactions, loadedCustomers, loadedDesigns, loadedDueInstallments] = await Promise.all([
+      const [loadedTransactions, loadedCustomers, loadedDesigns, loadedPaymentPlans] = await Promise.all([
         transactionRepository.list({ limit: 200 }),
         customerRepository.list({ limit: 100 }),
         designRepository.list({ limit: 100 }),
-        paymentRepository.listInstallments({
-          status: 'pending',
-          dueTo: getLocalDateString(),
-          limit: 50,
-        }),
+        paymentRepository.listPlans({ limit: 100 }),
       ]);
+      const trackerInstallments = await Promise.all(
+        loadedPaymentPlans.map(async (plan) => paymentRepository.listInstallmentsByPlan(plan.id)),
+      );
       setTransactions(loadedTransactions);
       setCustomers(loadedCustomers);
       setDesigns(loadedDesigns);
-      setDueInstallments(loadedDueInstallments);
+      setPaymentTrackers(
+        loadedPaymentPlans
+          .map((plan, index) => buildPaymentTracker(plan, trackerInstallments[index] ?? []))
+          .filter((tracker) => tracker.pendingAmount > 0 || tracker.paidAmount > 0),
+      );
     } catch (loadError) {
       logger.error('Finance screen load failed', loadError);
       setError('Gelir gider bilgileri yuklenemedi.');
@@ -185,7 +201,17 @@ export function FinanceScreen() {
   }
 
   async function markInstallmentPaid(installment: PaymentInstallment) {
+    await markInstallmentsPaid([installment]);
+  }
+
+  async function markInstallmentsPaid(installments: PaymentInstallment[]) {
     if (saveInFlightRef.current || isSaving) {
+      return;
+    }
+
+    const payableInstallments = installments.filter((installment) => installment.status === 'pending');
+    if (payableInstallments.length === 0) {
+      setError('Odenecek bekleyen taksit bulunamadi.');
       return;
     }
 
@@ -196,28 +222,45 @@ export function FinanceScreen() {
     try {
       const paymentRepository = await createPaymentRepository();
       const transactionRepository = await createCashTransactionRepository();
-      await paymentRepository.markInstallmentPaid(installment.id);
-      const savedTransaction = await transactionRepository.save({
-        id: `installment-payment-${installment.id}`,
-        type: 'income',
-        category: 'job_payment',
-        title: `${installment.customerName ?? 'Musteri'} taksit odemesi`,
-        amount: installment.amount,
-        transactionDate: getLocalDateString(),
-        customerId: null,
-        designId: installment.designId,
-        notes: `${installment.sequence}. taksit odendi.`,
-      });
-      void backupCashTransactionToCloud(savedTransaction);
-      setMessage('Taksit odendi olarak kaydedildi.');
+      for (const installment of payableInstallments) {
+        await paymentRepository.markInstallmentPaid(installment.id);
+        const savedTransaction = await transactionRepository.save({
+          id: `installment-payment-${installment.id}`,
+          type: 'income',
+          category: 'job_payment',
+          title: `${installment.customerName ?? 'Musteri'} taksit odemesi`,
+          amount: installment.amount,
+          transactionDate: getLocalDateString(),
+          customerId: null,
+          designId: installment.designId,
+          notes: `${installment.sequence}. taksit odendi.`,
+        });
+        void backupCashTransactionToCloud(savedTransaction);
+      }
+      const totalPaid = payableInstallments.reduce((sum, installment) => sum + installment.amount, 0);
+      setMessage(`${formatCurrency(totalPaid)} odeme kaydedildi.`);
       await loadFinance();
     } catch (payError) {
       logger.error('Installment paid failed', payError);
-      setError('Taksit odendi olarak isaretlenemedi.');
+      setError('Odeme kaydedilemedi.');
     } finally {
       saveInFlightRef.current = false;
       setIsSaving(false);
     }
+  }
+
+  function confirmBulkPayment(label: string, installments: PaymentInstallment[]) {
+    const payableInstallments = installments.filter((installment) => installment.status === 'pending');
+    if (payableInstallments.length === 0) {
+      setError('Odenecek bekleyen taksit bulunamadi.');
+      return;
+    }
+
+    const total = payableInstallments.reduce((sum, installment) => sum + installment.amount, 0);
+    Alert.alert('Odeme kaydi', `${label}: ${formatCurrency(total)} tahsil edildi olarak kaydedilsin mi?`, [
+      { text: 'Vazgec', style: 'cancel' },
+      { text: 'Kaydet', onPress: () => void markInstallmentsPaid(payableInstallments) },
+    ]);
   }
 
   async function postponeInstallment(installment: PaymentInstallment, days: number) {
@@ -276,45 +319,20 @@ export function FinanceScreen() {
                     odemeler icin eklenir.
                   </Text>
                 </AppCard>
-                {dueInstallments.length > 0 ? (
+                {paymentTrackers.length > 0 ? (
                   <AppCard style={styles.formCard}>
-                    <Text style={styles.sectionTitle}>Odeme hatirlatmasi</Text>
-                    <Text style={styles.caption}>Gunu gelen veya geciken taksitler var.</Text>
-                    {dueInstallments.map((installment) => (
-                      <View key={installment.id} style={styles.dueRow}>
-                        <View style={styles.dueInfo}>
-                          <Text style={styles.transactionTitle}>{installment.customerName ?? 'Musteri'}</Text>
-                          <Text style={styles.caption}>
-                            {installment.sequence}. taksit - {formatDate(installment.dueDate)}
-                          </Text>
-                        </View>
-                        <View style={styles.dueAction}>
-                          <Text style={styles.transactionAmount}>{formatCurrency(installment.amount)}</Text>
-                          <AppButton
-                            label="Odendi"
-                            variant="secondary"
-                            disabled={isSaving}
-                            onPress={() => void markInstallmentPaid(installment)}
-                            style={styles.paidButton}
-                          />
-                          <View style={styles.postponeActions}>
-                            <AppButton
-                              label="+3 gun"
-                              variant="ghost"
-                              disabled={isSaving}
-                              onPress={() => void postponeInstallment(installment, 3)}
-                              style={styles.postponeButton}
-                            />
-                            <AppButton
-                              label="+7 gun"
-                              variant="ghost"
-                              disabled={isSaving}
-                              onPress={() => void postponeInstallment(installment, 7)}
-                              style={styles.postponeButton}
-                            />
-                          </View>
-                        </View>
-                      </View>
+                    <Text style={styles.sectionTitle}>Odeme takip</Text>
+                    <Text style={styles.caption}>Pesinat, odenen taksitler, kalan borc ve yaklasan vadeler.</Text>
+                    {paymentTrackers.map((tracker) => (
+                      <PaymentTrackerCard
+                        key={tracker.plan.id}
+                        disabled={isSaving}
+                        tracker={tracker}
+                        onMarkPaid={markInstallmentPaid}
+                        onPostpone={postponeInstallment}
+                        onPayDue={() => confirmBulkPayment('Vadesi gelen taksitler', tracker.dueInstallments)}
+                        onPayAll={() => confirmBulkPayment('Kalan tum taksitler', tracker.pendingInstallments)}
+                      />
                     ))}
                   </AppCard>
                 ) : null}
@@ -454,6 +472,134 @@ function SummaryItem({
   );
 }
 
+function PaymentTrackerCard({
+  tracker,
+  disabled,
+  onMarkPaid,
+  onPostpone,
+  onPayDue,
+  onPayAll,
+}: {
+  tracker: PaymentTracker;
+  disabled: boolean;
+  onMarkPaid: (installment: PaymentInstallment) => Promise<void>;
+  onPostpone: (installment: PaymentInstallment, days: number) => Promise<void>;
+  onPayDue: () => void;
+  onPayAll: () => void;
+}) {
+  const visibleInstallments = [
+    ...tracker.installments.filter((installment) => installment.status === 'paid').slice(-2),
+    ...tracker.pendingInstallments.slice(0, 4),
+  ];
+
+  return (
+    <View style={styles.paymentPlanCard}>
+      <View style={styles.paymentHeader}>
+        <View style={styles.transactionTitleColumn}>
+          <Text style={styles.transactionTitle}>{tracker.plan.customerName ?? 'Musteri'}</Text>
+          <Text style={styles.caption}>{tracker.plan.installmentCount} taksitli odeme plani</Text>
+        </View>
+        <View style={styles.paymentStatusPill}>
+          <Text style={styles.paymentStatusText}>
+            {tracker.dueAmount > 0 ? `${formatCurrency(tracker.dueAmount)} vadesi geldi` : 'Guncel'}
+          </Text>
+        </View>
+      </View>
+      <View style={styles.paymentTotals}>
+        <PaymentTotalItem label="Toplam" value={tracker.plan.totalAmount} />
+        <PaymentTotalItem label="Odenen" value={tracker.paidAmount} tone="income" />
+        <PaymentTotalItem label="Kalan" value={tracker.pendingAmount} tone={tracker.pendingAmount > 0 ? 'expense' : 'income'} />
+      </View>
+      {tracker.nextInstallment ? (
+        <Text style={styles.caption}>
+          Siradaki: {tracker.nextInstallment.sequence}. taksit - {formatCurrency(tracker.nextInstallment.amount)} -{' '}
+          {formatDate(tracker.nextInstallment.dueDate)}
+        </Text>
+      ) : (
+        <Text style={styles.success}>Bu odeme plani tamamen kapanmis.</Text>
+      )}
+      {visibleInstallments.map((installment) => (
+        <View key={installment.id} style={styles.installmentTrackRow}>
+          <View style={styles.installmentTrackInfo}>
+            <Text style={styles.transactionTitle}>
+              {installment.sequence}. taksit - {formatCurrency(installment.amount)}
+            </Text>
+            <Text style={styles.caption}>
+              {formatDate(installment.dueDate)} | {installment.status === 'paid' ? `Odendi ${installment.paidAt ? formatDate(installment.paidAt.slice(0, 10)) : ''}` : dueLabel(installment.dueDate)}
+            </Text>
+          </View>
+          {installment.status === 'pending' ? (
+            <View style={styles.installmentActions}>
+              <AppButton
+                label="Ode"
+                variant="secondary"
+                disabled={disabled}
+                onPress={() => void onMarkPaid(installment)}
+                style={styles.paidButton}
+              />
+              <View style={styles.postponeActions}>
+                <AppButton
+                  label="+3"
+                  variant="ghost"
+                  disabled={disabled}
+                  onPress={() => void onPostpone(installment, 3)}
+                  style={styles.postponeButton}
+                />
+                <AppButton
+                  label="+7"
+                  variant="ghost"
+                  disabled={disabled}
+                  onPress={() => void onPostpone(installment, 7)}
+                  style={styles.postponeButton}
+                />
+              </View>
+            </View>
+          ) : (
+            <Text style={styles.success}>Odendi</Text>
+          )}
+        </View>
+      ))}
+      {tracker.pendingInstallments.length > 0 ? (
+        <View style={styles.bulkPaymentActions}>
+          <AppButton
+            label="Vadesi gelenleri ode"
+            variant="secondary"
+            disabled={disabled || tracker.dueInstallments.length === 0}
+            onPress={onPayDue}
+            style={styles.bulkButton}
+          />
+          <AppButton
+            label="Tum kalani ode"
+            variant="ghost"
+            disabled={disabled}
+            onPress={onPayAll}
+            style={styles.bulkButton}
+          />
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function PaymentTotalItem({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone?: 'income' | 'expense';
+}) {
+  return (
+    <View style={styles.paymentTotalItem}>
+      <Text style={styles.summaryLabel}>{label}</Text>
+      <Text style={[styles.summaryValue, tone === 'income' ? styles.incomeText : null, tone === 'expense' ? styles.expenseText : null]}>
+        {formatCurrency(value)}
+      </Text>
+    </View>
+  );
+}
+
 function TransactionCard({ transaction }: { transaction: CashTransaction }) {
   const isIncome = transaction.type === 'income';
   return (
@@ -545,6 +691,28 @@ function Selector({
   );
 }
 
+function buildPaymentTracker(plan: PaymentPlan, installments: PaymentInstallment[]): PaymentTracker {
+  const today = getLocalDateString();
+  const sortedInstallments = [...installments].sort((left, right) => left.sequence - right.sequence);
+  const paidInstallments = sortedInstallments.filter((installment) => installment.status === 'paid');
+  const pendingInstallments = sortedInstallments.filter((installment) => installment.status === 'pending');
+  const dueInstallments = pendingInstallments.filter((installment) => installment.dueDate <= today);
+  const paidInstallmentAmount = paidInstallments.reduce((sum, installment) => sum + installment.amount, 0);
+  const pendingAmount = pendingInstallments.reduce((sum, installment) => sum + installment.amount, 0);
+
+  return {
+    plan,
+    installments: sortedInstallments,
+    paidAmount: Math.min(plan.totalAmount, plan.paidNowAmount + paidInstallmentAmount),
+    pendingAmount,
+    dueAmount: dueInstallments.reduce((sum, installment) => sum + installment.amount, 0),
+    paidInstallmentCount: paidInstallments.length,
+    pendingInstallments,
+    dueInstallments,
+    nextInstallment: pendingInstallments[0] ?? null,
+  };
+}
+
 function summarize(transactions: CashTransaction[]): { income: number; expense: number; net: number } {
   const income = transactions
     .filter((item) => item.type === 'income')
@@ -601,6 +769,20 @@ function formatCurrency(value: number): string {
 
 function formatDate(value: string): string {
   return new Date(value).toLocaleDateString('tr-TR');
+}
+
+function dueLabel(dueDate: string): string {
+  const today = getLocalDateString();
+
+  if (dueDate < today) {
+    return 'Gecikti';
+  }
+
+  if (dueDate === today) {
+    return 'Bugun';
+  }
+
+  return 'Bekliyor';
 }
 
 function addDays(dateString: string, days: number): string {
@@ -766,6 +948,73 @@ const styles = StyleSheet.create({
     ...typography.body,
     fontWeight: '800',
     textAlign: 'right',
+  },
+  paymentPlanCard: {
+    backgroundColor: colors.background,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    gap: spacing.sm,
+    padding: spacing.sm,
+  },
+  paymentHeader: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: spacing.sm,
+    justifyContent: 'space-between',
+  },
+  paymentStatusPill: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    maxWidth: 130,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  paymentStatusText: {
+    ...typography.caption,
+    color: colors.primary,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  paymentTotals: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  paymentTotalItem: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    flex: 1,
+    padding: spacing.xs,
+  },
+  installmentTrackRow: {
+    alignItems: 'center',
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: spacing.sm,
+    padding: spacing.sm,
+  },
+  installmentTrackInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  installmentActions: {
+    alignItems: 'flex-end',
+    gap: spacing.xs,
+  },
+  bulkPaymentActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  bulkButton: {
+    flex: 1,
+    minHeight: 38,
+    paddingHorizontal: spacing.xs,
   },
   dueRow: {
     alignItems: 'center',

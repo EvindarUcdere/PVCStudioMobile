@@ -14,6 +14,7 @@ export type SavePaymentPlanInput = {
 export interface PaymentRepository {
   savePlan(input: SavePaymentPlanInput): Promise<PaymentPlan>;
   getPlanByQuoteId(quoteId: string): Promise<PaymentPlan | null>;
+  listPlans(options?: { limit?: number }): Promise<PaymentPlan[]>;
   listInstallments(options?: { status?: PaymentInstallment['status']; dueTo?: string; limit?: number }): Promise<PaymentInstallment[]>;
   listInstallmentsByPlan(planId: string): Promise<PaymentInstallment[]>;
   updateInstallmentDueDate(id: string, dueDate: string): Promise<PaymentInstallment>;

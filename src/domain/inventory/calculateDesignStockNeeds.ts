@@ -31,8 +31,7 @@ export function calculateDesignStockNeeds(
   const profileNeed = estimate.profileLengthMeters * quantity;
   const glassNeed = estimate.glassAreaSquareMeters * quantity;
   const hardwareNeed = estimate.summary.openingPanelCount * quantity;
-  const rollerShutterNeed =
-    design.rootNode.type === 'frame' && design.rootNode.rollerShutter?.enabled ? quantity : 0;
+  const rollerShutterNeed = estimate.summary.rollerShutterAreaSquareMeters * quantity;
   const insectScreenNeed =
     collectPanels(design.rootNode).filter((panel) => panel.insectScreen !== null).length * quantity;
 
@@ -67,10 +66,10 @@ export function calculateDesignStockNeeds(
     createNeed({
       id: 'roller-shutter',
       type: 'roller_shutter',
-      label: 'Panjur kutusu',
+      label: 'Panjur',
       requiredQuantity: rollerShutterNeed,
-      unit: 'piece',
-      detail: `${quantity} tasarim icin ust panjur alani`,
+      unit: 'square_meter',
+      detail: `${estimate.summary.rollerShutterHeight ?? 0} mm yukseklik x ${design.width} mm genislik`,
       stockItems,
     }),
     createNeed({

@@ -243,7 +243,10 @@ function calculateProfileLengthMeters(summary: DesignMaterialSummary): number {
 
 function calculateGlassAreaSquareMeters(summary: DesignMaterialSummary): number {
   return summary.panels.reduce(
-    (total, panel) => total + (panel.glassWidth * panel.glassHeight) / 1_000_000,
+    (total, panel) =>
+      panel.infillType === 'glass'
+        ? total + (panel.glassWidth * panel.glassHeight) / 1_000_000
+        : total,
     0,
   );
 }

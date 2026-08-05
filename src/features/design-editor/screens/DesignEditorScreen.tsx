@@ -33,6 +33,7 @@ import {
 } from '../../../domain/designs/colors/profileColorOptions';
 import { OpeningType } from '../../../domain/designs/enums/OpeningType';
 import { JobStatus } from '../../../domain/designs/enums/JobStatus';
+import { AddPanelInfillType } from '../../../domain/designs/utils/editDesignTree';
 import { calculateDesignMaterialSummary } from '../../../domain/designs/measurement/calculateDesignMaterialSummary';
 import {
   defaultPriceEstimateRates,
@@ -99,6 +100,7 @@ export function DesignEditorScreen() {
   const [jobs, setJobs] = useState<JobProject[]>([]);
   const [pricingRates, setPricingRates] = useState<PriceEstimateRates>(defaultPriceEstimateRates);
   const [addPanelSize, setAddPanelSize] = useState('');
+  const [addPanelInfillType, setAddPanelInfillType] = useState<AddPanelInfillType>('glass');
   const sidePanelRef = useRef<ScrollView>(null);
   const canAdjustArch = design?.rootNode.type === 'frame' && isArchTopFrame(design.rootNode);
   const parsedAddPanelSize = parseOptionalPositiveNumber(addPanelSize);
@@ -435,19 +437,36 @@ export function DesignEditorScreen() {
                 />
                 <Text style={styles.addSizeSuffix}>mm</Text>
               </View>
+              <Text style={styles.caption}>
+                Yeni alan dis olcuyu buyutmaz; mevcut toplam olcu icinde pay acilir.
+              </Text>
+              <View style={styles.row}>
+                <AppButton
+                  label="Cam"
+                  variant={addPanelInfillType === 'glass' ? 'primary' : 'secondary'}
+                  onPress={() => setAddPanelInfillType('glass')}
+                  style={styles.flexButton}
+                />
+                <AppButton
+                  label="PVC dolgu"
+                  variant={addPanelInfillType === 'pvc_panel' ? 'primary' : 'secondary'}
+                  onPress={() => setAddPanelInfillType('pvc_panel')}
+                  style={styles.flexButton}
+                />
+              </View>
               <View style={styles.row}>
                 <AppButton
                   label="Sola ekle"
                   variant="secondary"
                   disabled={!selectedNodeId}
-                  onPress={() => addPanelAtEdge('left', parsedAddPanelSize)}
+                  onPress={() => addPanelAtEdge('left', parsedAddPanelSize, addPanelInfillType)}
                   style={styles.flexButton}
                 />
                 <AppButton
                   label="Saga ekle"
                   variant="secondary"
                   disabled={!selectedNodeId}
-                  onPress={() => addPanelAtEdge('right', parsedAddPanelSize)}
+                  onPress={() => addPanelAtEdge('right', parsedAddPanelSize, addPanelInfillType)}
                   style={styles.flexButton}
                 />
               </View>
@@ -456,14 +475,14 @@ export function DesignEditorScreen() {
                   label="Uste ekle"
                   variant="secondary"
                   disabled={!selectedNodeId}
-                  onPress={() => addPanelAtEdge('top', parsedAddPanelSize)}
+                  onPress={() => addPanelAtEdge('top', parsedAddPanelSize, addPanelInfillType)}
                   style={styles.flexButton}
                 />
                 <AppButton
                   label="Alta ekle"
                   variant="secondary"
                   disabled={!selectedNodeId}
-                  onPress={() => addPanelAtEdge('bottom', parsedAddPanelSize)}
+                  onPress={() => addPanelAtEdge('bottom', parsedAddPanelSize, addPanelInfillType)}
                   style={styles.flexButton}
                 />
               </View>
@@ -564,6 +583,15 @@ function JobSelector({
   selectedJobId: string | null;
   onSelectJob: (jobId: string | null) => void;
 }) {
+  const [search, setSearch] = useState('');
+  const normalizedSearch = search.trim().toLocaleLowerCase('tr-TR');
+  const selectedJob = jobs.find((job) => job.id === selectedJobId) ?? null;
+  const filteredJobs = normalizedSearch
+    ? jobs
+        .filter((job) => job.name.toLocaleLowerCase('tr-TR').includes(normalizedSearch))
+        .slice(0, 5)
+    : [];
+
   if (jobs.length === 0) {
     return (
       <View style={styles.jobSelector}>
@@ -576,23 +604,44 @@ function JobSelector({
   return (
     <View style={styles.jobSelector}>
       <Text style={styles.toolTitle}>Bagli is</Text>
-      <View style={styles.optionGrid}>
-        <AppButton
-          label="Yok"
-          variant={selectedJobId === null ? 'primary' : 'secondary'}
-          onPress={() => onSelectJob(null)}
-          style={styles.optionButton}
-        />
-        {jobs.slice(0, 8).map((job) => (
-          <AppButton
-            key={job.id}
-            label={job.name}
-            variant={selectedJobId === job.id ? 'primary' : 'secondary'}
-            onPress={() => onSelectJob(job.id)}
-            style={styles.optionButton}
-          />
-        ))}
-      </View>
+      <TextInput
+        accessibilityLabel="Bagli is ara"
+        onChangeText={setSearch}
+        placeholder={selectedJob ? selectedJob.name : 'Is ara ve bagla'}
+        placeholderTextColor={colors.textSecondary}
+        style={styles.jobNameInput}
+        value={search}
+      />
+      {selectedJob ? (
+        <View style={styles.selectedJobRow}>
+          <Text numberOfLines={1} style={styles.selectedJobText}>
+            {selectedJob.name}
+          </Text>
+          <AppButton label="Kaldir" variant="ghost" onPress={() => onSelectJob(null)} />
+        </View>
+      ) : null}
+      {filteredJobs.length > 0 ? (
+        <View style={styles.searchResults}>
+          {filteredJobs.map((job) => (
+            <Pressable
+              accessibilityRole="button"
+              key={`job-search-${job.id}`}
+              onPress={() => {
+                onSelectJob(job.id);
+                setSearch('');
+              }}
+              style={styles.searchResult}
+            >
+              <Text numberOfLines={1} style={styles.searchResultText}>
+                {job.name}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+      {!normalizedSearch ? null : filteredJobs.length === 0 ? (
+        <Text style={styles.caption}>Eslesen is bulunamadi.</Text>
+      ) : null}
     </View>
   );
 }
@@ -963,5 +1012,40 @@ const styles = StyleSheet.create({
   },
   jobSelector: {
     gap: spacing.xs,
+  },
+  selectedJobRow: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: spacing.sm,
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  selectedJobText: {
+    ...typography.body,
+    color: colors.textPrimary,
+    flex: 1,
+    fontWeight: '700',
+  },
+  searchResults: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  searchResult: {
+    borderBottomColor: colors.border,
+    borderBottomWidth: 1,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  searchResultText: {
+    ...typography.body,
+    color: colors.textPrimary,
   },
 });

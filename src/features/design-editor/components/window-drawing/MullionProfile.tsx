@@ -10,7 +10,6 @@ type MullionProfileProps = {
 export function MullionProfile({ geometry, color }: MullionProfileProps) {
   const rect = toPx(geometry.mullion, geometry);
   const lip = mmToPx(15, geometry);
-  const centerX = rect.x + rect.width / 2;
 
   return (
     <G>
@@ -24,7 +23,6 @@ export function MullionProfile({ geometry, color }: MullionProfileProps) {
         stroke="#8d9894"
         strokeWidth={0.8}
       />
-      <Line x1={centerX} y1={rect.y + 5} x2={centerX} y2={rect.y + rect.height - 5} stroke="#b34032" strokeWidth={2} />
       <Line x1={rect.x + 4} y1={rect.y + 5} x2={rect.x + 4} y2={rect.y + rect.height - 5} stroke="#ffffff" strokeWidth={1} />
       <Line
         x1={rect.x + rect.width - 4}
@@ -37,4 +35,3 @@ export function MullionProfile({ geometry, color }: MullionProfileProps) {
     </G>
   );
 }
-

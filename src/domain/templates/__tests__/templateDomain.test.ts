@@ -8,9 +8,9 @@ import { templateCategories } from '../enums/TemplateCategory';
 import { systemTemplates } from '../../../database/seeds/systemTemplates';
 
 describe('system templates', () => {
-  it('contains exactly 32 active system templates with unique ids', () => {
-    expect(systemTemplates).toHaveLength(32);
-    expect(new Set(systemTemplates.map((template) => template.id)).size).toBe(32);
+  it('contains exactly 34 active system templates with unique ids', () => {
+    expect(systemTemplates).toHaveLength(34);
+    expect(new Set(systemTemplates.map((template) => template.id)).size).toBe(34);
     expect(
       systemTemplates.every((template) => template.source === 'system' && template.isActive),
     ).toBe(true);
@@ -80,6 +80,17 @@ describe('system templates', () => {
       'fixed',
       'open-right',
     ]);
+  });
+
+  it('contains PVC panel door templates for WC and storage doors', () => {
+    const wcDoor = systemTemplates.find((template) => template.id === 'tpl-wc-full-pvc-door');
+    const storageDoor = systemTemplates.find((template) => template.id === 'tpl-storage-half-pvc-door');
+
+    expect(wcDoor?.category).toBe('door');
+    expect(storageDoor?.category).toBe('door');
+    expect(collectPanels(wcDoor!.rootNode).every((panel) => panel.glass?.glassTypeId === 'pvc-panel')).toBe(true);
+    expect(collectPanels(storageDoor!.rootNode).some((panel) => panel.glass?.glassTypeId === 'pvc-panel')).toBe(true);
+    expect(collectPanels(storageDoor!.rootNode).some((panel) => panel.glass?.glassTypeId !== 'pvc-panel')).toBe(true);
   });
 });
 

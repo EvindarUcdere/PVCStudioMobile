@@ -100,7 +100,7 @@ class TemplateMemoryDatabase implements SqliteDatabaseLike {
 }
 
 describe('SqliteTemplateRepository', () => {
-  it('seeds 32 templates without duplicates and preserves favorites', async () => {
+  it('seeds 34 templates without duplicates and preserves favorites', async () => {
     const database = new TemplateMemoryDatabase();
     const repository = new SqliteTemplateRepository(database);
 
@@ -108,7 +108,7 @@ describe('SqliteTemplateRepository', () => {
     await repository.setFavorite('tpl-double-sash-window', true);
     await seedSystemTemplates(database);
 
-    expect(database.templates.size).toBe(32);
+    expect(database.templates.size).toBe(34);
     expect((await repository.getById('tpl-double-sash-window'))?.isFavorite).toBe(true);
   });
 
@@ -118,7 +118,7 @@ describe('SqliteTemplateRepository', () => {
     await seedSystemTemplates(database);
     await repository.setFavorite('tpl-single-balcony-door', true);
 
-    expect(await repository.list()).toHaveLength(32);
+    expect(await repository.list()).toHaveLength(34);
     expect(await repository.list({ category: 'balcony' })).toHaveLength(4);
     expect(await repository.list({ search: 'kapı' })).not.toHaveLength(0);
     expect(await repository.list({ favoritesOnly: true })).toHaveLength(1);

@@ -162,7 +162,7 @@ function buildProductionHtml(
           <td>${index + 1}</td>
           <td>${openingLabel(panel.openingType)}</td>
           <td>${panel.panelWidth} x ${panel.panelHeight}</td>
-          <td>${panel.glassWidth} x ${panel.glassHeight}</td>
+          <td>${panel.infillType === 'pvc_panel' ? `PVC dolgu ${panel.glassWidth} x ${panel.glassHeight}` : `${panel.glassWidth} x ${panel.glassHeight}`}</td>
           <td>${panel.estimatedCutWidth} x ${panel.estimatedCutHeight}</td>
           <td>${panel.usesSash ? 'Kanatli' : 'Sabit'}</td>
           <td>${panel.insectScreen ? insectScreenLabel(panel.insectScreen) : 'Yok'}</td>
@@ -198,7 +198,7 @@ function buildProductionHtml(
           <div class="kv"><span>Cam</span><strong>${escapeHtml(estimate.selectedGlassType.name)}</strong></div>
           <div class="kv"><span>Acilim</span><strong>${summary.openingPanelCount} acilir / ${summary.fixedPanelCount} sabit</strong></div>
           <div class="kv"><span>Sineklik</span><strong>${screenCount > 0 ? `${screenCount} panel` : 'Yok'}</strong></div>
-          <div class="kv"><span>Panjur</span><strong>${summary.rollerShutterHeight ? `${summary.rollerShutterHeight} mm` : 'Yok'}</strong></div>
+          <div class="kv"><span>Panjur</span><strong>${formatRollerShutter(summary)}</strong></div>
           <div class="kv"><span>Kemer</span><strong>${summary.archHeight ? `${summary.archHeight} mm` : 'Yok'}</strong></div>
         </div>
       </div>
@@ -217,7 +217,7 @@ function buildProductionHtml(
         ['Cam tipi', `${estimate.selectedGlassType.name} - ${estimate.selectedGlassType.formula}`],
         ['Kasa/kanat payi', `Kasa ${summary.frameWidth} mm, kanat ${summary.sashWidth} mm`],
         ['Kayit/cam payi', `Kayit ${summary.mullionWidth} mm, cam ${summary.glassRebate} mm`],
-        ['Panjur alani', summary.rollerShutterHeight ? `${summary.rollerShutterHeight} mm` : 'Yok'],
+        ['Panjur alani', formatRollerShutter(summary)],
         ['Kemer yuksekligi', summary.archHeight ? `${summary.archHeight} mm` : 'Yok'],
       ])}
       ${section('Profil ve Kasa Bilgisi', productionProfileRows(design, summary))}
@@ -270,7 +270,7 @@ function buildJobProductionHtml(
               <td>${panelIndex + 1}</td>
               <td>${openingLabel(panel.openingType)}</td>
               <td>${panel.panelWidth} x ${panel.panelHeight}</td>
-              <td>${panel.glassWidth} x ${panel.glassHeight}</td>
+              <td>${panel.infillType === 'pvc_panel' ? `PVC dolgu ${panel.glassWidth} x ${panel.glassHeight}` : `${panel.glassWidth} x ${panel.glassHeight}`}</td>
               <td>${panel.estimatedCutWidth} x ${panel.estimatedCutHeight}</td>
               <td>${panel.usesSash ? 'Kanatli' : 'Sabit'}</td>
               <td>${panel.insectScreen ? insectScreenLabel(panel.insectScreen) : 'Yok'}</td>
@@ -299,7 +299,7 @@ function buildJobProductionHtml(
               <div class="kv"><span>Cam</span><strong>${escapeHtml(estimate.selectedGlassType.name)} - ${escapeHtml(estimate.selectedGlassType.formula ?? '-')}</strong></div>
               <div class="kv"><span>Acilim</span><strong>${summary.openingPanelCount} acilir / ${summary.fixedPanelCount} sabit</strong></div>
               <div class="kv"><span>Sineklik</span><strong>${screenCount > 0 ? `${screenCount} panel` : 'Yok'}</strong></div>
-              <div class="kv"><span>Panjur</span><strong>${summary.rollerShutterHeight ? `${summary.rollerShutterHeight} mm` : 'Yok'}</strong></div>
+              <div class="kv"><span>Panjur</span><strong>${formatRollerShutter(summary)}</strong></div>
               <div class="kv"><span>Kemer</span><strong>${summary.archHeight ? `${summary.archHeight} mm` : 'Yok'}</strong></div>
             </div>
           </div>
@@ -484,9 +484,8 @@ function buildDesignSvg(design: DesignProject): string {
   const archHeight = isArch && rootFrame ? getArchHeight(rootFrame, design.height) * layout.scale : 0;
   const framePath = isArch ? buildArchFramePath(frame.x, frame.y, frame.width, frame.height, archHeight) : '';
   const frameStroke = 8;
-  const glassInset = 12;
-  const frameProfileThickness = Math.max(10, Math.min(24, summary.frameWidth * layout.scale * 0.82));
-  const splitProfileThickness = Math.max(9, Math.min(24, summary.mullionWidth * layout.scale * 0.86));
+  const frameProfileThickness = getSafePdfFrameThickness(summary.frameWidth, layout.scale, frame, 24);
+  const splitProfileThickness = getSafePdfSplitThickness(summary.mullionWidth, layout.scale, frame, 24);
   const panelNodes = new Map(collectPanels(design.rootNode).map((panel) => [panel.id, panel]));
   const panelMeasurements = new Map(summary.panels.map((panel) => [panel.panelId, panel]));
   const shutterHeight =
@@ -498,10 +497,11 @@ function buildDesignSvg(design: DesignProject): string {
     .map((panel, index) => {
       const drawablePanel = getDrawablePanelBoundsForPdf(panel, frame, frameProfileThickness, splitProfileThickness);
       const panelNode = panelNodes.get(panel.nodeId);
+      const isPvcPanel = panelNode?.glass?.glassTypeId === 'pvc-panel';
       const measurement = panelMeasurements.get(panel.nodeId);
       const hasSash = drawablePanel.openingType !== 'fixed';
-      const sashInset = Math.max(7, Math.min(17, Math.min(drawablePanel.width, drawablePanel.height) * 0.09));
-      const effectiveInset = hasSash ? sashInset + 6 : glassInset;
+      const panelInsets = getSafePdfPanelInsets(drawablePanel, hasSash);
+      const effectiveInset = panelInsets.glassInset;
       const x = round(drawablePanel.x + effectiveInset);
       const y = round(drawablePanel.y + effectiveInset);
       const width = round(Math.max(8, drawablePanel.width - effectiveInset * 2));
@@ -515,14 +515,18 @@ function buildDesignSvg(design: DesignProject): string {
         openingBounds.height,
       );
       const insectScreen = panelNode?.insectScreen ? buildInsectScreenSymbol(drawablePanel, effectiveInset) : '';
-      const glassLabel = measurement ? `${measurement.glassWidth} * ${measurement.glassHeight}` : '';
+      const glassLabel = measurement
+        ? isPvcPanel
+          ? `PVC ${measurement.glassWidth} * ${measurement.glassHeight}`
+          : `${measurement.glassWidth} * ${measurement.glassHeight}`
+        : '';
       const panelLabel = `${index + 1}`;
 
       return `
-        ${hasSash ? buildProfiledPanelSvg(drawablePanel.x + 4, drawablePanel.y + 4, drawablePanel.width - 8, drawablePanel.height - 8, sashInset, profileColor) : ''}
+        ${buildProfiledPanelSvg(drawablePanel.x + 4, drawablePanel.y + 4, drawablePanel.width - 8, drawablePanel.height - 8, panelInsets.profileInset, profileColor)}
         <rect x="${round(x - 3)}" y="${round(y - 3)}" width="${round(width + 6)}" height="${round(height + 6)}" fill="none" stroke="${mixHexForPdf('#17211e', profileColor, 0.18)}" stroke-width="1.4" />
-        <rect x="${x}" y="${y}" width="${width}" height="${height}" fill="url(#pdfGlassGradient)" stroke="#aebbb7" stroke-width="1.2" />
-        ${buildGlassUnitDetailSvg(x, y, width, height, profileColor)}
+        <rect x="${x}" y="${y}" width="${width}" height="${height}" fill="${isPvcPanel ? '#f3f5f1' : 'url(#pdfGlassGradient)'}" stroke="#aebbb7" stroke-width="1.2" />
+        ${isPvcPanel ? buildPvcPanelDetailSvg(x, y, width, height) : buildGlassUnitDetailSvg(x, y, width, height, profileColor)}
         ${insectScreen}
         ${opening}
         <circle cx="${round(x + width / 2)}" cy="${round(y + height / 2)}" r="2.5" fill="#16211d" />
@@ -596,8 +600,8 @@ function buildDesignPreviewSvg(design: DesignProject): string {
   const isArch = rootFrame ? isArchTopFrame(rootFrame) : false;
   const archHeight = isArch && rootFrame ? getArchHeight(rootFrame, design.height) * layout.scale : 0;
   const framePath = isArch ? buildArchFramePath(frame.x, frame.y, frame.width, frame.height, archHeight) : '';
-  const frameProfileThickness = Math.max(9, Math.min(22, summary.frameWidth * layout.scale * 0.82));
-  const splitProfileThickness = Math.max(8, Math.min(22, summary.mullionWidth * layout.scale * 0.86));
+  const frameProfileThickness = getSafePdfFrameThickness(summary.frameWidth, layout.scale, frame, 22);
+  const splitProfileThickness = getSafePdfSplitThickness(summary.mullionWidth, layout.scale, frame, 22);
   const panelNodes = new Map(collectPanels(design.rootNode).map((panel) => [panel.id, panel]));
   const shutterHeight =
     rootFrame?.rollerShutter?.enabled
@@ -608,11 +612,10 @@ function buildDesignPreviewSvg(design: DesignProject): string {
     .map((panel) => {
       const drawablePanel = getDrawablePanelBoundsForPdf(panel, frame, frameProfileThickness, splitProfileThickness);
       const panelNode = panelNodes.get(panel.nodeId);
+      const isPvcPanel = panelNode?.glass?.glassTypeId === 'pvc-panel';
       const hasSash = drawablePanel.openingType !== 'fixed';
-      const profileInset = Math.max(5, Math.min(13, Math.min(drawablePanel.width, drawablePanel.height) * 0.08));
-      const glassInset = hasSash
-        ? profileInset + Math.max(3, Math.min(7, Math.min(drawablePanel.width, drawablePanel.height) * 0.04))
-        : Math.max(7, Math.min(12, Math.min(drawablePanel.width, drawablePanel.height) * 0.06));
+      const panelInsets = getSafePdfPanelInsets(drawablePanel, hasSash);
+      const glassInset = panelInsets.glassInset;
       const glassX = round(drawablePanel.x + glassInset);
       const glassY = round(drawablePanel.y + glassInset);
       const glassWidth = round(Math.max(0, drawablePanel.width - glassInset * 2));
@@ -620,10 +623,10 @@ function buildDesignPreviewSvg(design: DesignProject): string {
       const openingBounds = getOpeningSymbolBoundsForPdf(drawablePanel);
 
       return `
-        ${hasSash ? buildProfiledPanelSvg(drawablePanel.x + 3, drawablePanel.y + 3, drawablePanel.width - 6, drawablePanel.height - 6, profileInset, profileColor) : ''}
+        ${buildProfiledPanelSvg(drawablePanel.x + 3, drawablePanel.y + 3, drawablePanel.width - 6, drawablePanel.height - 6, panelInsets.profileInset, profileColor)}
         <rect x="${round(glassX - 3)}" y="${round(glassY - 3)}" width="${round(glassWidth + 6)}" height="${round(glassHeight + 6)}" fill="none" stroke="${mixHexForPdf('#17211e', profileColor, 0.18)}" stroke-width="1.3" />
-        <rect x="${glassX}" y="${glassY}" width="${glassWidth}" height="${glassHeight}" fill="url(#pdfGlassGradient)" stroke="#aebbb7" stroke-width="1.2" />
-        ${buildGlassUnitDetailSvg(glassX, glassY, glassWidth, glassHeight, profileColor)}
+        <rect x="${glassX}" y="${glassY}" width="${glassWidth}" height="${glassHeight}" fill="${isPvcPanel ? '#f3f5f1' : 'url(#pdfGlassGradient)'}" stroke="#aebbb7" stroke-width="1.2" />
+        ${isPvcPanel ? buildPvcPanelDetailSvg(glassX, glassY, glassWidth, glassHeight) : buildGlassUnitDetailSvg(glassX, glassY, glassWidth, glassHeight, profileColor)}
         ${panelNode?.insectScreen ? buildInsectScreenSymbol(drawablePanel, glassInset) : ''}
         ${buildOpeningSymbol(drawablePanel.openingType, openingBounds.x, openingBounds.y, openingBounds.width, openingBounds.height)}
       `;
@@ -835,8 +838,7 @@ function buildReferenceMullionSvg(rect: RectMm, color: string): string {
   return `
     <rect x="${rect.x}" y="${rect.y}" width="${rect.width}" height="${rect.height}" fill="${color}" stroke="#4d5753" stroke-width="1.1" />
     <rect x="${rect.x + rect.width * 0.18}" y="${rect.y + 6}" width="${rect.width * 0.64}" height="${rect.height - 12}" fill="#eef3f0" stroke="#8d9894" stroke-width="0.8" />
-    <line x1="${rect.x + rect.width / 2}" y1="${rect.y + 5}" x2="${rect.x + rect.width / 2}" y2="${rect.y + rect.height - 5}" stroke="#b34032" stroke-width="2" />
-  `;
+    `;
 }
 
 function buildReferenceFixedGlassSvg(glass: RectMm): string {
@@ -922,6 +924,67 @@ function buildGlassUnitDetailSvg(
     <rect x="${round(x + edgeOffset)}" y="${round(y + edgeOffset)}" width="${round(Math.max(0, width - edgeOffset * 2))}" height="${round(Math.max(0, height - edgeOffset * 2))}" fill="none" stroke="${gasket}" stroke-opacity="0.45" stroke-width="0.8" />
     <line x1="${round(x + shineOffset)}" y1="${round(y + 4)}" x2="${round(x + width - 4)}" y2="${round(y + height - shineOffset)}" stroke="#ffffff" stroke-opacity="0.55" stroke-width="1.2" />
   `;
+}
+
+function buildPvcPanelDetailSvg(x: number, y: number, width: number, height: number): string {
+  return `
+    <line x1="${round(x + width * 0.12)}" y1="${round(y + height * 0.33)}" x2="${round(x + width * 0.88)}" y2="${round(y + height * 0.33)}" stroke="#c8d0cc" stroke-width="1.2" />
+    <line x1="${round(x + width * 0.12)}" y1="${round(y + height * 0.66)}" x2="${round(x + width * 0.88)}" y2="${round(y + height * 0.66)}" stroke="#c8d0cc" stroke-width="1.2" />
+    <rect x="${round(x + 4)}" y="${round(y + 4)}" width="${round(Math.max(0, width - 8))}" height="${round(Math.max(0, height - 8))}" fill="none" stroke="#d4dbd7" stroke-width="0.9" />
+  `;
+}
+
+function getSafePdfFrameThickness(
+  frameWidthMm: number,
+  scale: number,
+  frame: NodeBounds,
+  maxThickness: number,
+): number {
+  return Math.max(
+    5,
+    Math.min(
+      maxThickness,
+      frameWidthMm * scale * 0.82,
+      frame.width * 0.11,
+      frame.height * 0.11,
+    ),
+  );
+}
+
+function getSafePdfSplitThickness(
+  mullionWidthMm: number,
+  scale: number,
+  frame: NodeBounds,
+  maxThickness: number,
+): number {
+  return Math.max(
+    4,
+    Math.min(
+      maxThickness,
+      mullionWidthMm * scale * 0.86,
+      frame.width * 0.085,
+      frame.height * 0.085,
+    ),
+  );
+}
+
+function getSafePdfPanelInsets(
+  panel: PanelBounds,
+  hasSash: boolean,
+): { profileInset: number; glassInset: number } {
+  const shortestSide = Math.max(1, Math.min(panel.width, panel.height));
+  const maxGlassInset = Math.max(4, Math.min(18, panel.width * 0.27, panel.height * 0.27));
+  const wantedProfileInset = hasSash
+    ? Math.max(5, Math.min(17, shortestSide * 0.09))
+    : Math.max(4, Math.min(13, shortestSide * 0.07));
+  const profileInset = Math.max(3, Math.min(wantedProfileInset, maxGlassInset * 0.62));
+  const wantedBeadInset = Math.max(2, Math.min(8, shortestSide * 0.04));
+  const beadInset = Math.max(1.5, Math.min(wantedBeadInset, maxGlassInset - profileInset));
+
+  return {
+    profileInset,
+    glassInset: Math.min(maxGlassInset, profileInset + beadInset),
+  };
 }
 
 function getDrawablePanelBoundsForPdf(
@@ -1052,29 +1115,6 @@ function buildBeveledFrameSvg(
     <polygon points="${left},${top} ${innerLeft},${innerTop} ${innerLeft},${innerBottom} ${left},${bottom}" fill="${mid}" stroke="${stroke}" stroke-width="1.2" />
     <rect x="${innerLeft}" y="${innerTop}" width="${round(Math.max(0, innerRight - innerLeft))}" height="${round(Math.max(0, innerBottom - innerTop))}" fill="none" stroke="${light}" stroke-width="1.1" />
     <rect x="${round(innerLeft + inset * 0.22)}" y="${round(innerTop + inset * 0.22)}" width="${round(Math.max(0, innerRight - innerLeft - inset * 0.44))}" height="${round(Math.max(0, innerBottom - innerTop - inset * 0.44))}" fill="none" stroke="${mixHexForPdf(stroke, '#ffffff', 0.18)}" stroke-opacity="0.7" stroke-width="0.8" />
-    ${buildFrameReinforcementMarkersSvg(x, y, width, height, inset)}
-  `;
-}
-
-function buildFrameReinforcementMarkersSvg(
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  inset: number,
-): string {
-  const markerLength = Math.max(12, Math.min(34, Math.min(width, height) * 0.16));
-  const markerWidth = Math.max(2, Math.min(4, inset * 0.22));
-  const cx = x + width / 2;
-  const cy = y + height / 2;
-
-  return `
-    <g opacity="0.72">
-      <rect x="${round(cx - markerLength / 2)}" y="${round(y + inset * 0.38)}" width="${round(markerLength)}" height="${round(markerWidth)}" fill="#b34032" />
-      <rect x="${round(cx - markerLength / 2)}" y="${round(y + height - inset * 0.38 - markerWidth)}" width="${round(markerLength)}" height="${round(markerWidth)}" fill="#b34032" />
-      <rect x="${round(x + inset * 0.38)}" y="${round(cy - markerLength / 2)}" width="${round(markerWidth)}" height="${round(markerLength)}" fill="#b34032" />
-      <rect x="${round(x + width - inset * 0.38 - markerWidth)}" y="${round(cy - markerLength / 2)}" width="${round(markerWidth)}" height="${round(markerLength)}" fill="#b34032" />
-    </g>
   `;
 }
 
@@ -1225,6 +1265,14 @@ function section(title: string, rows: [string, string][]): string {
 }
 
 type PdfMaterialSummary = ReturnType<typeof calculateDesignMaterialSummary>;
+
+function formatRollerShutter(summary: PdfMaterialSummary): string {
+  if (!summary.rollerShutterHeight) {
+    return 'Yok';
+  }
+
+  return `${summary.rollerShutterHeight} mm, ${summary.rollerShutterAreaSquareMeters} m2`;
+}
 
 function productionProfileRows(
   design: DesignProject,

@@ -1,13 +1,45 @@
 import { DesignNode } from '../../domain/designs/entities/DesignNode';
 import { FrameShape } from '../../domain/designs/entities/FrameNode';
+import { GlassSelection } from '../../domain/designs/entities/GlassSelection';
 import { OpeningType } from '../../domain/designs/enums/OpeningType';
 import { DesignTemplate } from '../../domain/templates/entities/DesignTemplate';
 import { TemplateCategory } from '../../domain/templates/enums/TemplateCategory';
 
 const seedDate = '2026-01-01T00:00:00.000Z';
 
-function panel(id: string, openingType: OpeningType): DesignNode {
-  return { id, type: 'panel', openingType, insectScreen: null, glass: null, accessories: [], notes: null };
+const pvcPanelGlass: GlassSelection = {
+  glassTypeId: 'pvc-panel',
+  formula: 'PVC dolgu',
+  thickness: null,
+  color: 'white',
+  pattern: 'solid',
+  lowE: false,
+  tempered: false,
+  laminated: false,
+  decorativeBar: null,
+};
+
+function panel(
+  id: string,
+  openingType: OpeningType,
+  options: { glass?: GlassSelection | null; notes?: string | null } = {},
+): DesignNode {
+  return {
+    id,
+    type: 'panel',
+    openingType,
+    insectScreen: null,
+    glass: options.glass ?? null,
+    accessories: [],
+    notes: options.notes ?? null,
+  };
+}
+
+function pvcPanel(id: string, openingType: OpeningType): DesignNode {
+  return panel(id, openingType, {
+    glass: pvcPanelGlass,
+    notes: 'PVC dolgu panel',
+  });
 }
 
 function split(
@@ -492,5 +524,31 @@ export const systemTemplates: DesignTemplate[] = [
     height: 1400,
     sortOrder: 122,
     child: verticalPanels('tpl-reference-1400-fixed-left-open-right', ['fixed', 'open-right']),
+  }),
+  template({
+    id: 'tpl-wc-full-pvc-door',
+    name: 'WC Kapisi Tam Plastik',
+    description: 'Tamami PVC dolgu panel olan ic mekan kapisi.',
+    category: 'door',
+    width: 800,
+    height: 2100,
+    sortOrder: 123,
+    child: pvcPanel('tpl-wc-full-pvc-door-panel-1', 'door-right'),
+  }),
+  template({
+    id: 'tpl-storage-half-pvc-door',
+    name: 'Kiler Kapisi Ust Cam Alt Plastik',
+    description: 'Ust bolumu cam, alt bolumu PVC dolgu panel olan ic mekan kapisi.',
+    category: 'door',
+    width: 800,
+    height: 2100,
+    sortOrder: 124,
+    child: split(
+      'tpl-storage-half-pvc-door-split-1',
+      'horizontal',
+      0.45,
+      panel('tpl-storage-half-pvc-door-panel-1', 'fixed'),
+      pvcPanel('tpl-storage-half-pvc-door-panel-2', 'door-right'),
+    ),
   }),
 ];

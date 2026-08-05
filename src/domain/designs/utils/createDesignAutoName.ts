@@ -15,7 +15,8 @@ export function withAutoDesignName(project: DesignProject): DesignProject {
 }
 
 export function createDesignAutoName(project: DesignProject): string {
-  const panels = collectPanelsInVisualOrder(project.rootNode);
+  const rootNode = project.rootNode.type === 'frame' ? project.rootNode.child : project.rootNode;
+  const panels = collectPanelsInVisualOrder(rootNode);
   const panelCount = panels.length;
 
   if (panelCount <= 0) {
@@ -33,18 +34,8 @@ export function createDesignAutoName(project: DesignProject): string {
     return `${prefix}Tek ${openingLabel(panels[0]!.openingType)}`;
   }
 
-  if (panelCount === 2) {
-    return `${prefix}${positionedLabel(panels[0]!.openingType, 'Sol')} ${positionedLabel(
-      panels[1]!.openingType,
-      'Sag',
-    )}`;
-  }
-
-  if (panelCount === 3) {
-    return `${prefix}${positionedLabel(panels[0]!.openingType, 'Sol')} ${positionedLabel(
-      panels[1]!.openingType,
-      'Orta',
-    )} ${positionedLabel(panels[2]!.openingType, 'Sag')}`;
+  if (panelCount <= 3) {
+    return `${prefix}${describeNodeByLayout(rootNode)}`;
   }
 
   const parts = [`${prefix}${panelCount} Gozlu`];
@@ -82,7 +73,70 @@ function collectPanelsInVisualOrder(node: DesignNode): PanelSummary[] {
   ];
 }
 
-function positionedLabel(openingType: OpeningType, position: 'Sol' | 'Orta' | 'Sag'): string {
+function describeNodeByLayout(node: DesignNode): string {
+  if (node.type === 'frame') {
+    return describeNodeByLayout(node.child);
+  }
+
+  if (node.type === 'panel') {
+    return openingLabel(node.openingType);
+  }
+
+  if (node.direction === 'vertical') {
+    const verticalPanels = collectPureVerticalPanels(node);
+
+    if (verticalPanels.length === 2) {
+      return `${positionedLabel(verticalPanels[0]!.openingType, 'Sol')} ${positionedLabel(
+        verticalPanels[1]!.openingType,
+        'Sag',
+      )}`;
+    }
+
+    if (verticalPanels.length === 3) {
+      return `${positionedLabel(verticalPanels[0]!.openingType, 'Sol')} ${positionedLabel(
+        verticalPanels[1]!.openingType,
+        'Orta',
+      )} ${positionedLabel(verticalPanels[2]!.openingType, 'Sag')}`;
+    }
+
+    return `${describeBranch(node.first, 'Sol')} ${describeBranch(node.second, 'Sag')}`;
+  }
+
+  return `${describeBranch(node.first, 'Ust')} ${describeBranch(node.second, 'Alt')}`;
+}
+
+function collectPureVerticalPanels(node: DesignNode): PanelSummary[] {
+  if (node.type === 'panel') {
+    return [{ openingType: node.openingType }];
+  }
+
+  if (node.type === 'frame') {
+    return collectPureVerticalPanels(node.child);
+  }
+
+  if (node.direction !== 'vertical') {
+    return [];
+  }
+
+  const first = collectPureVerticalPanels(node.first);
+  const second = collectPureVerticalPanels(node.second);
+
+  if (first.length === 0 || second.length === 0) {
+    return [];
+  }
+
+  return [...first, ...second];
+}
+
+function describeBranch(node: DesignNode, position: 'Sol' | 'Sag' | 'Ust' | 'Alt'): string {
+  if (node.type === 'panel') {
+    return positionedLabel(node.openingType, position);
+  }
+
+  return `${position} ${describeNodeByLayout(node)}`;
+}
+
+function positionedLabel(openingType: OpeningType, position: 'Sol' | 'Orta' | 'Sag' | 'Ust' | 'Alt'): string {
   return `${position} ${openingLabel(openingType)}`;
 }
 

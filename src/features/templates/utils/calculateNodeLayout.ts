@@ -1,4 +1,5 @@
 import { DesignNode } from '../../../domain/designs/entities/DesignNode';
+import { GlassSelection } from '../../../domain/designs/entities/GlassSelection';
 import { InsectScreenType } from '../../../domain/designs/entities/PanelNode';
 import { OpeningType } from '../../../domain/designs/enums/OpeningType';
 
@@ -13,6 +14,7 @@ export type PanelLayout = LayoutBounds & {
   id: string;
   openingType: OpeningType;
   insectScreen: InsectScreenType | null;
+  glass: GlassSelection | null;
 };
 
 export function calculateNodeLayout(rootNode: DesignNode, bounds: LayoutBounds): PanelLayout[] {
@@ -43,6 +45,7 @@ export function calculateNodeLayout(rootNode: DesignNode, bounds: LayoutBounds):
         id: node.id,
         openingType: node.openingType,
         insectScreen: node.insectScreen ?? null,
+        glass: node.glass ?? null,
       });
       return;
     }

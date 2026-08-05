@@ -125,6 +125,18 @@ export class SqlitePaymentRepository implements PaymentRepository {
     return row ? toPlan(row) : null;
   }
 
+  async listPlans(options: { limit?: number } = {}): Promise<PaymentPlan[]> {
+    const rows = await this.database.getAllAsync<PaymentPlanRow>(
+      `
+        SELECT * FROM payment_plans
+        ORDER BY updated_at DESC
+        LIMIT ?;
+      `,
+      [options.limit ?? 100],
+    );
+    return rows.map(toPlan);
+  }
+
   async listInstallments(options: { status?: PaymentInstallment['status']; dueTo?: string; limit?: number } = {}): Promise<PaymentInstallment[]> {
     const where: string[] = [];
     const params: unknown[] = [];

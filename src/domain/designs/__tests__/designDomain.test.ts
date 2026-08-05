@@ -195,6 +195,26 @@ describe('design tree editing', () => {
     expect(splitProject.name).toBe('Sol Sabit Sag Sabit');
   });
 
+  it('names horizontal layouts with top and bottom positions', () => {
+    const top = { ...createPanelNode(), openingType: 'tilt-bottom' as const };
+    const bottom = createPanelNode();
+    const project = {
+      ...createEmptyDesignProject({ name: 'Ust Vasistas Alt Sabit' }),
+      rootNode: {
+        id: 'auto-name-horizontal-frame',
+        type: 'frame' as const,
+        child: createSplitNode({
+          direction: 'horizontal',
+          ratio: 0.28,
+          first: top,
+          second: bottom,
+        }),
+      },
+    };
+
+    expect(createDesignAutoName(project)).toBe('Ust Vasistas Alt Sabit');
+  });
+
   it('splits a selected panel and keeps the tree valid', () => {
     const project = createEmptyDesignProject({ name: 'Editor' });
     const panel = collectPanels(project.rootNode)[0];
@@ -389,7 +409,7 @@ describe('design tree editing', () => {
     expect(collectPanels(nextRoot).some((panel) => panel.id === topLeft.id)).toBe(false);
   });
 
-  it('adds a new panel to the design right edge without shrinking the project width', () => {
+  it('adds a new panel to the design right edge without changing the outer width', () => {
     const project = createEmptyDesignProject({ name: 'Add right', width: 1000, height: 1200 });
     const panel = collectPanels(project.rootNode)[0];
 
@@ -397,15 +417,19 @@ describe('design tree editing', () => {
       throw new Error('Expected a panel');
     }
 
-    const nextProject = addPanelToDesignEdge(project, panel.id, 'right');
+    const nextProject = addPanelToDesignEdge(project, panel.id, 'right', 300);
 
-    expect(nextProject.width).toBe(2000);
+    expect(nextProject.width).toBe(1000);
     expect(nextProject.height).toBe(1200);
     expect(countPanels(nextProject.rootNode)).toBe(2);
     expect(validateDesignTree(nextProject.rootNode).isValid).toBe(true);
+    expect(nextProject.rootNode.type).toBe('frame');
+    if (nextProject.rootNode.type === 'frame' && nextProject.rootNode.child.type === 'split') {
+      expect(nextProject.rootNode.child.ratio).toBe(0.7);
+    }
   });
 
-  it('adds a new panel to the design bottom edge and grows height', () => {
+  it('adds a new panel to the design bottom edge without changing the outer height', () => {
     const project = createEmptyDesignProject({ name: 'Add bottom', width: 1000, height: 900 });
     const panel = collectPanels(project.rootNode)[0];
 
@@ -413,12 +437,27 @@ describe('design tree editing', () => {
       throw new Error('Expected a panel');
     }
 
-    const nextProject = addPanelToDesignEdge(project, panel.id, 'bottom');
+    const nextProject = addPanelToDesignEdge(project, panel.id, 'bottom', 250);
 
     expect(nextProject.width).toBe(1000);
-    expect(nextProject.height).toBe(1800);
+    expect(nextProject.height).toBe(900);
     expect(countPanels(nextProject.rootNode)).toBe(2);
     expect(validateDesignTree(nextProject.rootNode).isValid).toBe(true);
+  });
+
+  it('can add a PVC panel infill without changing outer dimensions', () => {
+    const project = createEmptyDesignProject({ name: 'Add pvc', width: 1000, height: 900 });
+    const panel = collectPanels(project.rootNode)[0];
+
+    if (!panel) {
+      throw new Error('Expected a panel');
+    }
+
+    const nextProject = addPanelToDesignEdge(project, panel.id, 'right', 300, 'pvc_panel');
+    const panels = collectPanels(nextProject.rootNode);
+
+    expect(nextProject.width).toBe(1000);
+    expect(panels.some((nextPanel) => nextPanel.glass?.glassTypeId === 'pvc-panel')).toBe(true);
   });
 
   it('adjusts arch height for arched frame designs', () => {

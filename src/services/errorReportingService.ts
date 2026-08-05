@@ -24,6 +24,10 @@ export function installRemoteErrorReporting(): void {
 }
 
 async function reportError(message: string, error?: unknown, context: ErrorLogContext = {}): Promise<void> {
+  if (isIgnorableRuntimeError(message, error)) {
+    return;
+  }
+
   if (isReporting) {
     return;
   }
@@ -93,6 +97,10 @@ function installGlobalErrorHandlers(): void {
 
   const previousHandler = errorUtils?.getGlobalHandler?.();
   errorUtils?.setGlobalHandler?.((error, isFatal) => {
+    if (isIgnorableRuntimeError('Unhandled JavaScript error', error)) {
+      return;
+    }
+
     void reportError('Unhandled JavaScript error', error, {
       action: 'unhandled_exception',
       metadata: { isFatal: isFatal ?? false },
@@ -102,11 +110,21 @@ function installGlobalErrorHandlers(): void {
 
   const previousUnhandledRejection = globalScope.onunhandledrejection;
   globalScope.onunhandledrejection = (event) => {
+    if (isIgnorableRuntimeError('Unhandled promise rejection', event.reason)) {
+      return;
+    }
+
     void reportError('Unhandled promise rejection', event.reason, {
       action: 'unhandled_promise_rejection',
     });
     previousUnhandledRejection?.(event);
   };
+}
+
+function isIgnorableRuntimeError(message: string, error?: unknown): boolean {
+  const text = `${message} ${getErrorMessage(error) ?? ''} ${getErrorStack(error) ?? ''}`.toLocaleLowerCase('en-US');
+
+  return text.includes('unable to activate keep awake') || text.includes('expo-keep-awake');
 }
 
 function isDuplicateReport(key: string): boolean {

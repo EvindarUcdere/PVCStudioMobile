@@ -16,6 +16,7 @@ import {
   AddPanelSide,
   MergePanelSide,
   addPanelToDesignEdge,
+  AddPanelInfillType,
   adjustArchHeight,
   mergePanelWithAdjacent,
   removePanel,
@@ -322,7 +323,7 @@ export function useDesignEditor(designId: string | undefined) {
     });
   }, []);
 
-  const addPanelAtEdge = useCallback((side: AddPanelSide, sizeMm?: number) => {
+  const addPanelAtEdge = useCallback((side: AddPanelSide, sizeMm?: number, infillType: AddPanelInfillType = 'glass') => {
     setState((current) => {
       if (!current.design || !current.selection) {
         return current;
@@ -330,7 +331,7 @@ export function useDesignEditor(designId: string | undefined) {
 
       return buildValidEditorState(
         current,
-        addPanelToDesignEdge(current.design, current.selection.nodeId, side, sizeMm),
+        addPanelToDesignEdge(current.design, current.selection.nodeId, side, sizeMm, infillType),
       );
     });
   }, []);

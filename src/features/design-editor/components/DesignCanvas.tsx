@@ -23,6 +23,7 @@ import {
 import { DESIGN_FRAME_INSET, DESIGN_SPLIT_STROKE_WIDTH } from '../../../domain/designs/layout/layoutConstants';
 import { NodeBounds, PanelBounds, SplitBounds } from '../../../domain/designs/layout/layoutTypes';
 import { calculateDesignMaterialSummary } from '../../../domain/designs/measurement/calculateDesignMaterialSummary';
+import { collectPanels } from '../../../domain/designs/utils/findNodeById';
 import { getArchHeight, isArchTopFrame } from '../../../domain/designs/utils/frameShape';
 import { colors, radius, spacing, typography } from '../../../theme';
 import { OpeningSymbol } from './OpeningSymbol';
@@ -107,15 +108,35 @@ export const DesignCanvas = memo(function DesignCanvas({
     }
   }, [canvasSize.height, canvasSize.width, design.height, design.rootNode, design.width]);
   const frameNode = design.rootNode.type === 'frame' ? design.rootNode : null;
+  const panelNodeById = useMemo(
+    () => new Map(collectPanels(design.rootNode).map((panel) => [panel.id, panel])),
+    [design.rootNode],
+  );
   const frameIsArch = frameNode ? isArchTopFrame(frameNode) : false;
   const profileColor = getDesignProfileColor(design.profileSystem);
   const materialSummary = useMemo(() => calculateDesignMaterialSummary(design), [design]);
   const profilePalette = getProfilePalette(profileColor.hexValue);
   const profileThickness = layoutState.layout
-    ? Math.max(10, Math.min(22, materialSummary.frameWidth * layoutState.layout.scale * 0.82))
+    ? Math.max(
+        5,
+        Math.min(
+          22,
+          materialSummary.frameWidth * layoutState.layout.scale * 0.82,
+          layoutState.layout.frameBounds.width * 0.11,
+          layoutState.layout.frameBounds.height * 0.11,
+        ),
+      )
     : DESIGN_FRAME_INSET;
   const splitThickness = layoutState.layout
-    ? Math.max(9, Math.min(24, materialSummary.mullionWidth * layoutState.layout.scale * 0.86))
+    ? Math.max(
+        4,
+        Math.min(
+          24,
+          materialSummary.mullionWidth * layoutState.layout.scale * 0.86,
+          layoutState.layout.frameBounds.width * 0.085,
+          layoutState.layout.frameBounds.height * 0.085,
+        ),
+      )
     : DESIGN_SPLIT_STROKE_WIDTH;
   const archHeight = frameIsArch
     ? getArchHeight(frameNode!, design.height) * (layoutState.layout?.scale ?? 1)
@@ -352,6 +373,11 @@ export const DesignCanvas = memo(function DesignCanvas({
                 index={index}
                 selected={panel.nodeId === selectedNodeId}
                 profilePalette={profilePalette}
+                infillType={
+                  panelNodeById.get(panel.nodeId)?.glass?.glassTypeId === 'pvc-panel'
+                    ? 'pvc_panel'
+                    : 'glass'
+                }
               />
             </G>
           ))}
@@ -436,16 +462,20 @@ function DesignPanel({
   index,
   selected,
   profilePalette,
+  infillType,
 }: {
   panel: PanelBounds;
   index: number;
   selected: boolean;
   profilePalette: ProfilePalette;
+  infillType: 'glass' | 'pvc_panel';
 }) {
   const hasSash = panel.openingType !== 'fixed';
-  const sashInset = Math.max(7, Math.min(17, Math.min(panel.width, panel.height) * 0.09));
-  const beadInset = Math.max(5, Math.min(9, Math.min(panel.width, panel.height) * 0.045));
-  const glassInset = hasSash ? sashInset + beadInset : beadInset + 4;
+  const isPvcPanel = infillType === 'pvc_panel';
+  const panelInsets = getPanelDrawingInsets(panel, hasSash);
+  const sashInset = panelInsets.profileInset;
+  const fixedProfileInset = panelInsets.profileInset;
+  const glassInset = panelInsets.glassInset;
   const glassX = panel.x + glassInset;
   const glassY = panel.y + glassInset;
   const glassWidth = Math.max(0, panel.width - glassInset * 2);
@@ -463,7 +493,17 @@ function DesignPanel({
           profilePalette={profilePalette}
           selected={selected}
         />
-      ) : null}
+      ) : (
+        <FixedGlassFrame
+          x={panel.x + 3}
+          y={panel.y + 3}
+          width={Math.max(0, panel.width - 6)}
+          height={Math.max(0, panel.height - 6)}
+          inset={fixedProfileInset}
+          profilePalette={profilePalette}
+          selected={selected}
+        />
+      )}
       <Rect
         x={glassX - 3}
         y={glassY - 3}
@@ -478,17 +518,21 @@ function DesignPanel({
         y={glassY}
         width={glassWidth}
         height={glassHeight}
-        fill="url(#glassGradient)"
+        fill={isPvcPanel ? '#F3F5F1' : 'url(#glassGradient)'}
         stroke="#AEBBB7"
         strokeWidth={1.2}
       />
-      <GlassUnitDetail
-        x={glassX}
-        y={glassY}
-        width={glassWidth}
-        height={glassHeight}
-        profilePalette={profilePalette}
-      />
+      {isPvcPanel ? (
+        <PvcPanelDetail x={glassX} y={glassY} width={glassWidth} height={glassHeight} />
+      ) : (
+        <GlassUnitDetail
+          x={glassX}
+          y={glassY}
+          width={glassWidth}
+          height={glassHeight}
+          profilePalette={profilePalette}
+        />
+      )}
       {panel.insectScreen ? <InsectScreenOverlay panel={panel} inset={glassInset} /> : null}
       {selected ? (
         <>
@@ -570,9 +614,9 @@ function RollerShutterBox({
         stroke="#6F7B78"
         strokeWidth={1.5}
       />
-      {lines.map((lineY) => (
+      {lines.map((lineY, index) => (
         <Line
-          key={`shutter-${lineY}`}
+          key={`shutter-${index}`}
           x1={x + 12}
           y1={lineY}
           x2={x + width - 12}
@@ -652,6 +696,116 @@ function BeveledRect({
         width={Math.max(0, innerRight - innerLeft - inset * 0.36)}
         height={Math.max(0, innerBottom - innerTop - inset * 0.36)}
         profilePalette={profilePalette}
+      />
+    </G>
+  );
+}
+
+function getPanelDrawingInsets(panel: PanelBounds, hasSash: boolean): { profileInset: number; glassInset: number } {
+  const shortestSide = Math.max(1, Math.min(panel.width, panel.height));
+  const maxGlassInset = Math.max(4, Math.min(18, panel.width * 0.27, panel.height * 0.27));
+  const wantedProfileInset = hasSash
+    ? Math.max(5, Math.min(17, shortestSide * 0.09))
+    : Math.max(4, Math.min(13, shortestSide * 0.07));
+  const profileInset = Math.max(3, Math.min(wantedProfileInset, maxGlassInset * 0.62));
+  const wantedBeadInset = Math.max(2, Math.min(8, shortestSide * 0.04));
+  const beadInset = Math.max(1.5, Math.min(wantedBeadInset, maxGlassInset - profileInset));
+
+  return {
+    profileInset,
+    glassInset: Math.min(maxGlassInset, profileInset + beadInset),
+  };
+}
+
+function FixedGlassFrame({
+  x,
+  y,
+  width,
+  height,
+  inset,
+  profilePalette,
+  selected,
+}: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  inset: number;
+  profilePalette: ProfilePalette;
+  selected: boolean;
+}) {
+  if (width <= 0 || height <= 0) {
+    return null;
+  }
+
+  return (
+    <G>
+      <Rect
+        x={x}
+        y={y}
+        width={width}
+        height={height}
+        fill={profilePalette.mid}
+        stroke={selected ? colors.primary : profilePalette.stroke}
+        strokeWidth={selected ? 2 : 1.1}
+      />
+      <Rect
+        x={x + inset}
+        y={y + inset}
+        width={Math.max(0, width - inset * 2)}
+        height={Math.max(0, height - inset * 2)}
+        fill={profilePalette.highlight}
+        stroke={profilePalette.innerLine}
+        strokeWidth={1}
+      />
+      <ProfileGrooveRect
+        x={x + inset * 0.45}
+        y={y + inset * 0.45}
+        width={Math.max(0, width - inset * 0.9)}
+        height={Math.max(0, height - inset * 0.9)}
+        profilePalette={profilePalette}
+      />
+    </G>
+  );
+}
+
+function PvcPanelDetail({
+  x,
+  y,
+  width,
+  height,
+}: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}) {
+  return (
+    <G>
+      <Line
+        x1={x + width * 0.12}
+        y1={y + height * 0.33}
+        x2={x + width * 0.88}
+        y2={y + height * 0.33}
+        stroke="#C8D0CC"
+        strokeWidth={1.2}
+      />
+      <Line
+        x1={x + width * 0.12}
+        y1={y + height * 0.66}
+        x2={x + width * 0.88}
+        y2={y + height * 0.66}
+        stroke="#C8D0CC"
+        strokeWidth={1.2}
+      />
+      <Rect
+        x={x + 4}
+        y={y + 4}
+        width={Math.max(0, width - 8)}
+        height={Math.max(0, height - 8)}
+        fill="none"
+        stroke="#D4DBD7"
+        strokeWidth={0.9}
       />
     </G>
   );
@@ -751,9 +905,9 @@ function InsectScreenOverlay({ panel, inset }: { panel: PanelBounds; inset: numb
         strokeDasharray="4 3"
         strokeWidth={1.4}
       />
-      {meshLines.map((lineX) => (
+      {meshLines.map((lineX, index) => (
         <Line
-          key={`screen-${panel.nodeId}-${lineX}`}
+          key={`screen-${panel.nodeId}-${index}`}
           x1={lineX}
           y1={y + 3}
           x2={lineX}
@@ -825,7 +979,6 @@ type ProfilePalette = {
   gasket: string;
   mid: string;
   profileLine: string;
-  reinforcement: string;
   shadow: string;
   stroke: string;
 };
@@ -841,7 +994,6 @@ function getProfilePalette(hexValue: string): ProfilePalette {
     gasket: mixHex('#17211E', hexValue, 0.18),
     mid: mixHex(inner, '#D9DEDC', 0.38),
     profileLine: mixHex(hexValue, '#24302C', 0.22),
-    reinforcement: '#B34032',
     shadow: mixHex(inner, '#7F8985', 0.28),
     stroke: mixHex(hexValue, '#17211E', 0.35),
   };
@@ -996,56 +1148,7 @@ function FrameProfileOverlay({
         height={Math.max(0, innerBottom - innerTop - inset * 0.44)}
         profilePalette={profilePalette}
       />
-      <FrameReinforcementMarkers frame={frame} inset={inset} profilePalette={profilePalette} />
     </>
-  );
-}
-
-function FrameReinforcementMarkers({
-  frame,
-  inset,
-  profilePalette,
-}: {
-  frame: NodeBounds;
-  inset: number;
-  profilePalette: ProfilePalette;
-}) {
-  const markerLength = Math.max(12, Math.min(34, Math.min(frame.width, frame.height) * 0.16));
-  const markerWidth = Math.max(2, Math.min(4, inset * 0.22));
-  const cx = frame.x + frame.width / 2;
-  const cy = frame.y + frame.height / 2;
-
-  return (
-    <G opacity={0.72}>
-      <Rect
-        x={cx - markerLength / 2}
-        y={frame.y + inset * 0.38}
-        width={markerLength}
-        height={markerWidth}
-        fill={profilePalette.reinforcement}
-      />
-      <Rect
-        x={cx - markerLength / 2}
-        y={frame.y + frame.height - inset * 0.38 - markerWidth}
-        width={markerLength}
-        height={markerWidth}
-        fill={profilePalette.reinforcement}
-      />
-      <Rect
-        x={frame.x + inset * 0.38}
-        y={cy - markerLength / 2}
-        width={markerWidth}
-        height={markerLength}
-        fill={profilePalette.reinforcement}
-      />
-      <Rect
-        x={frame.x + frame.width - inset * 0.38 - markerWidth}
-        y={cy - markerLength / 2}
-        width={markerWidth}
-        height={markerLength}
-        fill={profilePalette.reinforcement}
-      />
-    </G>
   );
 }
 

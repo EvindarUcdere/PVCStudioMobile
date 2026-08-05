@@ -14,7 +14,20 @@ import { getArchHeight, isArchTopFrame, withArchHeight } from './frameShape';
 import { getPanelRealDimensions } from './getPanelDimensions';
 
 export type AddPanelSide = 'left' | 'right' | 'top' | 'bottom';
+export type AddPanelInfillType = 'glass' | 'pvc_panel';
 export type MergePanelSide = 'left' | 'right' | 'top' | 'bottom';
+
+const pvcPanelGlass: GlassSelection = {
+  glassTypeId: 'pvc-panel',
+  formula: 'PVC dolgu',
+  thickness: null,
+  color: 'white',
+  pattern: 'solid',
+  lowE: false,
+  tempered: false,
+  laminated: false,
+  decorativeBar: null,
+};
 
 export function updatePanelOpening(
   rootNode: DesignNode,
@@ -47,7 +60,7 @@ export function toggleRollerShutter(project: DesignProject): DesignProject {
     ...project,
     rootNode: {
       ...project.rootNode,
-      rollerShutter: enabled ? null : { enabled: true, height: 250 },
+      rollerShutter: enabled ? null : { enabled: true, height: 185 },
     },
   };
 }
@@ -92,6 +105,7 @@ export function addPanelToDesignEdge(
   referencePanelId: string,
   side: AddPanelSide,
   sizeMm?: number,
+  infillType: AddPanelInfillType = 'glass',
 ): DesignProject {
   if (project.rootNode.type !== 'frame') {
     return project;
@@ -108,49 +122,53 @@ export function addPanelToDesignEdge(
     return project;
   }
 
-  const newPanel = createPanelNode();
+  const newPanel = createPanelNode({
+    glass: infillType === 'pvc_panel' ? pvcPanelGlass : null,
+  });
 
   if (side === 'left' || side === 'right') {
-    const addedWidth = normalizeAddedSize(sizeMm, dimensions.width);
-    const nextWidth = project.width + addedWidth;
-    const existingRatio = project.width / nextWidth;
+    const addedWidth = normalizeAddedSizeWithinBounds(sizeMm, dimensions.width, project.width);
+    const existingWidth = project.width - addedWidth;
     const child = createSplitNode({
       direction: 'vertical',
-      ratio: side === 'left' ? addedWidth / nextWidth : existingRatio,
+      ratio: side === 'left' ? addedWidth / project.width : existingWidth / project.width,
       first: side === 'left' ? newPanel : project.rootNode.child,
       second: side === 'left' ? project.rootNode.child : newPanel,
     });
 
     return {
       ...project,
-      width: Math.round(nextWidth),
       rootNode: { ...project.rootNode, child },
     };
   }
 
-  const addedHeight = normalizeAddedSize(sizeMm, dimensions.height);
-  const nextHeight = project.height + addedHeight;
-  const existingRatio = project.height / nextHeight;
+  const addedHeight = normalizeAddedSizeWithinBounds(sizeMm, dimensions.height, project.height);
+  const existingHeight = project.height - addedHeight;
   const child = createSplitNode({
     direction: 'horizontal',
-    ratio: side === 'top' ? addedHeight / nextHeight : existingRatio,
+    ratio: side === 'top' ? addedHeight / project.height : existingHeight / project.height,
     first: side === 'top' ? newPanel : project.rootNode.child,
     second: side === 'top' ? project.rootNode.child : newPanel,
   });
 
   return {
     ...project,
-    height: Math.round(nextHeight),
     rootNode: { ...project.rootNode, child },
   };
 }
 
-function normalizeAddedSize(sizeMm: number | undefined, fallback: number): number {
+function normalizeAddedSizeWithinBounds(
+  sizeMm: number | undefined,
+  fallback: number,
+  totalSize: number,
+): number {
+  const maxSize = Math.max(100, totalSize - 100);
+
   if (!Number.isFinite(sizeMm) || !sizeMm || sizeMm <= 0) {
-    return Math.round(fallback);
+    return Math.round(Math.min(Math.max(fallback, 100), Math.max(100, totalSize / 2)));
   }
 
-  return Math.round(Math.min(Math.max(sizeMm, 100), 4000));
+  return Math.round(Math.min(Math.max(sizeMm, 100), maxSize));
 }
 
 export function adjustArchHeight(project: DesignProject, delta: number): DesignProject {

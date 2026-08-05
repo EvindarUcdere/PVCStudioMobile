@@ -349,8 +349,20 @@ function PreviewPanel({
   panel: PanelLayout;
   profilePalette: ProfilePalette;
 }) {
-  const profileInset = Math.max(3, Math.min(8, Math.min(panel.width, panel.height) * 0.08));
-  const glassInset = profileInset + Math.max(2, Math.min(6, Math.min(panel.width, panel.height) * 0.04));
+  const profileInset = Math.max(3, Math.min(8, panel.width * 0.18, panel.height * 0.08));
+  const glassInset = Math.max(
+    4,
+    Math.min(
+      profileInset + Math.max(2, Math.min(6, Math.min(panel.width, panel.height) * 0.04)),
+      panel.width * 0.3,
+      panel.height * 0.3,
+    ),
+  );
+  const isPvcPanel = panel.glass?.glassTypeId === 'pvc-panel';
+  const fillX = panel.x + glassInset;
+  const fillY = panel.y + glassInset;
+  const fillWidth = Math.max(0, panel.width - glassInset * 2);
+  const fillHeight = Math.max(0, panel.height - glassInset * 2);
 
   return (
     <>
@@ -373,14 +385,34 @@ function PreviewPanel({
         strokeWidth={1.2}
       />
       <Rect
-        x={panel.x + glassInset}
-        y={panel.y + glassInset}
-        width={Math.max(0, panel.width - glassInset * 2)}
-        height={Math.max(0, panel.height - glassInset * 2)}
-        fill="#D8E6F5"
+        x={fillX}
+        y={fillY}
+        width={fillWidth}
+        height={fillHeight}
+        fill={isPvcPanel ? '#F3F5F1' : '#D8E6F5'}
         stroke="#AEBBB7"
         strokeWidth={1}
       />
+      {isPvcPanel ? (
+        <>
+          <Line
+            x1={fillX + fillWidth * 0.12}
+            y1={fillY + fillHeight * 0.33}
+            x2={fillX + fillWidth * 0.88}
+            y2={fillY + fillHeight * 0.33}
+            stroke="#C8D0CC"
+            strokeWidth={1}
+          />
+          <Line
+            x1={fillX + fillWidth * 0.12}
+            y1={fillY + fillHeight * 0.66}
+            x2={fillX + fillWidth * 0.88}
+            y2={fillY + fillHeight * 0.66}
+            stroke="#C8D0CC"
+            strokeWidth={1}
+          />
+        </>
+      ) : null}
       {panel.insectScreen ? <PreviewInsectScreen panel={panel} inset={glassInset} /> : null}
     </>
   );

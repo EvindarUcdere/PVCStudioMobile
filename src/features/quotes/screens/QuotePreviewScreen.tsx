@@ -59,7 +59,7 @@ export function QuotePreviewScreen() {
   const [paymentPlan, setPaymentPlan] = useState<PaymentPlan | null>(null);
   const [paymentInstallments, setPaymentInstallments] = useState<PaymentInstallment[]>([]);
   const [paidNowAmount, setPaidNowAmount] = useState('');
-  const [installmentCount, setInstallmentCount] = useState('3');
+  const [installmentCount, setInstallmentCount] = useState('0');
   const [firstDueDate, setFirstDueDate] = useState(getLocalDateString());
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -91,8 +91,9 @@ export function QuotePreviewScreen() {
             return;
           }
 
+          const loadedEstimate = loadedDesign ? calculateDesignPriceEstimate(loadedDesign, pricingSettings) : null;
           setDesign(loadedDesign);
-          setEstimate(loadedDesign ? calculateDesignPriceEstimate(loadedDesign, pricingSettings) : null);
+          setEstimate(loadedEstimate);
 
           const quoteCustomerId = loadedDesign?.customerId ?? (await getDesignJobCustomerId(loadedDesign));
           if (quoteCustomerId) {
@@ -115,7 +116,13 @@ export function QuotePreviewScreen() {
               setInstallmentCount(String(plan.installmentCount));
               setFirstDueDate(plan.firstDueDate);
               setPaymentInstallments(await paymentRepository.listInstallmentsByPlan(plan.id));
+            } else if (loadedEstimate) {
+              setPaidNowAmount(String(Math.round(loadedEstimate.total)));
+              setInstallmentCount('0');
             }
+          } else if (loadedEstimate) {
+            setPaidNowAmount(String(Math.round(loadedEstimate.total)));
+            setInstallmentCount('0');
           }
         } catch (loadError) {
           logger.error('Quote preview load failed', loadError);
